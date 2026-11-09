@@ -1,0 +1,4 @@
+# Netlify publie le contenu du dossier "site" à chaque modification sur GitHub.
+[build]
+  publish = "site"
+  command = ""
