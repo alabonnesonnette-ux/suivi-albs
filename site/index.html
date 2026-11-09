@@ -170,6 +170,18 @@ textarea{min-height:76px;resize:vertical}
 .audit .hint{color:inherit;opacity:.85}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:14px;z-index:30;max-width:90vw}
 .brandrow{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{margin:0;display:flex;flex-direction:column;gap:3px;min-width:0}
+.brand img{display:block;height:46px;width:auto;max-width:100%}
+.brand .lg-d{display:none}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .brand .lg-l{display:none}:root:not([data-theme="light"]) .brand .lg-d{display:block}}
+:root[data-theme="dark"] .brand .lg-l{display:none}:root[data-theme="dark"] .brand .lg-d{display:block}
+.brand small{font-family:var(--f-body);font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.tabs button{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:68px}
+.tabs button svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tabs button[aria-selected="true"] svg{color:var(--brand)}
+.tabs button[data-view="pros"][aria-selected="true"] svg{color:var(--ink)}
+.authlogo.img{width:auto;height:auto;background:#fff;padding:14px 18px;border-radius:16px}
+.authlogo.img img{display:block;width:220px;max-width:100%}
 .modebtn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;white-space:nowrap;max-width:55%;min-width:0}
 .modebtn span{overflow:hidden;text-overflow:ellipsis}
 .modebtn .dot{width:8px;height:8px;border-radius:50%;background:var(--gold);flex:none}
@@ -277,7 +289,7 @@ details.pers .list{margin-top:10px}
 
 <div class="wrap">
   <header class="top">
-    <div class="brandrow"><h1>Suivi ALBS<small>Litiges, ménages &amp; logements</small></h1><button class="modebtn" id="modeBtn" type="button"><i class="dot"></i><span id="modeLbl">Équipe</span></button></div>
+    <div class="brandrow"><h1 class="brand"><img class="lg-l" src="logo-albs.png" alt="À La Bonne Sonnette, conciergerie" width="168" height="46"><img class="lg-d" src="logo-albs-clair.png" alt="" width="168" height="46"><small>Suivi · litiges, ménages &amp; logements</small></h1><button class="modebtn" id="modeBtn" type="button"><i class="dot"></i><span id="modeLbl">Équipe</span></button></div>
     <nav class="tabs" role="tablist" id="tabs"></nav>
   </header>
   <main id="main"><div class="empty">Chargement des dossiers partagés…</div></main>
@@ -286,7 +298,7 @@ details.pers .list{margin-top:10px}
 <button class="fab" id="fab" type="button">+ Signaler un souci</button>
 <div class="sheet" id="sheet" hidden></div>
 <div class="toast" id="toast" hidden></div>
-<div id="auth"><div class="authbox"><div class="authlogo">ALBS</div><p class="hint">Chargement…</p></div></div>
+<div id="auth"><div class="authbox"><div class="authlogo img"><img src="logo-albs.png" alt="À La Bonne Sonnette, conciergerie"></div><p class="hint">Chargement…</p></div></div>
 <div class="lb" id="lb" hidden><img id="lbImg" alt="Photo agrandie"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
@@ -336,7 +348,7 @@ const sbDownloads={async save({filename,data}){const b=data instanceof Blob?data
 <script>
 const LIEUX=["Huningue","Saint-Louis","Riedisheim","Mulhouse","Blotzheim","Habsheim"];
 const CATS=["Maintenance","Ménage","Commande / achat","Autre"];
-const ORIGINES=["Remarque femme de ménage","Litige","Remarque voyageur","Remarque propriétaire","Audit"];
+const ORIGINES=["Remarque femme de ménage","Litige","Remarque voyageur","Remarque propriétaire","Audit","Autre"];
 const isOpen=d=>!d.statut||d.statut==="ouvert";
 const STEPS={
   litige:[["declare","Litige déclaré sur la plateforme"],["proprio","Propriétaire informé"],["devis","Devis envoyé"],["reparation","Réparation / remplacement fait"],["accepte","Litige accepté"],["proprioFin","Propriétaire prévenu de l'acceptation"]],
@@ -346,6 +358,17 @@ let mode="equipe", moi="";
 let db=null, view=mode==="menage"?"mm":"prio", fLog=null, fType="ouverts", fCat="", fQ="";
 let menages=[], cfgM={protocole:[],equipe:[]}, assets=null, downloads=null;
 let entEdit=false, entDraft=null, entUp={}, rqForm=false, rqDel=null, menBack=null, lsTab="suivi", editKey=null, addRub=false, histOpen=null, menOpen=null, degForm=false, uploading={}, recapMois=null, startForm=false;
+const ICO={
+ prio:'<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>',
+ dos:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+ log:'<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+ audit:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="M9 13l2 2 4-4"/>',
+ lit:'<path d="M12 4v16"/><path d="M7 20h10"/><path d="M5 7h14"/><path d="M5 7l-3 6a3 3 0 0 0 6 0z"/><path d="M19 7l-3 6a3 3 0 0 0 6 0z"/>',
+ fac:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M14.5 9.5a2.5 2.5 0 1 0 0 3"/><path d="M9 10.5h4M9 12h4"/>',
+ pros:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".6"/>',
+ mm:'<path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8z"/><path d="M18 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>',
+ mlog:'<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>'};
+const ico=k=>ICO[k]?`<svg viewBox="0 0 24 24" aria-hidden="true">${ICO[k]}</svg>`:"";
 const TABS={equipe:[["prio","Priorités"],["dos","Dossiers"],["log","Logements"],["audit","Audit"],["lit","Litiges"],["fac","Facturation"],["pros","Prospects"]],menage:[["mm","Mes ménages"],["mlog","Logements"]]};
 const FICHE_TPL=[["adresse","Adresse",true],["boite","Code boîte à clés",true],["acces","Accès / entrée",true],["wifi","Wi-Fi (nom et mot de passe)",true],["parking","Parking",true],["poubelles","Poubelles / tri",true],["linge","Linge et lits",true],["consignes","Consignes ménage",true],["equip","Équipements",true],["proprio","Propriétaire (contact)",false]];
 let auditCfg={}, auditForm=false, audits=[], auditOpen=null, grEdit=false, audUp={};
@@ -538,7 +561,7 @@ async function exportCsv(rows){
 function render(){
   const T=TABS[mode];if(!T.some(t=>t[0]===view)&&!(mode==="equipe"&&view==="men"))view=T[0][0];
   const nav=$("#tabs");
-  nav.innerHTML=T.map(([k,l])=>`<button role="tab" type="button" data-view="${k}" aria-selected="${k===view}">${l}</button>`).join("");
+  nav.innerHTML=T.map(([k,l])=>`<button role="tab" type="button" data-view="${k}" aria-selected="${k===view}">${ico(k)}<span>${l}</span></button>`).join("");
   $("#modeLbl").textContent=mode==="menage"?(me.role==="menage"?moi:"Aperçu · "+moi):(me.prenom||"Mon compte");$("#modeBtn").classList.toggle("men",mode==="menage");
   $("#fab").textContent=mode==="menage"?"+ Commencer un ménage":view==="fac"?"+ Ajouter à facturer":view==="pros"?"+ Nouveau prospect":"+ Signaler un souci";
   $("#logList").innerHTML=logements.map(l=>`<option value="${esc(l.nom)}">${esc(l.lieu||"")}</option>`).join("");
@@ -730,7 +753,7 @@ function bindLitige(d){
   if($("#lDateDec"))$("#lDateDec").onchange=e=>patch(d,{dateDecision:e.target.value||null},"Date de décision enregistrée");
   s.querySelectorAll("[data-qui]").forEach(b=>b.onclick=async()=>{const nv=d.quiIntervient===b.dataset.qui?null:b.dataset.qui;
     try{await db.doc("dossiers/"+d.id).update({quiIntervient:nv,updatedAt:nowIso()});const msg=await syncAuto(d,nv);toast(msg)}catch(e){toast(failMsg(e))}});
-  $("#toSuivi").onclick=()=>openForm(null,"suivi",{logement:d.logement,titre:d.titre,categorie:CATS.includes(d.categorie)?d.categorie:"",litigeId:d.id,desc:"Suite du litige « "+d.titre+" »"+(d.voyageur?" ("+d.voyageur+")":"")+"."});
+  $("#toSuivi").onclick=()=>openForm(null,"suivi",{origine:"",logement:d.logement,titre:d.titre,categorie:CATS.includes(d.categorie)?d.categorie:"",litigeId:d.id,desc:"Suite du litige « "+d.titre+" »"+(d.voyageur?" ("+d.voyageur+")":"")+"."});
 }
 async function syncAuto(d,nv){
   const ex=dossiers.find(x=>x.litigeId===d.id&&x.auto), now=nowIso();
@@ -805,7 +828,7 @@ async function patch(d,data,msg){
 function openForm(d,preset,prefill){
   if(logOpen){retLog=logOpen;logOpen=null}openId=null;
   formState=d?{id:d.id,type:d.type,origine:d.origine||(d.type==="litige"?"Litige":""),statut:d.statut||"ouvert",categorie:d.categorie,titre:d.titre,logement:d.logement||"",dateIncident:d.dateIncident||"",dateLimite:d.dateLimite||"",urgent:!!d.urgent,desc:"",intervenant:d.intervenant||"",montant:d.montant!=null?String(d.montant):"",aFacturer:d.aFacturer==null?"":(d.aFacturer?"oui":"non"),quiIntervient:d.quiIntervient||"",voyageur:d.voyageur||"",reference:d.reference||"",plateforme:d.plateforme||"",depart:d.depart||"",dateDeclaration:d.dateDeclaration||"",montantDemande:(d.montantDemande??(d.type==="litige"?d.montant:null))!=null?String(d.montantDemande??d.montant):""}
-    :{type:preset==="suivi"?"suivi":"litige",origine:preset==="suivi"?"":"Litige",statut:"ouvert",categorie:"",titre:"",logement:fLog||"",dateIncident:today(),dateLimite:"",urgent:false,desc:"",intervenant:"",montant:"",aFacturer:"",quiIntervient:"",voyageur:"",reference:"",plateforme:"",depart:"",dateDeclaration:"",montantDemande:"",...(prefill||{})};
+    :{type:preset==="litige"?"litige":"suivi",origine:preset==="litige"?"Litige":"Remarque femme de ménage",statut:"ouvert",categorie:"",titre:"",logement:fLog||"",dateIncident:today(),dateLimite:"",urgent:false,desc:"",intervenant:"",montant:"",aFacturer:"",quiIntervient:"",voyageur:"",reference:"",plateforme:"",depart:"",dateDeclaration:"",montantDemande:"",...(prefill||{})};
   $("#sheet").hidden=false;renderForm();
 }
 function renderForm(){
@@ -1581,7 +1604,7 @@ document.addEventListener("click",e=>{
   else if(t.dataset.edlog)openLogForm(t.dataset.edlog);
   else if(t.dataset.log)openLogSheet(t.dataset.log);
 });
-$("#fab").onclick=()=>mode==="menage"?openStart():view==="fac"?openFacForm():view==="pros"?newProspect():openForm(null,view==="dos"?"suivi":"litige");
+$("#fab").onclick=()=>mode==="menage"?openStart():view==="fac"?openFacForm():view==="pros"?newProspect():openForm(null,view==="lit"?"litige":"suivi");
 $("#modeBtn").onclick=openAccount;
 $("#lb").onclick=()=>{$("#lb").hidden=true;$("#lbImg").removeAttribute("src")};
 document.addEventListener("change",e=>{const t=e.target;if(t.matches&&t.matches("[data-up]")){const f=[...t.files];t.value="";handleUp(t.dataset.up,f)}else if(t.matches&&t.matches("[data-aup]")){const f=[...t.files];t.value="";handleAudUp(t.dataset.aup,f)}});
@@ -1591,13 +1614,13 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#lb").hidden)$(
 let me={id:null,email:"",prenom:"",role:""},profils=[],booted=false,sauvegarde={};
 function authScreen(kind,msg){
   const a=$("#auth");a.hidden=false;
-  if(kind==="login")a.innerHTML=`<div class="authbox"><div class="authlogo">ALBS</div><h2>Suivi ALBS</h2><p class="hint">À La Bonne Sonnette · espace équipe</p>
+  if(kind==="login")a.innerHTML=`<div class="authbox"><div class="authlogo img"><img src="logo-albs.png" alt="À La Bonne Sonnette, conciergerie"></div><h2>Suivi ALBS</h2><p class="hint">À La Bonne Sonnette · espace équipe</p>
     <form id="loginForm" class="authform"><div class="field"><label for="lgMail">E-mail</label><input type="email" id="lgMail" autocomplete="username" required></div>
     <div class="field"><label for="lgPass">Mot de passe</label><input type="password" id="lgPass" autocomplete="current-password" required></div>
     <button class="btn pri" type="submit" id="lgBtn">Se connecter</button><div class="authmsg" id="lgMsg">${msg?esc(msg):""}</div>
     <p class="hint">Mot de passe oublié ? Demandez à Manon de le réinitialiser.</p></form></div>`;
-  else if(kind==="wait")a.innerHTML=`<div class="authbox"><div class="authlogo">ALBS</div><h2>Compte en attente</h2><p>${esc(msg)}</p><button class="btn" type="button" id="lgOut">Se déconnecter</button></div>`;
-  else if(kind==="error")a.innerHTML=`<div class="authbox"><div class="authlogo">ALBS</div><h2>Connexion impossible</h2><p>${esc(msg)}</p><button class="btn pri" type="button" onclick="location.reload()">Réessayer</button></div>`;
+  else if(kind==="wait")a.innerHTML=`<div class="authbox"><div class="authlogo img"><img src="logo-albs.png" alt="À La Bonne Sonnette, conciergerie"></div><h2>Compte en attente</h2><p>${esc(msg)}</p><button class="btn" type="button" id="lgOut">Se déconnecter</button></div>`;
+  else if(kind==="error")a.innerHTML=`<div class="authbox"><div class="authlogo img"><img src="logo-albs.png" alt="À La Bonne Sonnette, conciergerie"></div><h2>Connexion impossible</h2><p>${esc(msg)}</p><button class="btn pri" type="button" onclick="location.reload()">Réessayer</button></div>`;
   if($("#loginForm"))$("#loginForm").onsubmit=async e=>{e.preventDefault();$("#lgBtn").disabled=true;$("#lgMsg").textContent="Connexion…";
     const {error}=await sb.auth.signInWithPassword({email:$("#lgMail").value.trim(),password:$("#lgPass").value});
     if(error){$("#lgBtn").disabled=false;$("#lgMsg").textContent=/invalid/i.test(error.message)?"E-mail ou mot de passe incorrect.":"Connexion impossible : "+error.message}};
