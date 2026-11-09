@@ -86,7 +86,13 @@ h1 small{display:block;font-family:var(--f-body);font-size:12px;color:var(--mute
 .sum{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px}
 .sum b{display:block;font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
 .sum span{font-size:12px;color:var(--muted)}
-.sum.c b{color:var(--crit)} .sum.w b{color:var(--warn)}
+.sum.c b{color:var(--crit)} .sum.w b{color:var(--warn)} .sum.o b{color:var(--mnt)}
+button.sum{text-align:left;font:inherit;color:inherit;cursor:pointer;min-width:0}
+button.sum[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ink)}
+.summary.s4{grid-template-columns:repeat(4,1fr);gap:6px}
+.summary.s4 .sum{padding:9px 10px}
+.summary.s4 .sum span{display:block;line-height:1.25}
+.stale{font-size:12.5px;font-weight:600;color:var(--mnt);background:var(--mnt-bg);border-radius:8px;padding:4px 8px;align-self:flex-start}
 .sec-title{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:20px 0 8px;font-weight:600;display:flex;justify-content:space-between;gap:8px}
 .list{display:flex;flex-direction:column;gap:8px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:6px;text-align:left;width:100%}
@@ -370,7 +376,7 @@ const STEPS={
   suivi:[["signale","Problème signalé"],["proprio","Propriétaire informé"],["commande","Devis ou commande passé"],["fait","Intervention faite"]]
 };
 let mode="equipe", moi="";
-let db=null, view=mode==="menage"?"mm":"prio", fLog=null, fType="ouverts", fCat="", fQ="";
+let db=null, view=mode==="menage"?"mm":"prio", fLog=null, fType="ouverts", fCat="", fQ="", fSec="", pF="tous";
 let menages=[], cfgM={protocole:[],equipe:[]}, assets=null, downloads=null;
 let stepEdit=false, entEdit=false, entDraft=null, entUp={}, rqForm=false, rqDel=null, menBack=null, lsTab="suivi", editKey=null, addRub=false, histOpen=null, menOpen=null, degForm=false, uploading={}, recapMois=null, startForm=false;
 const ICO={
@@ -420,6 +426,18 @@ function failMsg(e){return e&&e.code==="invalid_argument"?"Vous n'avez pas le dr
 
 const who=()=>mode==="menage"?moi:(me.prenom||"Équipe");
 const daysSince=iso=>iso?(Date.now()-Date.parse(iso))/864e5:1e9;
+/* Dossiers oubliés : ouverts et sans aucune action (modification, étape, note…) depuis plus de 7 jours */
+const OUBLI_J=7;
+function lastAct(d){let t=Math.max(Date.parse(d.updatedAt||0)||0,Date.parse(d.creeLe||0)||0);
+  for(const g of [d.etapes,d.notes,d.taches])for(const x of Object.values(g||{}))if(x&&x.at)t=Math.max(t,Date.parse(x.at)||0);
+  return t||(d.dateIncident?Date.parse(d.dateIncident):0)}
+const sansAction=d=>{const t=lastAct(d);return t?Math.floor((Date.now()-t)/864e5):null};
+const oublie=d=>isOpen(d)&&(sansAction(d)??0)>OUBLI_J;
+/* Secteurs : Mulhouse, Riedisheim, autres */
+const SECTEURS=[["","Tous les secteurs"],["mulhouse","Mulhouse"],["riedisheim","Riedisheim"],["autres","Autres secteurs"]];
+const secOf=d=>{const l=logByName(d.logement);const k=l&&l.lieu?lieuKey(l.lieu).trim():"";return k==="mulhouse"||k==="riedisheim"?k:"autres"};
+const inSec=d=>!fSec||secOf(d)===fSec;
+const secChips=list=>`<div class="chips" role="group" aria-label="Secteur">${SECTEURS.map(([k,l])=>`<button class="chip" type="button" data-sec="${k}" aria-pressed="${fSec===k}">${l}${k?" · "+list.filter(d=>secOf(d)===k).length:""}</button>`).join("")}</div>`;
 const blob=id=>pubUrl(id);
 let wq=Promise.resolve();const enqueue=f=>(wq=wq.then(f,f));
 const protoOf=m=>(m.protocole&&m.protocole.length?m.protocole:cfgM.protocole)||[];
@@ -492,6 +510,7 @@ function card(d){
   return `<button class="card" type="button" data-open="${esc(d.id)}">
     <div class="row1"><div class="ttl"><span class="tag">${esc(d.type!=="litige"&&d.litigeId?"Suivi logement · suite d'un litige":(d.origine||(d.type==="litige"?"Litige":"Suivi")))}${d.categorie?` · <span style="${d.categorie==="Maintenance"?"color:var(--mnt)":d.categorie==="Ménage"?"color:var(--men)":""}">${esc(d.categorie)}</span>`:""}</span> ${L?decBadge(d):""}<br>${esc(d.titre||"Sans titre")}</div><span class="pill ${u.l==="info"?"info":"l"+u.l}">${esc(u.t)}</span></div>
     <div class="meta">${meta||"Logement non précisé"}</div>
+    ${oublie(d)?`<div class="stale">⏳ Aucune action depuis ${sansAction(d)} jours</div>`:""}
     <div class="steps" aria-hidden="true">${bars.map(b=>`<i class="${b?"on":""}"></i>`).join("")}</div>
     ${isOpen(d)?`<div class="next">${ns?`<em>Prochaine étape :</em> ${esc(ns)}`:"<em>Toutes les étapes sont faites, le dossier peut être clos.</em>"}${ot.length?` <em>· ${ot.length} chose${ot.length>1?"s":""} à faire</em>`:""}</div>`:""}
   </button>`;
@@ -633,11 +652,17 @@ function render(){
   if(view==="fac"){facView(m);return}
   if(view==="pros"){prosView(m);return}
   if(view==="prio"){
-    const c3=open.filter(d=>urgency(d).l===3).length, c2=open.filter(d=>urgency(d).l===2).length;
-    const sorted=[...open].sort(byUrgency);
+    const openS=open.filter(inSec);
+    const PF=[["urg","urgents",d=>urgency(d).l===3,"c"],["surv","à surveiller",d=>urgency(d).l===2,"w"],["oubli","oubliés",oublie,"o"],["tous","dossiers ouverts",()=>true,""]];
+    if(!PF.some(x=>x[0]===pF))pF="tous";
+    const cur=PF.find(x=>x[0]===pF);
+    const sorted=openS.filter(cur[2]).sort(pF==="oubli"?(a,b)=>lastAct(a)-lastAct(b):byUrgency);
     const bkOld=me.role==="equipe"&&(!sauvegarde.lastAt||daysSince(sauvegarde.lastAt)>30);
-    m.innerHTML=`${bkOld?`<div class="band" style="margin-bottom:10px;display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><span>💾 ${sauvegarde.lastAt?"Dernière sauvegarde il y a plus d'un mois.":"Aucune sauvegarde de secours pour l'instant."}</span><button class="lnk" type="button" id="bkGo">Faire la sauvegarde</button></div>`:""}<div class="summary"><div class="sum c"><b>${c3}</b><span>urgents</span></div><div class="sum w"><b>${c2}</b><span>à surveiller</span></div><div class="sum"><b>${open.length}</b><span>dossiers ouverts</span></div></div>
-    ${sorted.length?`<div class="list">${sorted.map(card).join("")}</div>`:`<div class="empty">Aucun dossier ouvert. Quand un problème arrive dans un logement, appuyez sur « Signaler un souci » : il apparaîtra ici, classé par urgence.</div>`}`;
+    m.innerHTML=`${bkOld?`<div class="band" style="margin-bottom:10px;display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><span>💾 ${sauvegarde.lastAt?"Dernière sauvegarde il y a plus d'un mois.":"Aucune sauvegarde de secours pour l'instant."}</span><button class="lnk" type="button" id="bkGo">Faire la sauvegarde</button></div>`:""}
+    <div class="summary s4">${PF.map(([k,l,f,c])=>`<button type="button" class="sum ${c}" data-pf="${k}" aria-pressed="${pF===k}"><b>${openS.filter(f).length}</b><span>${l}</span></button>`).join("")}</div>
+    <div class="filters">${secChips(open)}</div>
+    <div class="sec-title"><span>${pF==="tous"?"Tous les dossiers ouverts":pF==="oubli"?"Oubliés · sans action depuis plus de 7 jours":"Seulement les "+cur[1]}</span><span>${sorted.length}</span></div>
+    ${sorted.length?`<div class="list">${sorted.map(card).join("")}</div>`:`<div class="empty">${open.length?"Aucun dossier dans cette sélection.":"Aucun dossier ouvert. Quand un problème arrive dans un logement, appuyez sur « Signaler un souci » : il apparaîtra ici, classé par urgence."}</div>`}`;
     if($("#bkGo"))$("#bkGo").onclick=openAccount;
   } else if(view==="dos"||view==="lit"){
     const FT=view==="lit"?[["ouverts","Ouverts"],["clos","Clos"]]:[["ouverts","Ouverts"],["info","Info"],["clos","Clos"]];
@@ -646,11 +671,13 @@ function render(){
     const inF=(d,k)=>k==="clos"?d.statut==="clos":k==="info"?d.statut==="info":(view==="lit"?d.statut!=="clos":isOpen(d));
     let list=dossiers.filter(d=>inTab(d)&&inF(d,fType));
     if(fLog)list=list.filter(d=>norm(d.logement)===norm(fLog));
+    const avantSec=list;list=list.filter(inSec);
     if(fQ){const q=norm(fQ);list=list.filter(d=>norm([d.titre,d.logement,d.categorie].join(" ")).includes(q))}
     list.sort(fType!=="ouverts"?(a,b)=>(Date.parse(b.updatedAt||0)||0)-(Date.parse(a.updatedAt||0)||0):byUrgency);
     m.innerHTML=`<div class="filters">
       <div class="seg ${FT.length===3?"st3":""}">${FT.map(([k,l])=>`<button type="button" data-ft="${k}" aria-pressed="${fType===k}"><i class="sd"></i>${l} · ${dossiers.filter(d=>inTab(d)&&inF(d,k)).length}</button>`).join("")}</div>
       <input type="search" id="fQ" placeholder="Chercher un logement, un problème…" value="${esc(fQ)}">
+      ${secChips(avantSec)}
       ${fLog?`<div class="chips"><button class="chip" type="button" aria-pressed="true" id="clearLog">${esc(fLog)} ✕</button></div>`:""}
     </div>
     ${list.length?(fType!=="ouverts"?byMonth(list):`<div class="list">${list.map(card).join("")}</div>`):`<div class="empty">${fType==="info"?"Aucun dossier « info ». Utilisez ce statut pour une remarque à garder en mémoire, sans action à faire.":"Aucun "+(view==="lit"?"litige":"dossier")+" "+(fType==="clos"?"clos":"ouvert")+"."}</div>`}`;
@@ -868,6 +895,11 @@ function renderForm(){
   <div class="field"><label for="fTitre">${LT?"Objet du litige":"Quel est le problème ?"}</label><input type="text" id="fTitre" value="${esc(f.titre)}" placeholder="${LT?"Ex. : Table de cuisine brûlée":"Ex. : Lit cassé dans la chambre"}"></div>
   <div class="field"><label for="fLog">Logement</label><input type="text" id="fLog" list="logList" value="${esc(f.logement)}" placeholder="Tapez le nom, ex. : La Parenthèse" autocomplete="off"><span class="hint">Écrivez librement : les logements connus sont proposés pendant la frappe.</span></div>
   <div class="field"><label for="fDate">${LT?"Date du constat":"Date"}</label><input type="date" id="fDate" value="${esc(f.dateIncident)}"></div>
+  <div class="field"><span class="lbl">Photos et documents PDF</span>
+    ${f.photos.length?`<div class="thumbs">${f.photos.map((a,i)=>`<span class="th"><img src="${blob(a)}" alt="Photo ${i+1}" loading="lazy"><button class="x" type="button" data-fph="${i}" aria-label="Retirer la photo ${i+1}">✕</button></span>`).join("")}</div>`:""}
+    ${f.fichiers.length?`<div class="pdfs">${f.fichiers.map((x,i)=>`<div class="pdfl"><span class="ic">PDF</span><a href="${blob(x.id)}" target="_blank" rel="noopener">${esc(x.name||"Document PDF")}</a><button class="x" type="button" data-fpdf="${i}" aria-label="Retirer ${esc(x.name||"le document")}">✕</button></div>`).join("")}</div>`:""}
+    ${assets?`<label class="btn photo-btn">${f.envoi?"Envoi en cours…":"📎 Ajouter des photos ou un PDF"}<input type="file" id="fFiles" accept="image/*,application/pdf" multiple hidden ${f.envoi?"disabled":""}></label><span class="hint">Une ou plusieurs photos, et/ou des documents PDF (devis, facture, constat…).</span>`:`<span class="hint">L'ajout de fichiers n'est pas disponible depuis ce compte.</span>`}
+  </div>
   ${LT?`<div class="box"><h3>Voyageur et réservation</h3>
     <div class="grid2"><div class="field"><label for="fVoy">Nom et prénom du voyageur</label><input type="text" id="fVoy" value="${esc(f.voyageur)}" placeholder="Ex. : Marie Dupont"></div>
     <div class="field"><label for="fRef">Référence de réservation</label><input type="text" id="fRef" value="${esc(f.reference)}" placeholder="Ex. : HMABC12345"></div></div>
@@ -881,11 +913,6 @@ function renderForm(){
   <div class="field"><label for="fFac">À facturer</label><select id="fFac"><option value="" ${f.aFacturer===""?"selected":""}>Pas encore décidé</option><option value="oui" ${f.aFacturer==="oui"?"selected":""}>Oui</option><option value="non" ${f.aFacturer==="non"?"selected":""}>Non</option></select></div>
   ${f.id?"":`<div class="field"><label for="fDesc">Détails (facultatif)</label><textarea id="fDesc" placeholder="Ce qui a été constaté, photos prises…">${esc(f.desc)}</textarea></div>`}
   ${LT?"":`<div class="field"><span class="lbl">Qui s'en occupe ?</span><div class="pick">${QUI.map(([k,l])=>`<button type="button" data-qf="${k}" aria-pressed="${f.quiIntervient===k}">${l}</button>`).join("")}</div><span class="hint">${QUI_HINT}</span></div>`}
-  <div class="field"><span class="lbl">Photos et documents PDF</span>
-    ${f.photos.length?`<div class="thumbs">${f.photos.map((a,i)=>`<span class="th"><img src="${blob(a)}" alt="Photo ${i+1}" loading="lazy"><button class="x" type="button" data-fph="${i}" aria-label="Retirer la photo ${i+1}">✕</button></span>`).join("")}</div>`:""}
-    ${f.fichiers.length?`<div class="pdfs">${f.fichiers.map((x,i)=>`<div class="pdfl"><span class="ic">PDF</span><a href="${blob(x.id)}" target="_blank" rel="noopener">${esc(x.name||"Document PDF")}</a><button class="x" type="button" data-fpdf="${i}" aria-label="Retirer ${esc(x.name||"le document")}">✕</button></div>`).join("")}</div>`:""}
-    ${assets?`<label class="btn photo-btn">${f.envoi?"Envoi en cours…":"📎 Ajouter des photos ou un PDF"}<input type="file" id="fFiles" accept="image/*,application/pdf" multiple hidden ${f.envoi?"disabled":""}></label><span class="hint">Une ou plusieurs photos, et/ou des documents PDF (devis, facture, constat…).</span>`:`<span class="hint">L'ajout de fichiers n'est pas disponible depuis ce compte.</span>`}
-  </div>
   <label class="check" style="border:0"><input type="checkbox" id="fUrg" ${f.urgent?"checked":""}><span>Marquer comme urgent</span></label>
   <button class="btn pri" type="button" id="fSave">${f.id?"Enregistrer":"Créer le dossier"}</button></div>`;
   const read=()=>{const g=(id,k)=>{const el=$(id);if(el)f[k]=el.value};g("#fTitre","titre");g("#fLog","logement");g("#fDate","dateIncident");g("#fDl","dateLimite");g("#fInt","intervenant");g("#fMont","montant");g("#fFac","aFacturer");g("#fDesc","desc");g("#fVoy","voyageur");g("#fRef","reference");g("#fPlat","plateforme");g("#fDep","depart");g("#fDem","montantDemande");g("#fDecl","dateDeclaration");f.urgent=$("#fUrg").checked};
@@ -1636,7 +1663,7 @@ function openLogForm(id){
 /* ---------- events ---------- */
 function closeSheet(){if(prosCur){prosFlush();prosOpen=null;prosCur=null}const s=$("#sheet");s.hidden=true;s.innerHTML="";auditOpen=null;openId=null;formState=null;logOpen=null;retLog=null;menOpen=null;startForm=false;degForm=false;editKey=null;addRub=false;render()}
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-open],[data-close],[data-view],[data-ft],[data-log],[data-edlog],[data-men],[data-mode],[data-lstab],[data-thumb],[data-delph],[data-aud]");if(!t)return;
+  const t=e.target.closest("[data-open],[data-close],[data-view],[data-ft],[data-log],[data-edlog],[data-men],[data-mode],[data-lstab],[data-thumb],[data-delph],[data-aud],[data-pf],[data-sec]");if(!t)return;
   if(t.dataset.aud){openAudit(t.dataset.aud);return}
   if(t.dataset.thumb){$("#lbImg").src=blob(t.dataset.thumb);$("#lb").hidden=false;return}
   if(t.dataset.delph){delPhoto(t.dataset.delph);return}
@@ -1648,6 +1675,8 @@ document.addEventListener("click",e=>{
   else if(t.hasAttribute("data-close")){if(formState?.id)openDetail(formState.id);else if(formState?.litigeId&&dossiers.some(x=>x.id===formState.litigeId))openDetail(formState.litigeId);else if(menBack&&openId){const r=menBack;menBack=null;openMenage(r)}else if(logOpen||startForm)closeSheet();else back()}
   else if(t.dataset.view){if(t.dataset.view!==view)fType="ouverts";view=t.dataset.view;render();window.scrollTo(0,0)}
   else if(t.dataset.ft){fType=t.dataset.ft;render()}
+  else if(t.dataset.pf){pF=t.dataset.pf;render()}
+  else if(t.dataset.sec!=null){fSec=t.dataset.sec;render()}
   else if(t.dataset.edlog)openLogForm(t.dataset.edlog);
   else if(t.dataset.log)openLogSheet(t.dataset.log);
 });
