@@ -114,6 +114,14 @@ button.sum[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1
 .techrub{display:flex;flex-direction:column;gap:8px;padding-block:12px;border-top:1px solid var(--line)}
 .techrub:first-of-type{border-top:0;padding-top:4px}
 .techsub{display:block;font-weight:400;text-transform:none;letter-spacing:0;font-size:12.5px;color:var(--muted)}
+.th.cap{display:inline-flex;flex-direction:column;gap:3px;width:72px;height:auto;overflow:visible;border:0;background:none}
+.th.cap>button.im{width:72px;height:72px;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--sunk)}
+.tcap{font-size:11.5px;line-height:1.25;color:var(--ink);overflow-wrap:anywhere}
+.techadd{background:var(--sunk);border-radius:12px;padding:12px;border-top:0;margin-top:8px}
+.box.proprio .pname{font-family:var(--f-display);font-size:21px;font-weight:700;color:var(--ink);line-height:1.2}
+.pinfos{display:flex;flex-direction:column;gap:6px}
+.pinfos>div{display:flex;flex-direction:column;gap:1px}
+.pinfos .pv{font-size:15px;color:var(--ink);overflow-wrap:anywhere;white-space:pre-line}
 .impgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
 .impit{display:flex;flex-direction:column;gap:4px;border:2px solid transparent;background:var(--surface);border-radius:10px;padding:4px;font:inherit;cursor:pointer;min-width:0;text-align:left}
 .impit img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:7px;display:block}
@@ -1152,7 +1160,7 @@ function techHtml(l,team){
   return `<div class="box"><h3>Photos techniques</h3>${TECH.map(([k,lab,sub])=>{const fs=techFiles(l,k),im=fs.filter(x=>!/pdf/.test(x.type||"")),pd=fs.filter(x=>/pdf/.test(x.type||""));
     if(!team&&!fs.length)return"";
     return `<div class="techrub"><div class="rub-h"><span class="rub-l">${esc(lab)}${sub?`<span class="techsub">${esc(sub)}</span>`:""}</span>${fs.length?`<span class="hint">${fs.length}</span>`:""}</div>
-    ${im.length?`<div class="thumbs">${im.map(x=>`<span class="th"><button class="im" type="button" data-thumb="${esc(x.a)}" aria-label="Agrandir la photo"><img src="${blob(x.a)}" alt="${esc(lab)}" loading="lazy"></button>${team?`<button class="x" type="button" data-techdel="${k}|${esc(x.id)}" aria-label="Retirer la photo">✕</button>`:""}</span>`).join("")}</div>`:""}
+    ${im.length?`<div class="thumbs">${im.map(x=>`<span class="th ${x.desc?"cap":""}"><button class="im" type="button" data-thumb="${esc(x.a)}" aria-label="Agrandir la photo${x.desc?" : "+esc(x.desc):""}"><img src="${blob(x.a)}" alt="${esc(x.desc||lab)}" loading="lazy"></button>${x.desc?`<span class="tcap">${esc(x.desc)}</span>`:""}${team?`<button class="x" type="button" data-techdel="${k}|${esc(x.id)}" aria-label="Retirer la photo">✕</button>`:""}</span>`).join("")}</div>`:""}
     ${pd.length?`<div class="pdfs">${pd.map(x=>`<div class="pdfl"><span class="ic">PDF</span><a href="${blob(x.a)}" target="_blank" rel="noopener">${esc(x.name||"Document PDF")}</a>${team?`<button class="x" type="button" data-techdel="${k}|${esc(x.id)}" aria-label="Retirer ${esc(x.name||"le document")}">✕</button>`:""}</div>`).join("")}</div>`:""}
     ${!fs.length&&team?`<div class="hint">Aucune photo pour l'instant.</div>`:""}
     ${team?`<div class="chips">${techUp[k]?`<span class="hint">Envoi en cours…</span>`:`<label class="btn photo-btn" style="font-size:13px;padding:5px 12px">📷 Photo ou PDF<input type="file" hidden multiple accept="image/*,application/pdf" data-techup="${k}"></label>`}${pf.length?`<button class="btn" type="button" data-techimp="${k}" aria-expanded="${techImp===k}" style="font-size:13px;padding:5px 12px">⇩ Depuis le prospect</button>`:""}</div>`:""}
@@ -1160,21 +1168,38 @@ function techHtml(l,team){
       <div class="impgrid">${pf.map(f=>{const img=/^image/.test(f.type||"");return `<button type="button" class="impit ${techSel.has(f.id)?"sel":""}" data-techpick="${esc(f.id)}" aria-pressed="${techSel.has(f.id)}" ${used.has(f.id)?'title="Déjà rangé dans une rubrique"':""}>${img?`<img src="${blob(f.id)}" alt="" loading="lazy">`:`<span class="pdfbig">PDF</span>`}<span class="impn">${used.has(f.id)?"✓ déjà rangé · ":""}${esc(f.name||"")}</span></button>`}).join("")}</div>
       <div class="inline"><button class="btn pri" type="button" id="techImpOk" ${techSel.size?"":"disabled"}>Importer ${techSel.size||""}</button><button class="btn ghost" type="button" id="techImpNo">Annuler</button></div></div>`:""}
     </div>`}).join("")}
+    ${team?`<div class="techrub techadd"><div class="rub-h"><span class="rub-l">Ajouter une autre photo technique</span></div>
+      <div class="field"><label for="techDesc">Qu'est-ce que c'est ?</label><input type="text" id="techDesc" maxlength="80" placeholder="Ex. : compteur de gaz, vanne d'arrêt d'eau, code du portail…"></div>
+      ${techUp.libre?`<span class="hint">Envoi en cours…</span>`:`<label class="btn photo-btn" style="align-self:flex-start">📷 Choisir la photo<input type="file" hidden multiple accept="image/*,application/pdf" id="techLibre"></label>`}
+      <span class="hint">Elle se range dans « Autres photos techniques », avec sa description.</span></div>`:""}
     ${team&&!prospectOf(l)?`<span class="hint">Aucun dossier prospect relié à ce logement : ajoutez les photos directement.</span>`:""}</div>`}
-function ficheHtml(l,team){
-  const AS=Object.entries(l.aSavoir||{}).filter(([,a])=>!a.supprime).map(([id,a])=>({id,...a})).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
-  const rows=ficheRows(l).filter(x=>team||(x.vis&&x.val));
-  return `<div class="box"><h3>À savoir · nouveautés</h3>
-    <div class="inline"><textarea id="asTxt" placeholder="Ex. : nouvelle cafetière, le code a changé, il manque des verres…" style="min-height:52px"></textarea><button class="btn pri" type="button" id="asAdd" style="flex:0 0 auto;align-self:flex-end">Ajouter</button></div>
-    <div>${AS.map(a=>`<div class="note"><span class="who">${fmtAt(a.at)} · ${esc(a.par||"")} ${daysSince(a.at)<=7?`<span class="new">Nouveau</span>`:""}</span><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><p style="flex:1">${esc(a.texte)}</p>${team?`<button class="btn ghost" type="button" data-delas="${esc(a.id)}" aria-label="Retirer" style="padding:2px 8px">✕</button>`:""}</div></div>`).join("")||`<div class="hint">Rien de nouveau pour l'instant.</div>`}</div></div>
-  ${techHtml(l,team)}
-  <div class="box"><h3>Fiche du logement</h3><div>
-    ${rows.map(x=>editKey===x.k?rubForm(x):`<div class="rub"><div class="rub-h"><span class="rub-l">${esc(x.label)}${daysSince(x.r.modifLe)<=7&&(x.hist.length||!x.t)?`<span class="new">Nouveau</span>`:""}${team&&!x.vis?`<span class="priv">Équipe seulement</span>`:""}</span>${team?`<button class="lnk" type="button" data-editrub="${esc(x.k)}">Modifier</button>`:""}</div>
+function rubRow(x,team){return editKey===x.k?rubForm(x):`<div class="rub"><div class="rub-h"><span class="rub-l">${esc(x.label)}${daysSince(x.r.modifLe)<=7&&(x.hist.length||!x.t)?`<span class="new">Nouveau</span>`:""}${team&&!x.vis?`<span class="priv">Équipe seulement</span>`:""}</span>${team?`<button class="lnk" type="button" data-editrub="${esc(x.k)}">Modifier</button>`:""}</div>
       <div class="rub-v ${x.val?"":"empty-v"}">${x.val?esc(x.val):"À compléter"}</div>
       ${x.r.modifLe?`<div class="hint">Modifié le ${fmtAt(x.r.modifLe)}${x.r.par?" · "+esc(x.r.par):""}${team&&x.hist.length?` · <button class="lnk" type="button" data-histrub="${esc(x.k)}">${histOpen===x.k?"Masquer":"Voir"} l'historique (${x.hist.length})</button>`:""}</div>`:""}
-      ${histOpen===x.k?`<div class="band">${x.hist.map(h=>`<div>${h.le?"Jusqu'au "+fmtAt(h.le):"Avant"} : ${esc(h.valeur)}</div>`).join("")}</div>`:""}</div>`).join("")||`<div class="hint">Aucune information partagée pour ce logement.</div>`}
+      ${histOpen===x.k?`<div class="band">${x.hist.map(h=>`<div>${h.le?"Jusqu'au "+fmtAt(h.le):"Avant"} : ${esc(h.valeur)}</div>`).join("")}</div>`:""}</div>`}
+/* Propriétaire en haut de la fiche (équipe seulement) : infos du dossier prospect + rubrique « Propriétaire » */
+function proprioHtml(l,team,row){
+  if(!team)return"";
+  const p=prospectOf(l),v=p?pV(p):{};
+  const nom=[v.prop_nom,v.soc_nom].filter(Boolean).join(" · ");
+  const lines=[["Téléphone",v.prop_tel],["E-mail",v.prop_mail],["Adresse",v.prop_adr],["Préfère être contacté par",Array.isArray(v.prop_contact)?v.prop_contact.join(", "):v.prop_contact]].filter(([,x])=>x);
+  return `<div class="box proprio"><h3>Propriétaire</h3>
+    ${nom?`<div class="pname">${esc(nom)}</div>`:""}
+    ${lines.length?`<div class="pinfos">${lines.map(([k,x])=>`<div><span class="lbl">${esc(k)}</span><span class="pv">${esc(x)}</span></div>`).join("")}</div>`:""}
+    ${nom||lines.length?`<span class="hint">Repris du dossier prospect.</span>`:""}
+    ${row?rubRow(row,team):""}</div>`}
+function ficheHtml(l,team){
+  const AS=Object.entries(l.aSavoir||{}).filter(([,a])=>!a.supprime).map(([id,a])=>({id,...a})).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+  const all=ficheRows(l).filter(x=>team||(x.vis&&x.val)),prow=all.find(x=>x.k==="proprio"),rows=all.filter(x=>x.k!=="proprio");
+  return `${proprioHtml(l,team,prow)}
+  <div class="box"><h3>Fiche du logement</h3><div>
+    ${rows.map(x=>rubRow(x,team)).join("")||`<div class="hint">Aucune information partagée pour ce logement.</div>`}
     ${team?(addRub?rubForm(null):`<div style="padding-top:10px"><button class="btn" type="button" id="rubNew">+ Ajouter une rubrique</button></div>`):""}
-  </div></div>`;
+  </div></div>
+  <div class="box"><h3>À savoir · nouveautés</h3>
+    <div class="inline"><textarea id="asTxt" placeholder="Ex. : nouvelle cafetière, le code a changé, il manque des verres…" style="min-height:52px"></textarea><button class="btn pri" type="button" id="asAdd" style="flex:0 0 auto;align-self:flex-end">Ajouter</button></div>
+    <div>${AS.map(a=>`<div class="note"><span class="who">${fmtAt(a.at)} · ${esc(a.par||"")} ${daysSince(a.at)<=7?`<span class="new">Nouveau</span>`:""}</span><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><p style="flex:1">${esc(a.texte)}</p>${team?`<button class="btn ghost" type="button" data-delas="${esc(a.id)}" aria-label="Retirer" style="padding:2px 8px">✕</button>`:""}</div></div>`).join("")||`<div class="hint">Rien de nouveau pour l'instant.</div>`}</div></div>
+  ${techHtml(l,team)}`;
 }
 function bindFiche(l,team){
   const s=$("#sheet");
@@ -1183,6 +1208,10 @@ function bindFiche(l,team){
     for(const f of files){try{if(f.type==="application/pdf"){const r=await assets.upload(f,{type:"application/pdf"});out.push({a:r.id,type:"application/pdf",name:f.name,at:nowIso(),par:who()})}else out.push({a:await uploadOne(f),type:"image",name:f.name,at:nowIso(),par:who()})}catch(err){bad++}}
     try{if(out.length)await tUp(k,out);toast(bad?bad+" fichier(s) non ajouté(s) (photo ou PDF uniquement)":out.length>1?out.length+" fichiers ajoutés":"Fichier ajouté")}catch(err){toast(failMsg(err))}
     techUp[k]=false;renderLogSheet()});
+  if($("#techLibre"))$("#techLibre").onchange=async e=>{const files=[...e.target.files];e.target.value="";if(!files.length)return;const desc=($("#techDesc")?.value||"").trim();if(!desc)return toast("Écrivez d'abord ce que montre la photo");
+    techUp.libre=true;renderLogSheet();const out=[];let bad=0;
+    for(const f of files){try{if(f.type==="application/pdf"){const r=await assets.upload(f,{type:"application/pdf"});out.push({a:r.id,type:"application/pdf",name:desc,desc,at:nowIso(),par:who()})}else out.push({a:await uploadOne(f),type:"image",name:f.name,desc,at:nowIso(),par:who()})}catch(err){bad++}}
+    try{if(out.length)await tUp("autre",out);toast(bad?bad+" fichier(s) non ajouté(s)":"Photo technique ajoutée : "+desc)}catch(err){toast(failMsg(err))}techUp.libre=false;renderLogSheet()};
   s.querySelectorAll("[data-techdel]").forEach(b=>b.onclick=async()=>{const [k,id]=b.dataset.techdel.split("|");try{await db.doc("logements/"+l.id).update({techPhotos:{[k]:{[id]:{supprime:true}}}});toast("Retiré")}catch(e){toast(failMsg(e))}});
   s.querySelectorAll("[data-techimp]").forEach(b=>b.onclick=()=>{techImp=techImp===b.dataset.techimp?null:b.dataset.techimp;techSel=new Set();renderLogSheet()});
   s.querySelectorAll("[data-techpick]").forEach(b=>b.onclick=()=>{const id=b.dataset.techpick;techSel.has(id)?techSel.delete(id):techSel.add(id);renderLogSheet()});
