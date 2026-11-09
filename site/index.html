@@ -129,6 +129,14 @@ textarea{min-height:76px;resize:vertical}
 .kv dt{color:var(--muted)} .kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
 .check{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line)}
 .check:first-of-type{border-top:0}
+.boxhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.steprow{display:flex;align-items:center;gap:8px;border-top:1px solid var(--line)}
+.steprow:first-child{border-top:0}
+.steprow .check{flex:1;min-width:0;border-top:0}
+.addrow{display:flex;gap:8px;align-items:stretch}
+.addrow input{flex:1 1 auto;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.addrow .btn{flex:none}
+.stdel{flex:none;border:0;background:var(--crit-bg);color:var(--crit);width:28px;height:28px;border-radius:50%;padding:0;font-size:12px}
 .check input{width:20px;height:20px;accent-color:var(--brand);margin:1px 0 0;flex:none}
 .check .who{display:block;font-size:12px;color:var(--muted)}
 .check.done .t{color:var(--muted);text-decoration:line-through}
@@ -364,7 +372,7 @@ const STEPS={
 let mode="equipe", moi="";
 let db=null, view=mode==="menage"?"mm":"prio", fLog=null, fType="ouverts", fCat="", fQ="";
 let menages=[], cfgM={protocole:[],equipe:[]}, assets=null, downloads=null;
-let entEdit=false, entDraft=null, entUp={}, rqForm=false, rqDel=null, menBack=null, lsTab="suivi", editKey=null, addRub=false, histOpen=null, menOpen=null, degForm=false, uploading={}, recapMois=null, startForm=false;
+let stepEdit=false, entEdit=false, entDraft=null, entUp={}, rqForm=false, rqDel=null, menBack=null, lsTab="suivi", editKey=null, addRub=false, histOpen=null, menOpen=null, degForm=false, uploading={}, recapMois=null, startForm=false;
 const ICO={
  prio:'<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>',
  dos:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
@@ -467,13 +475,17 @@ function urgency(d){
   if(d.urgent)up(3,"Marqué urgent");
   return best;
 }
-function nextStep(d){if(d.type==="litige"){const n=litSteps(d).find(x=>!x[2]);return n?n[1]:null}const n=(STEPS[d.type]||[]).find(([k])=>!d.etapes?.[k]?.done);return n?n[1]:null}
+/* Étapes d'un dossier : étapes standard (moins celles retirées) + étapes ajoutées à la main */
+function stepsOf(d){const hid=d.etapesMasquees||{};const base=(STEPS[d.type]||[]).filter(([k])=>!hid[k]);
+  const libres=Object.entries(d.etapesLibres||{}).filter(([,x])=>x&&!x.supprime&&x.label).sort((a,b)=>String(a[1].at).localeCompare(String(b[1].at))).map(([k,x])=>[k,x.label,true]);
+  return [...base,...libres]}
+function nextStep(d){if(d.type==="litige"){const n=litSteps(d).find(x=>!x[2]);return n?n[1]:null}const n=stepsOf(d).find(([k])=>!d.etapes?.[k]?.done);return n?n[1]:null}
 function sortKey(d){const u0=urgency(d),u={l:typeof u0.l==="number"?u0.l:0};const dl=deadlineOf(d);return[-u.l,dl?dnum(dl):1e9,-(Date.parse(d.updatedAt||0)||0)]}
 function byUrgency(a,b){const ka=sortKey(a),kb=sortKey(b);for(let i=0;i<3;i++){if(ka[i]!==kb[i])return ka[i]-kb[i]}return 0}
 
 /* ---------- render ---------- */
 function card(d){
-  const u=urgency(d), s=STEPS[d.type]||[], ns=nextStep(d), ot=openTasks(d);
+  const u=urgency(d), s=stepsOf(d), ns=nextStep(d), ot=openTasks(d);
   const L=d.type==="litige",mt=L?(d.montantDemande??d.montant):d.montant;
   const meta=[d.logement, d.dateIncident?("le "+fmt(d.dateIncident)):null, L?d.voyageur:d.intervenant, mt!=null?(L?"demandé ":"")+eur(mt):null].filter(Boolean).map(esc).join(" · ");
   const bars=L?litSteps(d).map(x=>x[2]):s.map(([k])=>!!d.etapes?.[k]?.done);
@@ -676,12 +688,12 @@ function render(){
 }
 
 /* ---------- detail ---------- */
-function openDetail(id){if(logOpen){retLog=logOpen;logOpen=null}menOpen=null;menBack=null;auditOpen=null;openId=id;formState=null;$("#sheet").hidden=false;renderDetail()}
+function openDetail(id){if(id!==openId)stepEdit=false;if(logOpen){retLog=logOpen;logOpen=null}menOpen=null;menBack=null;auditOpen=null;openId=id;formState=null;$("#sheet").hidden=false;renderDetail()}
 function renderDetail(){
   const d=dossiers.find(x=>x.id===openId);const s=$("#sheet");
   const keep={tTxt:$("#tTxt")?.value||"",tDue:$("#tDue")?.value||"",nTxt:$("#nTxt")?.value||""},sy=s.scrollTop;
   if(!d){s.innerHTML=`<div class="wrap"><div class="sheethead"><h2>Dossier introuvable</h2><button class="btn ghost" type="button" data-close>Fermer</button></div></div>`;return}
-  const u=urgency(d), dl=deadlineOf(d), steps=STEPS[d.type]||[];
+  const u=urgency(d), dl=deadlineOf(d), steps=stepsOf(d), hidN=(STEPS[d.type]||[]).filter(([k])=>(d.etapesMasquees||{})[k]).length;
   const tasks=Object.entries(d.taches||{}).filter(([,t])=>!t.supprime).sort((a,b)=>(a[1].fait-b[1].fait)||((a[1].echeance||"9")>(b[1].echeance||"9")?1:-1));
   const notes=Object.entries(d.notes||{}).sort((a,b)=>(a[1].at>b[1].at?-1:1));
   let dlHtml="";
@@ -711,7 +723,8 @@ function renderDetail(){
   ${d.auditId&&audits.some(x=>x.id===d.auditId)?`<button class="btn" type="button" data-aud="${esc(d.auditId)}">Voir l'audit d'origine</button>`:""}
   ${d.menageId&&menages.some(x=>x.id===d.menageId)?`<button class="btn" type="button" data-men="${esc(d.menageId)}">Voir le ménage d'origine</button>`:""}
   ${d.type!=="litige"?`<div class="box"><h3>Qui s'en occupe ?</h3><div class="pick">${QUI.map(([k,l])=>`<button type="button" data-quis="${k}" aria-pressed="${d.quiIntervient===k}">${l}</button>`).join("")}</div><span class="hint">${QUI_HINT}</span></div>`:""}
-  ${d.type==="litige"?litigeBox(d):`<div class="box"><h3>Étapes</h3><div>${steps.map(([k,l])=>{const e=d.etapes?.[k];return `<label class="check ${e?.done?"done":""}"><input type="checkbox" data-step="${k}" ${e?.done?"checked":""}><span><span class="t">${esc(l)}</span>${e?.done?`<span class="who">fait le ${fmtAt(e.at)}</span>`:""}</span></label>`}).join("")}</div></div>`}
+  ${d.type==="litige"?litigeBox(d):`<div class="box"><div class="boxhead"><h3>Étapes</h3><button class="lnk" type="button" id="stEdit">${stepEdit?"Terminé":"Modifier les étapes"}</button></div><div>${steps.map(([k,l,lib])=>{const e=d.etapes?.[k];return `<div class="steprow"><label class="check ${e?.done?"done":""}"><input type="checkbox" data-step="${k}" ${e?.done?"checked":""}><span><span class="t">${esc(l)}</span>${e?.done?`<span class="who">fait le ${fmtAt(e.at)}</span>`:""}</span></label>${stepEdit?`<button class="stdel" type="button" data-delstep="${esc(k)}" data-lib="${lib?1:""}" aria-label="Supprimer l'étape ${esc(l)}">✕</button>`:""}</div>`}).join("")||`<div class="hint">Aucune étape.</div>`}</div>
+    ${stepEdit?`<div class="addrow"><input type="text" id="stNew" placeholder="Nouvelle étape, ex. : Clés récupérées" maxlength="120"><button class="btn" type="button" id="stAdd">Ajouter</button></div>${hidN?`<button class="lnk" type="button" id="stBack" style="align-self:flex-start">Rétablir ${hidN>1?"les "+hidN+" étapes retirées":"l'étape retirée"}</button>`:""}`:""}</div>`}
   <div class="box"><h3>Ce qu'il reste à faire</h3><div>${tasks.length?tasks.map(([id,t])=>{let due="";if(t.echeance&&!t.fait){const n=diff(t.echeance);due=`<span class="due ${n<0?"late":n<=1?"soon":"fine"}">${n<0?"En retard · prévu le "+fmt(t.echeance):"Pour le "+fmt(t.echeance)}</span>`}
       return `<label class="check ${t.fait?"done":""}"><input type="checkbox" data-task="${esc(id)}" ${t.fait?"checked":""}><span style="min-width:0;flex:1"><span class="t">${esc(t.texte)}</span><span class="who">${t.fait?"Fait le "+fmtAt(t.faitLe):due}</span></span><button class="btn ghost" type="button" data-deltask="${esc(id)}" aria-label="Retirer" style="padding:2px 8px">✕</button></label>`}).join(""):`<div class="hint">Rien pour l'instant. Ajoutez ce qui reste à faire, par exemple « Remplacer le lit ».</div>`}</div>
     <div class="inline"><input type="text" id="tTxt" placeholder="Chose à faire…"><input type="date" id="tDue" aria-label="Pour quand" style="flex:0 1 150px"><button class="btn pri" type="button" id="tAdd" style="flex:0 0 auto">Ajouter</button></div></div>
@@ -723,6 +736,10 @@ function renderDetail(){
   </div>`;
   $("#tTxt").value=keep.tTxt;$("#tDue").value=keep.tDue;$("#nTxt").value=keep.nTxt;s.scrollTop=sy;
   s.querySelectorAll("[data-step]").forEach(c=>c.onchange=()=>patch(d,{etapes:{[c.dataset.step]:{done:c.checked,at:nowIso()}}},c.checked?"Étape cochée":"Étape décochée"));
+  if($("#stEdit"))$("#stEdit").onclick=()=>{stepEdit=!stepEdit;renderDetail()};
+  s.querySelectorAll("[data-delstep]").forEach(b=>b.onclick=()=>{const k=b.dataset.delstep;patch(d,b.dataset.lib?{etapesLibres:{[k]:{supprime:true}}}:{etapesMasquees:{[k]:true}},"Étape supprimée")});
+  if($("#stAdd")){const add=()=>{const v=$("#stNew").value.trim();if(!v)return toast("Écrivez le nom de l'étape");patch(d,{etapesLibres:{["x"+Date.now().toString(36)]:{label:v,at:nowIso()}}},"Étape ajoutée")};$("#stAdd").onclick=add;$("#stNew").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();add()}}}
+  if($("#stBack"))$("#stBack").onclick=()=>patch(d,{etapesMasquees:Object.fromEntries(Object.keys(d.etapesMasquees||{}).map(k=>[k,false]))},"Étapes rétablies");
   s.querySelectorAll("[data-task]").forEach(c=>c.onchange=()=>patch(d,{taches:{[c.dataset.task]:c.checked?{fait:true,faitLe:nowIso()}:{fait:false}}},c.checked?"C'est fait":"Remis à faire"));
   s.querySelectorAll("[data-deltask]").forEach(b=>b.onclick=e=>{e.preventDefault();patch(d,{taches:{[b.dataset.deltask]:{supprime:true}}},"Retiré")});
   $("#tAdd").onclick=()=>{const t=$("#tTxt").value.trim();if(!t)return toast("Écrivez la chose à faire d'abord");const due=$("#tDue").value||null;$("#tTxt").value="";$("#tDue").value="";patch(d,{taches:{["t"+Date.now().toString(36)]:{texte:t,echeance:due,fait:false,at:nowIso()}}},"Ajouté")};
