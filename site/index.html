@@ -111,6 +111,15 @@ button.sum[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1
 .attline b{color:inherit}
 .chip.attc[aria-pressed="true"],.pick button.attc[aria-pressed="true"]{background:var(--ac);border-color:var(--ac);color:var(--surface)}
 .chip.attc[aria-pressed="true"] .adot,.pick button.attc[aria-pressed="true"] .adot{background:var(--surface)}
+.techrub{display:flex;flex-direction:column;gap:8px;padding-block:12px;border-top:1px solid var(--line)}
+.techrub:first-of-type{border-top:0;padding-top:4px}
+.techsub{display:block;font-weight:400;text-transform:none;letter-spacing:0;font-size:12.5px;color:var(--muted)}
+.impgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
+.impit{display:flex;flex-direction:column;gap:4px;border:2px solid transparent;background:var(--surface);border-radius:10px;padding:4px;font:inherit;cursor:pointer;min-width:0;text-align:left}
+.impit img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:7px;display:block}
+.impit .pdfbig{display:grid;place-items:center;width:100%;aspect-ratio:1;border-radius:7px;background:var(--crit-bg);color:var(--crit);font-weight:700}
+.impit .impn{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.impit.sel{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand)}
 .stepwrap{border-top:1px solid var(--line)}
 .stepwrap:first-child{border-top:0}
 .stepwrap .steprow{border-top:0}
@@ -1110,12 +1119,34 @@ function rubForm(x){return `<div class="rub"><div class="field">${x&&x.t?`<span 
   <div class="field"><label for="rubVal">Information</label><textarea id="rubVal" placeholder="Écrivez librement">${esc(x?x.val:"")}</textarea></div>
   <label class="check" style="border:0;padding:0"><input type="checkbox" id="rubVis" ${!x||x.vis?"checked":""}><span>Visible par l'équipe ménage</span></label>
   <div class="inline"><button class="btn pri" type="button" id="rubSave">Enregistrer</button><button class="btn ghost" type="button" id="rubCancel">Annuler</button>${x&&!x.t?`<button class="btn ghost" type="button" id="rubDel" style="color:var(--crit)">Supprimer la rubrique</button>`:""}</div></div>`}
+/* Photos techniques du logement : par rubrique, envoyées ici ou importées du dossier prospect */
+const TECH=[["lave","Machine à laver","photos et mode d'emploi"],["elec","Tableau électrique",""],["eau","Chauffe-eau",""],["poub","Poubelles","où on les range, jours de collecte"],["autre","Autres photos techniques","compteur d'eau, box internet, chauffage…"]];
+let techImp=null, techSel=new Set(), techUp={};
+const techFiles=(l,k)=>Object.entries((l.techPhotos||{})[k]||{}).filter(([,x])=>x&&!x.supprime&&x.a).map(([id,x])=>({id,...x})).sort((a,b)=>String(a.at).localeCompare(String(b.at)));
+function prosFiles(l){const p=prospectOf(l);if(!p)return[];const out=[];for(const d of Object.values(pV(p).docs||{}))for(const f of (d.files||[]))if(f&&f.id&&!out.some(x=>x.id===f.id))out.push(f);return out}
+function techHtml(l,team){
+  const pf=team?prosFiles(l):[], used=new Set(TECH.flatMap(([k])=>techFiles(l,k).map(x=>x.a)));
+  const n=TECH.reduce((t,[k])=>t+techFiles(l,k).length,0);
+  if(!team&&!n)return"";
+  return `<div class="box"><h3>Photos techniques</h3>${TECH.map(([k,lab,sub])=>{const fs=techFiles(l,k),im=fs.filter(x=>!/pdf/.test(x.type||"")),pd=fs.filter(x=>/pdf/.test(x.type||""));
+    if(!team&&!fs.length)return"";
+    return `<div class="techrub"><div class="rub-h"><span class="rub-l">${esc(lab)}${sub?`<span class="techsub">${esc(sub)}</span>`:""}</span>${fs.length?`<span class="hint">${fs.length}</span>`:""}</div>
+    ${im.length?`<div class="thumbs">${im.map(x=>`<span class="th"><button class="im" type="button" data-thumb="${esc(x.a)}" aria-label="Agrandir la photo"><img src="${blob(x.a)}" alt="${esc(lab)}" loading="lazy"></button>${team?`<button class="x" type="button" data-techdel="${k}|${esc(x.id)}" aria-label="Retirer la photo">✕</button>`:""}</span>`).join("")}</div>`:""}
+    ${pd.length?`<div class="pdfs">${pd.map(x=>`<div class="pdfl"><span class="ic">PDF</span><a href="${blob(x.a)}" target="_blank" rel="noopener">${esc(x.name||"Document PDF")}</a>${team?`<button class="x" type="button" data-techdel="${k}|${esc(x.id)}" aria-label="Retirer ${esc(x.name||"le document")}">✕</button>`:""}</div>`).join("")}</div>`:""}
+    ${!fs.length&&team?`<div class="hint">Aucune photo pour l'instant.</div>`:""}
+    ${team?`<div class="chips">${techUp[k]?`<span class="hint">Envoi en cours…</span>`:`<label class="btn photo-btn" style="font-size:13px;padding:5px 12px">📷 Photo ou PDF<input type="file" hidden multiple accept="image/*,application/pdf" data-techup="${k}"></label>`}${pf.length?`<button class="btn" type="button" data-techimp="${k}" aria-expanded="${techImp===k}" style="font-size:13px;padding:5px 12px">⇩ Depuis le prospect</button>`:""}</div>`:""}
+    ${team&&techImp===k?`<div class="quipick"><span class="hint">Touchez les fichiers du dossier prospect à ranger dans « ${esc(lab)} ».</span>
+      <div class="impgrid">${pf.map(f=>{const img=/^image/.test(f.type||"");return `<button type="button" class="impit ${techSel.has(f.id)?"sel":""}" data-techpick="${esc(f.id)}" aria-pressed="${techSel.has(f.id)}" ${used.has(f.id)?'title="Déjà rangé dans une rubrique"':""}>${img?`<img src="${blob(f.id)}" alt="" loading="lazy">`:`<span class="pdfbig">PDF</span>`}<span class="impn">${used.has(f.id)?"✓ déjà rangé · ":""}${esc(f.name||"")}</span></button>`}).join("")}</div>
+      <div class="inline"><button class="btn pri" type="button" id="techImpOk" ${techSel.size?"":"disabled"}>Importer ${techSel.size||""}</button><button class="btn ghost" type="button" id="techImpNo">Annuler</button></div></div>`:""}
+    </div>`}).join("")}
+    ${team&&!prospectOf(l)?`<span class="hint">Aucun dossier prospect relié à ce logement : ajoutez les photos directement.</span>`:""}</div>`}
 function ficheHtml(l,team){
   const AS=Object.entries(l.aSavoir||{}).filter(([,a])=>!a.supprime).map(([id,a])=>({id,...a})).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
   const rows=ficheRows(l).filter(x=>team||(x.vis&&x.val));
   return `<div class="box"><h3>À savoir · nouveautés</h3>
     <div class="inline"><textarea id="asTxt" placeholder="Ex. : nouvelle cafetière, le code a changé, il manque des verres…" style="min-height:52px"></textarea><button class="btn pri" type="button" id="asAdd" style="flex:0 0 auto;align-self:flex-end">Ajouter</button></div>
     <div>${AS.map(a=>`<div class="note"><span class="who">${fmtAt(a.at)} · ${esc(a.par||"")} ${daysSince(a.at)<=7?`<span class="new">Nouveau</span>`:""}</span><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><p style="flex:1">${esc(a.texte)}</p>${team?`<button class="btn ghost" type="button" data-delas="${esc(a.id)}" aria-label="Retirer" style="padding:2px 8px">✕</button>`:""}</div></div>`).join("")||`<div class="hint">Rien de nouveau pour l'instant.</div>`}</div></div>
+  ${techHtml(l,team)}
   <div class="box"><h3>Fiche du logement</h3><div>
     ${rows.map(x=>editKey===x.k?rubForm(x):`<div class="rub"><div class="rub-h"><span class="rub-l">${esc(x.label)}${daysSince(x.r.modifLe)<=7&&(x.hist.length||!x.t)?`<span class="new">Nouveau</span>`:""}${team&&!x.vis?`<span class="priv">Équipe seulement</span>`:""}</span>${team?`<button class="lnk" type="button" data-editrub="${esc(x.k)}">Modifier</button>`:""}</div>
       <div class="rub-v ${x.val?"":"empty-v"}">${x.val?esc(x.val):"À compléter"}</div>
@@ -1126,6 +1157,17 @@ function ficheHtml(l,team){
 }
 function bindFiche(l,team){
   const s=$("#sheet");
+  const tUp=(k,files)=>db.doc("logements/"+l.id).update({techPhotos:{[k]:Object.fromEntries(files.map((f,i)=>["t"+Date.now().toString(36)+i,f]))}});
+  s.querySelectorAll("[data-techup]").forEach(inp=>inp.onchange=async e=>{const k=inp.dataset.techup,files=[...e.target.files];e.target.value="";if(!files.length)return;techUp[k]=true;renderLogSheet();let bad=0;const out=[];
+    for(const f of files){try{if(f.type==="application/pdf"){const r=await assets.upload(f,{type:"application/pdf"});out.push({a:r.id,type:"application/pdf",name:f.name,at:nowIso(),par:who()})}else out.push({a:await uploadOne(f),type:"image",name:f.name,at:nowIso(),par:who()})}catch(err){bad++}}
+    try{if(out.length)await tUp(k,out);toast(bad?bad+" fichier(s) non ajouté(s) (photo ou PDF uniquement)":out.length>1?out.length+" fichiers ajoutés":"Fichier ajouté")}catch(err){toast(failMsg(err))}
+    techUp[k]=false;renderLogSheet()});
+  s.querySelectorAll("[data-techdel]").forEach(b=>b.onclick=async()=>{const [k,id]=b.dataset.techdel.split("|");try{await db.doc("logements/"+l.id).update({techPhotos:{[k]:{[id]:{supprime:true}}}});toast("Retiré")}catch(e){toast(failMsg(e))}});
+  s.querySelectorAll("[data-techimp]").forEach(b=>b.onclick=()=>{techImp=techImp===b.dataset.techimp?null:b.dataset.techimp;techSel=new Set();renderLogSheet()});
+  s.querySelectorAll("[data-techpick]").forEach(b=>b.onclick=()=>{const id=b.dataset.techpick;techSel.has(id)?techSel.delete(id):techSel.add(id);renderLogSheet()});
+  if($("#techImpNo"))$("#techImpNo").onclick=()=>{techImp=null;techSel=new Set();renderLogSheet()};
+  if($("#techImpOk"))$("#techImpOk").onclick=async()=>{const k=techImp,pf=prosFiles(l).filter(f=>techSel.has(f.id));if(!pf.length)return;
+    try{await tUp(k,pf.map(f=>({a:f.id,type:/^image/.test(f.type||"")?"image":"application/pdf",name:f.name||"",at:nowIso(),par:who(),source:"prospect"})));techImp=null;techSel=new Set();toast(pf.length>1?pf.length+" fichiers importés":"Fichier importé")}catch(e){toast(failMsg(e))}};
   $("#asAdd").onclick=async()=>{const t=$("#asTxt").value.trim();if(!t)return toast("Écrivez l'information d'abord");$("#asTxt").value="";try{await db.doc("logements/"+l.id).update({aSavoir:{["s"+Date.now().toString(36)]:{texte:t,at:nowIso(),par:who()}}});toast("Ajouté à « À savoir »")}catch(e){toast(failMsg(e))}};
   s.querySelectorAll("[data-delas]").forEach(b=>b.onclick=async()=>{try{await db.doc("logements/"+l.id).update({aSavoir:{[b.dataset.delas]:{supprime:true}}});toast("Retiré")}catch(e){toast(failMsg(e))}});
   s.querySelectorAll("[data-editrub]").forEach(b=>b.onclick=()=>{editKey=b.dataset.editrub;addRub=false;renderLogSheet();$("#rubVal")?.focus()});
