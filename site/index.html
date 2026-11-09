@@ -204,6 +204,12 @@ textarea{min-height:76px;resize:vertical}
 .th > button.im{width:100%;height:100%;padding:0;border:0;background:none;display:block}
 .th img{width:100%;height:100%;object-fit:cover;display:block}
 .th .x{position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;border:0;background:rgb(0 0 0/.6);color:#fff;font-size:12px;line-height:22px;padding:0}
+.pdfs{display:flex;flex-direction:column;gap:6px}
+.pdfl{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 10px;min-width:0}
+.pdfl a{flex:1;min-width:0;color:var(--ink);font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:none}
+.pdfl a:hover{text-decoration:underline}
+.pdfl .ic{flex:none;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--crit);background:var(--crit-bg);border-radius:6px;padding:3px 6px}
+.pdfl .x{flex:none;border:0;background:var(--sunk);color:var(--ink);width:26px;height:26px;border-radius:50%;padding:0;font-size:12px}
 .photo-btn{display:inline-flex;align-items:center;justify-content:center;align-self:flex-start;cursor:pointer}
 [hidden]{display:none!important}
 .lb{position:fixed;inset:0;z-index:40;background:rgb(0 0 0/.88);display:grid;place-items:center;padding:16px}
@@ -701,6 +707,7 @@ function renderDetail(){
     ${d.source?"":`<dt>Ouvert le</dt><dd>${d.creeLe?fmtAt(d.creeLe):"—"}</dd>`}${d.statut==="clos"&&d.closLe?`<dt>Clos le</dt><dd>${d.source?fmt(d.closLe.slice(0,10)):fmtAt(d.closLe)}</dd>`:""}${d.source?`<dt>Origine</dt><dd>${esc(d.source)}</dd>`:""}
   </dl><div class="inline"><button class="btn" type="button" id="editBtn">Modifier</button><button class="btn" type="button" id="urgBtn">${d.urgent?"Retirer « urgent »":"Marquer urgent"}</button></div></div>
   ${(d.photos||[]).length?`<div class="box"><h3>Photos</h3>${thumbs(d.photos.map(a=>({a})))}</div>`:""}
+  ${(d.fichiers||[]).length?`<div class="box"><h3>Documents PDF</h3><div class="pdfs">${d.fichiers.map(x=>`<div class="pdfl"><span class="ic">PDF</span><a href="${blob(x.id)}" target="_blank" rel="noopener">${esc(x.name||"Document PDF")}</a></div>`).join("")}</div></div>`:""}
   ${d.auditId&&audits.some(x=>x.id===d.auditId)?`<button class="btn" type="button" data-aud="${esc(d.auditId)}">Voir l'audit d'origine</button>`:""}
   ${d.menageId&&menages.some(x=>x.id===d.menageId)?`<button class="btn" type="button" data-men="${esc(d.menageId)}">Voir le ménage d'origine</button>`:""}
   ${d.type!=="litige"?`<div class="box"><h3>Qui s'en occupe ?</h3><div class="pick">${QUI.map(([k,l])=>`<button type="button" data-quis="${k}" aria-pressed="${d.quiIntervient===k}">${l}</button>`).join("")}</div><span class="hint">${QUI_HINT}</span></div>`:""}
@@ -828,8 +835,8 @@ async function patch(d,data,msg){
 /* ---------- dossier form ---------- */
 function openForm(d,preset,prefill){
   if(logOpen){retLog=logOpen;logOpen=null}openId=null;
-  formState=d?{id:d.id,type:d.type,origine:d.origine||(d.type==="litige"?"Litige":""),statut:d.statut||"ouvert",categorie:d.categorie,titre:d.titre,logement:d.logement||"",dateIncident:d.dateIncident||"",dateLimite:d.dateLimite||"",urgent:!!d.urgent,desc:"",intervenant:d.intervenant||"",montant:d.montant!=null?String(d.montant):"",aFacturer:d.aFacturer==null?"":(d.aFacturer?"oui":"non"),quiIntervient:d.quiIntervient||"",voyageur:d.voyageur||"",reference:d.reference||"",plateforme:d.plateforme||"",depart:d.depart||"",dateDeclaration:d.dateDeclaration||"",montantDemande:(d.montantDemande??(d.type==="litige"?d.montant:null))!=null?String(d.montantDemande??d.montant):""}
-    :{type:preset==="litige"?"litige":"suivi",origine:preset==="litige"?"Litige":"Remarque femme de ménage",statut:"ouvert",categorie:"",titre:"",logement:fLog||"",dateIncident:today(),dateLimite:"",urgent:false,desc:"",intervenant:"",montant:"",aFacturer:"",quiIntervient:"",voyageur:"",reference:"",plateforme:"",depart:"",dateDeclaration:"",montantDemande:"",...(prefill||{})};
+  formState=d?{photos:[...(d.photos||[])],fichiers:[...(d.fichiers||[])],id:d.id,type:d.type,origine:d.origine||(d.type==="litige"?"Litige":""),statut:d.statut||"ouvert",categorie:d.categorie,titre:d.titre,logement:d.logement||"",dateIncident:d.dateIncident||"",dateLimite:d.dateLimite||"",urgent:!!d.urgent,desc:"",intervenant:d.intervenant||"",montant:d.montant!=null?String(d.montant):"",aFacturer:d.aFacturer==null?"":(d.aFacturer?"oui":"non"),quiIntervient:d.quiIntervient||"",voyageur:d.voyageur||"",reference:d.reference||"",plateforme:d.plateforme||"",depart:d.depart||"",dateDeclaration:d.dateDeclaration||"",montantDemande:(d.montantDemande??(d.type==="litige"?d.montant:null))!=null?String(d.montantDemande??d.montant):""}
+    :{photos:[],fichiers:[],type:preset==="litige"?"litige":"suivi",origine:preset==="litige"?"Litige":"Remarque femme de ménage",statut:"ouvert",categorie:"",titre:"",logement:fLog||"",dateIncident:today(),dateLimite:"",urgent:false,desc:"",intervenant:"",montant:"",aFacturer:"",quiIntervient:"",voyageur:"",reference:"",plateforme:"",depart:"",dateDeclaration:"",montantDemande:"",...(prefill||{})};
   $("#sheet").hidden=false;renderForm();
 }
 function renderForm(){
@@ -857,6 +864,11 @@ function renderForm(){
   <div class="field"><label for="fFac">À facturer</label><select id="fFac"><option value="" ${f.aFacturer===""?"selected":""}>Pas encore décidé</option><option value="oui" ${f.aFacturer==="oui"?"selected":""}>Oui</option><option value="non" ${f.aFacturer==="non"?"selected":""}>Non</option></select></div>
   ${f.id?"":`<div class="field"><label for="fDesc">Détails (facultatif)</label><textarea id="fDesc" placeholder="Ce qui a été constaté, photos prises…">${esc(f.desc)}</textarea></div>`}
   ${LT?"":`<div class="field"><span class="lbl">Qui s'en occupe ?</span><div class="pick">${QUI.map(([k,l])=>`<button type="button" data-qf="${k}" aria-pressed="${f.quiIntervient===k}">${l}</button>`).join("")}</div><span class="hint">${QUI_HINT}</span></div>`}
+  <div class="field"><span class="lbl">Photos et documents PDF</span>
+    ${f.photos.length?`<div class="thumbs">${f.photos.map((a,i)=>`<span class="th"><img src="${blob(a)}" alt="Photo ${i+1}" loading="lazy"><button class="x" type="button" data-fph="${i}" aria-label="Retirer la photo ${i+1}">✕</button></span>`).join("")}</div>`:""}
+    ${f.fichiers.length?`<div class="pdfs">${f.fichiers.map((x,i)=>`<div class="pdfl"><span class="ic">PDF</span><a href="${blob(x.id)}" target="_blank" rel="noopener">${esc(x.name||"Document PDF")}</a><button class="x" type="button" data-fpdf="${i}" aria-label="Retirer ${esc(x.name||"le document")}">✕</button></div>`).join("")}</div>`:""}
+    ${assets?`<label class="btn photo-btn">${f.envoi?"Envoi en cours…":"📎 Ajouter des photos ou un PDF"}<input type="file" id="fFiles" accept="image/*,application/pdf" multiple hidden ${f.envoi?"disabled":""}></label><span class="hint">Une ou plusieurs photos, et/ou des documents PDF (devis, facture, constat…).</span>`:`<span class="hint">L'ajout de fichiers n'est pas disponible depuis ce compte.</span>`}
+  </div>
   <label class="check" style="border:0"><input type="checkbox" id="fUrg" ${f.urgent?"checked":""}><span>Marquer comme urgent</span></label>
   <button class="btn pri" type="button" id="fSave">${f.id?"Enregistrer":"Créer le dossier"}</button></div>`;
   const read=()=>{const g=(id,k)=>{const el=$(id);if(el)f[k]=el.value};g("#fTitre","titre");g("#fLog","logement");g("#fDate","dateIncident");g("#fDl","dateLimite");g("#fInt","intervenant");g("#fMont","montant");g("#fFac","aFacturer");g("#fDesc","desc");g("#fVoy","voyageur");g("#fRef","reference");g("#fPlat","plateforme");g("#fDep","depart");g("#fDem","montantDemande");g("#fDecl","dateDeclaration");f.urgent=$("#fUrg").checked};
@@ -864,15 +876,21 @@ function renderForm(){
   s.querySelectorAll("[data-ca]").forEach(b=>b.onclick=()=>{read();f.categorie=b.dataset.ca;renderForm()});
   s.querySelectorAll("[data-qf]").forEach(b=>b.onclick=()=>{read();const k=f.quiIntervient===b.dataset.qf?"":b.dataset.qf;f.quiIntervient=k;if(k==="nous"){f.urgent=true;f.statut="ouvert"}else if(k==="proprietaire"){f.urgent=false;f.statut="info"}renderForm()});
   s.querySelectorAll("[data-st]").forEach(b=>b.onclick=()=>{read();f.statut=b.dataset.st;renderForm()});
+  s.querySelectorAll("[data-fph]").forEach(b=>b.onclick=()=>{read();f.photos.splice(+b.dataset.fph,1);renderForm()});
+  s.querySelectorAll("[data-fpdf]").forEach(b=>b.onclick=()=>{read();f.fichiers.splice(+b.dataset.fpdf,1);renderForm()});
+  if($("#fFiles"))$("#fFiles").onchange=async e=>{const files=[...e.target.files];e.target.value="";if(!files.length)return;read();f.envoi=true;renderForm();let bad=0;
+    for(const file of files){try{if(file.type==="application/pdf"){const r=await assets.upload(file,{type:"application/pdf"});f.fichiers.push({id:r.id,name:file.name,type:"application/pdf"})}else f.photos.push(await uploadOne(file))}catch(err){bad++}}
+    f.envoi=false;if(formState!==f)return;renderForm();toast(bad?(bad+" fichier"+(bad>1?"s n'ont":" n'a")+" pas pu être ajouté"+(bad>1?"s":"")+" (photo ou PDF uniquement)"):"Fichier"+(files.length>1?"s":"")+" ajouté"+(files.length>1?"s":""))};
   $("#fDate").onchange=()=>{read();renderForm()};
   if($("#fDep"))$("#fDep").onchange=()=>{read();renderForm()};
   $("#fSave").onclick=async()=>{read();
+    if(f.envoi)return toast("Attendez la fin de l'envoi des fichiers");
     if(!f.origine)return toast("Choisissez d'où vient le souci");
     if(!f.categorie)return toast("Choisissez une catégorie");
     if(!f.titre.trim())return toast("Décrivez le problème en quelques mots");
     if(!f.logement.trim())return toast("Indiquez le logement");
     const known=logements.find(l=>norm(l.nom)===norm(f.logement));
-    const body={type:f.type,origine:f.origine,categorie:f.categorie,titre:f.titre.trim(),logement:known?known.nom:f.logement.trim(),dateIncident:f.dateIncident||null,dateLimite:f.type==="litige"?(f.dateLimite||null):null,urgent:f.urgent,updatedAt:nowIso()};
+    const body={type:f.type,origine:f.origine,categorie:f.categorie,titre:f.titre.trim(),logement:known?known.nom:f.logement.trim(),dateIncident:f.dateIncident||null,dateLimite:f.type==="litige"?(f.dateLimite||null):null,urgent:f.urgent,photos:f.photos,fichiers:f.fichiers,updatedAt:nowIso()};
     Object.assign(body,{intervenant:f.intervenant.trim()||null,montant:num(f.montant),aFacturer:f.aFacturer===""?null:f.aFacturer==="oui"});
     if(f.type==="litige")Object.assign(body,{voyageur:f.voyageur.trim(),reference:f.reference.trim(),plateforme:f.plateforme,depart:f.depart||null,montantDemande:num(f.montantDemande),dateDeclaration:f.dateDeclaration||null,...(f.dateDeclaration?{etapes:{declare:{done:true,at:nowIso()}}}:{})});
     if(!f.id&&f.litigeId)body.litigeId=f.litigeId;
