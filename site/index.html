@@ -92,6 +92,9 @@ button.sum[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1
 .summary.s4{grid-template-columns:repeat(4,1fr);gap:6px}
 .summary.s4 .sum{padding:9px 10px}
 .summary.s4 .sum span{display:block;line-height:1.25}
+.attline{font-size:13px;color:var(--ink);background:var(--sunk);border-radius:8px;padding:4px 8px;align-self:flex-start}
+.chiplbl{font-size:12px;font-weight:600;color:var(--muted);align-self:center;margin-right:2px}
+.attchips{margin-top:2px}
 .stale{font-size:12.5px;font-weight:600;color:var(--mnt);background:var(--mnt-bg);border-radius:8px;padding:4px 8px;align-self:flex-start}
 .sec-title{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:20px 0 8px;font-weight:600;display:flex;justify-content:space-between;gap:8px}
 .list{display:flex;flex-direction:column;gap:8px}
@@ -376,7 +379,7 @@ const STEPS={
   suivi:[["signale","Problème signalé"],["proprio","Propriétaire informé"],["commande","Devis ou commande passé"],["fait","Intervention faite"]]
 };
 let mode="equipe", moi="";
-let db=null, view=mode==="menage"?"mm":"prio", fLog=null, fType="ouverts", fCat="", fQ="", fSec="", pF="tous";
+let db=null, view=mode==="menage"?"mm":"prio", fLog=null, fType="ouverts", fCat="", fQ="", fSec="", pF="tous", fAtt="";
 let menages=[], cfgM={protocole:[],equipe:[]}, assets=null, downloads=null;
 let stepEdit=false, entEdit=false, entDraft=null, entUp={}, rqForm=false, rqDel=null, menBack=null, lsTab="suivi", editKey=null, addRub=false, histOpen=null, menOpen=null, degForm=false, uploading={}, recapMois=null, startForm=false;
 const ICO={
@@ -437,6 +440,29 @@ const oublie=d=>isOpen(d)&&(sansAction(d)??0)>OUBLI_J;
 const SECTEURS=[["","Tous les secteurs"],["mulhouse","Mulhouse"],["riedisheim","Riedisheim"],["autres","Autres secteurs"]];
 const secOf=d=>{const l=logByName(d.logement);const k=l&&l.lieu?lieuKey(l.lieu).trim():"";return k==="mulhouse"||k==="riedisheim"?k:"autres"};
 const inSec=d=>!fSec||secOf(d)===fSec;
+/* Sur qui on attend : choisi dans le dossier, sinon déduit des étapes cochées */
+const ATT=[["menage","Équipe ménage"],["plateforme","Plateforme (Airbnb / Booking)"],["franck","Franck"],["ph","PH"],["julien","Julien"],["manon","Manon"],["marion","Marion"],["autre","Autre intervenant"]];
+const attLabel=a=>!a?"":a.k==="autre"?(a.nom||"Autre intervenant"):a.k==="plateforme"&&a.nom?a.nom:(ATT.find(x=>x[0]===a.k)||[,""])[1];
+function attFromName(n){const v=norm(n||"");if(!v)return null;if(/(^|\W)ph(\W|$)/.test(v))return{k:"ph"};for(const k of ["franck","julien","manon","marion"])if(v.includes(k))return{k};if(/m[ée]nage|femme de/.test(v))return{k:"menage"};return{k:"autre",nom:n.trim()}}
+function attenteOf(d){
+  if(d.statut==="clos"||d.statut==="info")return null;
+  if(d.attente==="aucun")return null;
+  if(d.attente)return{k:d.attente,nom:d.attente==="autre"?(d.attenteAutre||""):null,auto:false};
+  let a=null,why="";
+  if(d.type==="litige"){
+    if(!declared(d)){a={k:"franck"};why="le litige n'est pas encore déclaré"}
+    else if(decOf(d)==="attente"){a={k:"plateforme",nom:d.plateforme||null};why="la plateforme n'a pas encore décidé"}
+  } else {
+    const st=stepsOf(d).map(x=>x[0]),done=k=>!!d.etapes?.[k]?.done;
+    if(d.quiIntervient==="proprietaire"){a={k:"autre",nom:"Propriétaire"};why="le propriétaire s'en occupe"}
+    else if(d.categorie==="Ménage"&&!(st.includes("fait")&&done("fait"))){a={k:"menage"};why="remarque de ménage pas encore réglée"}
+    else if(st.includes("fait")&&!done("fait")&&(!st.includes("commande")||done("commande"))){a=attFromName(d.intervenant);why="intervention pas encore faite"}
+  }
+  return a?{...a,auto:true,why}:null}
+const attKey=d=>{const a=attenteOf(d);return a?a.k:"libre"};
+const attChips=list=>{const opts=[["","Tout le monde"],...ATT,["libre","À attribuer"]].map(([k,l])=>[k,k==="plateforme"?"Plateformes":l,k?list.filter(d=>attKey(d)===k).length:list.length]).filter(([k,,n])=>!k||n||fAtt===k);
+  return `<div class="chips attchips" role="group" aria-label="On attend sur qui"><span class="chiplbl">On attend sur :</span>${opts.map(([k,l,n])=>`<button class="chip" type="button" data-att="${k}" aria-pressed="${fAtt===k}">${esc(l)}${k?" · "+n:""}</button>`).join("")}</div>`};
+const inAtt=d=>!fAtt||attKey(d)===fAtt;
 const secChips=list=>`<div class="chips" role="group" aria-label="Secteur">${SECTEURS.map(([k,l])=>`<button class="chip" type="button" data-sec="${k}" aria-pressed="${fSec===k}">${l}${k?" · "+list.filter(d=>secOf(d)===k).length:""}</button>`).join("")}</div>`;
 const blob=id=>pubUrl(id);
 let wq=Promise.resolve();const enqueue=f=>(wq=wq.then(f,f));
@@ -510,6 +536,7 @@ function card(d){
   return `<button class="card" type="button" data-open="${esc(d.id)}">
     <div class="row1"><div class="ttl"><span class="tag">${esc(d.type!=="litige"&&d.litigeId?"Suivi logement · suite d'un litige":(d.origine||(d.type==="litige"?"Litige":"Suivi")))}${d.categorie?` · <span style="${d.categorie==="Maintenance"?"color:var(--mnt)":d.categorie==="Ménage"?"color:var(--men)":""}">${esc(d.categorie)}</span>`:""}</span> ${L?decBadge(d):""}<br>${esc(d.titre||"Sans titre")}</div><span class="pill ${u.l==="info"?"info":"l"+u.l}">${esc(u.t)}</span></div>
     <div class="meta">${meta||"Logement non précisé"}</div>
+    ${(()=>{const a=attenteOf(d);return a?`<div class="attline">👤 On attend sur <b>${esc(attLabel(a))}</b></div>`:""})()}
     ${oublie(d)?`<div class="stale">⏳ Aucune action depuis ${sansAction(d)} jours</div>`:""}
     <div class="steps" aria-hidden="true">${bars.map(b=>`<i class="${b?"on":""}"></i>`).join("")}</div>
     ${isOpen(d)?`<div class="next">${ns?`<em>Prochaine étape :</em> ${esc(ns)}`:"<em>Toutes les étapes sont faites, le dossier peut être clos.</em>"}${ot.length?` <em>· ${ot.length} chose${ot.length>1?"s":""} à faire</em>`:""}</div>`:""}
@@ -652,7 +679,7 @@ function render(){
   if(view==="fac"){facView(m);return}
   if(view==="pros"){prosView(m);return}
   if(view==="prio"){
-    const openS=open.filter(inSec);
+    const openSec=open.filter(inSec), openS=openSec.filter(inAtt);
     const PF=[["urg","urgents",d=>urgency(d).l===3,"c"],["surv","à surveiller",d=>urgency(d).l===2,"w"],["oubli","oubliés",oublie,"o"],["tous","dossiers ouverts",()=>true,""]];
     if(!PF.some(x=>x[0]===pF))pF="tous";
     const cur=PF.find(x=>x[0]===pF);
@@ -660,7 +687,7 @@ function render(){
     const bkOld=me.role==="equipe"&&(!sauvegarde.lastAt||daysSince(sauvegarde.lastAt)>30);
     m.innerHTML=`${bkOld?`<div class="band" style="margin-bottom:10px;display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap"><span>💾 ${sauvegarde.lastAt?"Dernière sauvegarde il y a plus d'un mois.":"Aucune sauvegarde de secours pour l'instant."}</span><button class="lnk" type="button" id="bkGo">Faire la sauvegarde</button></div>`:""}
     <div class="summary s4">${PF.map(([k,l,f,c])=>`<button type="button" class="sum ${c}" data-pf="${k}" aria-pressed="${pF===k}"><b>${openS.filter(f).length}</b><span>${l}</span></button>`).join("")}</div>
-    <div class="filters">${secChips(open)}</div>
+    <div class="filters">${secChips(open)}${attChips(openSec)}</div>
     <div class="sec-title"><span>${pF==="tous"?"Tous les dossiers ouverts":pF==="oubli"?"Oubliés · sans action depuis plus de 7 jours":"Seulement les "+cur[1]}</span><span>${sorted.length}</span></div>
     ${sorted.length?`<div class="list">${sorted.map(card).join("")}</div>`:`<div class="empty">${open.length?"Aucun dossier dans cette sélection.":"Aucun dossier ouvert. Quand un problème arrive dans un logement, appuyez sur « Signaler un souci » : il apparaîtra ici, classé par urgence."}</div>`}`;
     if($("#bkGo"))$("#bkGo").onclick=openAccount;
@@ -671,13 +698,14 @@ function render(){
     const inF=(d,k)=>k==="clos"?d.statut==="clos":k==="info"?d.statut==="info":(view==="lit"?d.statut!=="clos":isOpen(d));
     let list=dossiers.filter(d=>inTab(d)&&inF(d,fType));
     if(fLog)list=list.filter(d=>norm(d.logement)===norm(fLog));
-    const avantSec=list;list=list.filter(inSec);
+    const avantSec=list;list=list.filter(inSec);const avantAtt=list;list=list.filter(inAtt);
     if(fQ){const q=norm(fQ);list=list.filter(d=>norm([d.titre,d.logement,d.categorie].join(" ")).includes(q))}
     list.sort(fType!=="ouverts"?(a,b)=>(Date.parse(b.updatedAt||0)||0)-(Date.parse(a.updatedAt||0)||0):byUrgency);
     m.innerHTML=`<div class="filters">
       <div class="seg ${FT.length===3?"st3":""}">${FT.map(([k,l])=>`<button type="button" data-ft="${k}" aria-pressed="${fType===k}"><i class="sd"></i>${l} · ${dossiers.filter(d=>inTab(d)&&inF(d,k)).length}</button>`).join("")}</div>
       <input type="search" id="fQ" placeholder="Chercher un logement, un problème…" value="${esc(fQ)}">
       ${secChips(avantSec)}
+      ${fType==="clos"?"":attChips(avantAtt)}
       ${fLog?`<div class="chips"><button class="chip" type="button" aria-pressed="true" id="clearLog">${esc(fLog)} ✕</button></div>`:""}
     </div>
     ${list.length?(fType!=="ouverts"?byMonth(list):`<div class="list">${list.map(card).join("")}</div>`):`<div class="empty">${fType==="info"?"Aucun dossier « info ». Utilisez ce statut pour une remarque à garder en mémoire, sans action à faire.":"Aucun "+(view==="lit"?"litige":"dossier")+" "+(fType==="clos"?"clos":"ouvert")+"."}</div>`}`;
@@ -749,6 +777,10 @@ function renderDetail(){
   ${(d.fichiers||[]).length?`<div class="box"><h3>Documents PDF</h3><div class="pdfs">${d.fichiers.map(x=>`<div class="pdfl"><span class="ic">PDF</span><a href="${blob(x.id)}" target="_blank" rel="noopener">${esc(x.name||"Document PDF")}</a></div>`).join("")}</div></div>`:""}
   ${d.auditId&&audits.some(x=>x.id===d.auditId)?`<button class="btn" type="button" data-aud="${esc(d.auditId)}">Voir l'audit d'origine</button>`:""}
   ${d.menageId&&menages.some(x=>x.id===d.menageId)?`<button class="btn" type="button" data-men="${esc(d.menageId)}">Voir le ménage d'origine</button>`:""}
+  ${isOpen(d)||(d.type==="litige"&&d.statut!=="clos")?(()=>{const a=attenteOf(d),man=d.attente&&d.attente!=="aucun"?d.attente:"";
+    return `<div class="box"><h3>On attend sur qui ?</h3><div class="pick">${[...ATT,["aucun","Personne"]].map(([k,l])=>`<button type="button" data-attd="${k}" aria-pressed="${d.attente===k}">${esc(l)}</button>`).join("")}</div>
+    ${d.attente==="autre"?`<div class="field"><label for="attNom">Nom de l'intervenant</label><input type="text" id="attNom" value="${esc(d.attenteAutre||"")}" placeholder="Ex. : Plombier Dupont, propriétaire, serrurier…" maxlength="80"></div>`:""}
+    <span class="hint">${a&&a.auto?`Déduit automatiquement : <b>${esc(attLabel(a))}</b> (${esc(a.why)}). Touchez un nom pour choisir vous-même.`:man?"Choisi à la main. Touchez à nouveau le nom pour revenir au choix automatique.":d.attente==="aucun"?"On n'attend sur personne. Touchez à nouveau « Personne » pour revenir au choix automatique.":"Rien n'a pu être déduit des étapes : choisissez sur qui on attend."}</span></div>`})():""}
   ${d.type!=="litige"?`<div class="box"><h3>Qui s'en occupe ?</h3><div class="pick">${QUI.map(([k,l])=>`<button type="button" data-quis="${k}" aria-pressed="${d.quiIntervient===k}">${l}</button>`).join("")}</div><span class="hint">${QUI_HINT}</span></div>`:""}
   ${d.type==="litige"?litigeBox(d):`<div class="box"><div class="boxhead"><h3>Étapes</h3><button class="lnk" type="button" id="stEdit">${stepEdit?"Terminé":"Modifier les étapes"}</button></div><div>${steps.map(([k,l,lib])=>{const e=d.etapes?.[k];return `<div class="steprow"><label class="check ${e?.done?"done":""}"><input type="checkbox" data-step="${k}" ${e?.done?"checked":""}><span><span class="t">${esc(l)}</span>${e?.done?`<span class="who">fait le ${fmtAt(e.at)}</span>`:""}</span></label>${stepEdit?`<button class="stdel" type="button" data-delstep="${esc(k)}" data-lib="${lib?1:""}" aria-label="Supprimer l'étape ${esc(l)}">✕</button>`:""}</div>`}).join("")||`<div class="hint">Aucune étape.</div>`}</div>
     ${stepEdit?`<div class="addrow"><input type="text" id="stNew" placeholder="Nouvelle étape, ex. : Clés récupérées" maxlength="120"><button class="btn" type="button" id="stAdd">Ajouter</button></div>${hidN?`<button class="lnk" type="button" id="stBack" style="align-self:flex-start">Rétablir ${hidN>1?"les "+hidN+" étapes retirées":"l'étape retirée"}</button>`:""}`:""}</div>`}
@@ -773,6 +805,8 @@ function renderDetail(){
   $("#nAdd").onclick=()=>{const t=$("#nTxt").value.trim();if(!t)return toast("La note est vide");$("#nTxt").value="";patch(d,{notes:{["n"+Date.now().toString(36)]:{texte:t,at:nowIso()}}},"Note ajoutée")};
   $("#editBtn").onclick=()=>openForm(d);
   if(d.type==="litige")bindLitige(d);
+  s.querySelectorAll("[data-attd]").forEach(b=>b.onclick=()=>{const k=d.attente===b.dataset.attd?null:b.dataset.attd;patch(d,{attente:k},k?(k==="aucun"?"On n'attend sur personne":"On attend sur : "+(ATT.find(x=>x[0]===k)||[,"Personne"])[1]):"Retour au choix automatique")});
+  if($("#attNom"))$("#attNom").onchange=e=>patch(d,{attenteAutre:e.target.value.trim()||null},"Intervenant enregistré");
   s.querySelectorAll("[data-quis]").forEach(b=>b.onclick=()=>{const k=d.quiIntervient===b.dataset.quis?null:b.dataset.quis;
     const extra=k==="nous"?{urgent:true,statut:"ouvert",closLe:null}:k==="proprietaire"?{urgent:false,statut:"info",closLe:null}:{};
     patch(d,{quiIntervient:k,...extra},k==="nous"?"Pris en charge par la conciergerie · urgent":k==="proprietaire"?"Géré par le propriétaire · classé en Info":"Enregistré")});
@@ -1663,7 +1697,7 @@ function openLogForm(id){
 /* ---------- events ---------- */
 function closeSheet(){if(prosCur){prosFlush();prosOpen=null;prosCur=null}const s=$("#sheet");s.hidden=true;s.innerHTML="";auditOpen=null;openId=null;formState=null;logOpen=null;retLog=null;menOpen=null;startForm=false;degForm=false;editKey=null;addRub=false;render()}
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-open],[data-close],[data-view],[data-ft],[data-log],[data-edlog],[data-men],[data-mode],[data-lstab],[data-thumb],[data-delph],[data-aud],[data-pf],[data-sec]");if(!t)return;
+  const t=e.target.closest("[data-open],[data-close],[data-view],[data-ft],[data-log],[data-edlog],[data-men],[data-mode],[data-lstab],[data-thumb],[data-delph],[data-aud],[data-pf],[data-sec],[data-att]");if(!t)return;
   if(t.dataset.aud){openAudit(t.dataset.aud);return}
   if(t.dataset.thumb){$("#lbImg").src=blob(t.dataset.thumb);$("#lb").hidden=false;return}
   if(t.dataset.delph){delPhoto(t.dataset.delph);return}
@@ -1677,6 +1711,7 @@ document.addEventListener("click",e=>{
   else if(t.dataset.ft){fType=t.dataset.ft;render()}
   else if(t.dataset.pf){pF=t.dataset.pf;render()}
   else if(t.dataset.sec!=null){fSec=t.dataset.sec;render()}
+  else if(t.dataset.att!=null&&!t.closest(".sheet")){fAtt=t.dataset.att;render()}
   else if(t.dataset.edlog)openLogForm(t.dataset.edlog);
   else if(t.dataset.log)openLogSheet(t.dataset.log);
 });
