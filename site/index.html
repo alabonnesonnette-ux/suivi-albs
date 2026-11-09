@@ -171,7 +171,10 @@ textarea{min-height:76px;resize:vertical}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:14px;z-index:30;max-width:90vw}
 .brandrow{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .logobar{display:flex;justify-content:center;padding-top:12px}
-.logobar img{display:block;width:420px;max-width:100%;height:auto;aspect-ratio:1200/628;border-radius:14px;background:#fff;box-shadow:0 1px 3px rgb(0 0 0/.08)}
+/* Mode sombre : le logo (noir) reste lisible sur un fond crème, le fichier n'est pas modifié */
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .logobar img,:root:not([data-theme="light"]) .authlogo.img img{background:#F3EDE0}}
+:root[data-theme="dark"] .logobar img,:root[data-theme="dark"] .authlogo.img img{background:#F3EDE0}
+.logobar img{display:block;width:420px;max-width:100%;height:auto;aspect-ratio:1200/628;border-radius:14px}
 .tabs button{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:68px}
 .tabs button svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .tabs button[aria-selected="true"] svg{color:var(--brand)}
@@ -179,7 +182,7 @@ textarea{min-height:76px;resize:vertical}
 .brandrow .brand{flex:1;min-width:0}
 .brand{margin:0;font-family:var(--f-body);font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
 .authlogo.img{width:auto;height:auto;background:none;padding:0;box-shadow:none}
-.authlogo.img img{display:block;width:320px;max-width:100%;height:auto;aspect-ratio:1200/628;border-radius:14px;background:#fff;box-shadow:0 1px 3px rgb(0 0 0/.08)}
+.authlogo.img img{display:block;width:320px;max-width:100%;height:auto;aspect-ratio:1200/628;border-radius:14px}
 .modebtn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;white-space:nowrap;max-width:55%;min-width:0}
 .modebtn span{overflow:hidden;text-overflow:ellipsis}
 .modebtn .dot{width:8px;height:8px;border-radius:50%;background:var(--gold);flex:none}
