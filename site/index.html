@@ -170,17 +170,17 @@ textarea{min-height:76px;resize:vertical}
 .audit .hint{color:inherit;opacity:.85}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:14px;z-index:30;max-width:90vw}
 .brandrow{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.logobar{display:flex;justify-content:center;padding-top:12px}
+.brandcol{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0}
+.logobar{display:flex;justify-content:flex-start;overflow:hidden;border-radius:10px}
 /* Mode sombre : le logo (noir) reste lisible sur un fond crème, le fichier n'est pas modifié */
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .logobar img,:root:not([data-theme="light"]) .authlogo.img img{background:#F3EDE0}}
-:root[data-theme="dark"] .logobar img,:root[data-theme="dark"] .authlogo.img img{background:#F3EDE0}
-.logobar img{display:block;width:420px;max-width:100%;height:auto;aspect-ratio:1200/628;border-radius:14px}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .logobar,:root:not([data-theme="light"]) .authlogo.img img{background:#F3EDE0}}
+:root[data-theme="dark"] .logobar,:root[data-theme="dark"] .authlogo.img img{background:#F3EDE0}
+.logobar img{display:block;width:210px;max-width:100%;margin:-20px -8px -18px -10px;height:auto;aspect-ratio:1200/628;border-radius:14px}
 .tabs button{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:68px}
 .tabs button svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .tabs button[aria-selected="true"] svg{color:var(--brand)}
 .tabs button[data-view="pros"][aria-selected="true"] svg{color:var(--ink)}
-.brandrow .brand{flex:1;min-width:0}
-.brand{margin:0;font-family:var(--f-body);font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.brand{margin:0;font-family:var(--f-body);font-size:10.5px;font-weight:600;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
 .authlogo.img{width:auto;height:auto;background:none;padding:0;box-shadow:none}
 .authlogo.img img{display:block;width:320px;max-width:100%;height:auto;aspect-ratio:1200/628;border-radius:14px}
 .modebtn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;white-space:nowrap;max-width:55%;min-width:0}
@@ -289,9 +289,8 @@ details.pers .list{margin-top:10px}
 
 
 <div class="wrap">
-  <div class="logobar"><img src="logo-albs.png" alt="À La Bonne Sonnette, conciergerie" width="1200" height="628"></div>
   <header class="top">
-    <div class="brandrow"><h1 class="brand">Suivi · litiges, ménages &amp; logements</h1><button class="modebtn" id="modeBtn" type="button"><i class="dot"></i><span id="modeLbl">Équipe</span></button></div>
+    <div class="brandrow"><div class="brandcol"><div class="logobar"><img src="logo-albs.png" alt="À La Bonne Sonnette, conciergerie" width="1200" height="628"></div><h1 class="brand">Suivi · litiges, ménages &amp; logements</h1></div><button class="modebtn" id="modeBtn" type="button"><i class="dot"></i><span id="modeLbl">Équipe</span></button></div>
     <nav class="tabs" role="tablist" id="tabs"></nav>
   </header>
   <main id="main"><div class="empty">Chargement des dossiers partagés…</div></main>
