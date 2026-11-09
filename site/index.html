@@ -111,6 +111,18 @@ button.sum[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1
 .attline b{color:inherit}
 .chip.attc[aria-pressed="true"],.pick button.attc[aria-pressed="true"]{background:var(--ac);border-color:var(--ac);color:var(--surface)}
 .chip.attc[aria-pressed="true"] .adot,.pick button.attc[aria-pressed="true"] .adot{background:var(--surface)}
+.stepwrap{border-top:1px solid var(--line)}
+.stepwrap:first-child{border-top:0}
+.stepwrap .steprow{border-top:0}
+.quichip{flex:none;display:inline-flex;align-items:center;border:1px solid var(--ac,var(--line));background:var(--ac-bg,var(--surface));color:var(--ac,var(--muted));border-radius:999px;padding:4px 10px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;max-width:48%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.quichip.vide{border-style:dashed;background:none;color:var(--muted)}
+.quichip.fait{opacity:.55}
+.quichip[aria-expanded="true"]{box-shadow:0 0 0 2px var(--ink)}
+.quipick{display:flex;flex-direction:column;gap:8px;background:var(--sunk);border-radius:10px;padding:10px;margin-block:4px 10px}
+.lhead{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.attbox{border-left:4px solid var(--ac,var(--line))}
+.attnow{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.attnow b{text-align:right}
 .att-libre .adot{background:none;border:1.5px dashed var(--ac)}
 .chiplbl{font-size:12px;font-weight:600;color:var(--muted);align-self:center;margin-right:2px}
 .attchips{margin-top:2px}
@@ -400,7 +412,7 @@ const STEPS={
 let mode="equipe", moi="";
 let db=null, view=mode==="menage"?"mm":"prio", fLog=null, fType="ouverts", fCat="", fQ="", fSec="", pF="tous", fAtt="";
 let menages=[], cfgM={protocole:[],equipe:[]}, assets=null, downloads=null;
-let stepEdit=false, entEdit=false, entDraft=null, entUp={}, rqForm=false, rqDel=null, menBack=null, lsTab="suivi", editKey=null, addRub=false, histOpen=null, menOpen=null, degForm=false, uploading={}, recapMois=null, startForm=false;
+let sqOpen=null, sqAutre=null, stepEdit=false, entEdit=false, entDraft=null, entUp={}, rqForm=false, rqDel=null, menBack=null, lsTab="suivi", editKey=null, addRub=false, histOpen=null, menOpen=null, degForm=false, uploading={}, recapMois=null, startForm=false;
 const ICO={
  prio:'<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>',
  dos:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
@@ -463,22 +475,31 @@ const inSec=d=>!fSec||secOf(d)===fSec;
 const ATT=[["menage","Équipe ménage"],["plateforme","Plateforme (Airbnb / Booking)"],["franck","Franck"],["ph","PH"],["julien","Julien"],["manon","Manon"],["marion","Marion"],["proprietaire","Propriétaire"],["autre","Autre intervenant"]];
 const attLabel=a=>!a?"":a.k==="autre"?(a.nom||"Autre intervenant"):a.k==="plateforme"&&a.nom?a.nom:(ATT.find(x=>x[0]===a.k)||[,""])[1];
 function attFromName(n){const v=norm(n||"");if(!v)return null;if(/(^|\W)ph(\W|$)/.test(v))return{k:"ph"};for(const k of ["franck","julien","manon","marion"])if(v.includes(k))return{k};if(/m[ée]nage|femme de/.test(v))return{k:"menage"};return{k:"autre",nom:n.trim()}}
+/* Chaque étape a sa personne : « on attend sur » = la personne de la première étape pas encore faite */
+function curStep(d){
+  if(d.type==="litige"){const x=litSteps(d).find(x=>!x[2]);return x?{k:x[0],l:x[1]}:null}
+  const x=stepsOf(d).find(([k])=>!d.etapes?.[k]?.done);return x?{k:x[0],l:x[1]}:null}
+function defQui(d,k){
+  if(d.type==="litige"){if(k==="declare")return{k:"franck"};if(k==="decision")return{k:"plateforme",nom:d.plateforme||null};return null}
+  if(k==="fait"){if(d.quiIntervient==="proprietaire")return{k:"proprietaire"};if(d.categorie==="Ménage")return{k:"menage"};return attFromName(d.intervenant)}
+  return null}
+function quiStep(d,k){const v=(d.etapesQui||{})[k];
+  if(v==="aucun")return{k:"aucun",auto:false};
+  if(v){if(v.startsWith("autre:"))return{k:"autre",nom:v.slice(6),auto:false};return{k:v,nom:v==="plateforme"?d.plateforme||null:null,auto:false}}
+  const q=defQui(d,k);return q?{...q,auto:true}:null}
 function attenteOf(d){
   if(d.statut==="clos"||d.statut==="info")return null;
-  if(d.attente==="aucun")return null;
-  if(d.attente)return{k:d.attente,nom:d.attente==="autre"?(d.attenteAutre||""):null,auto:false};
-  let a=null,why="";
-  if(d.type==="litige"){
-    if(!declared(d)){a={k:"franck"};why="le litige n'est pas encore déclaré"}
-    else if(decOf(d)==="attente"){a={k:"plateforme",nom:d.plateforme||null};why="la plateforme n'a pas encore décidé"}
-  } else {
-    const st=stepsOf(d).map(x=>x[0]),done=k=>!!d.etapes?.[k]?.done;
-    if(d.quiIntervient==="proprietaire"){a={k:"proprietaire"};why="le propriétaire s'en occupe"}
-    else if(d.categorie==="Ménage"&&!(st.includes("fait")&&done("fait"))){a={k:"menage"};why="remarque de ménage pas encore réglée"}
-    else if(st.includes("fait")&&!done("fait")&&(!st.includes("commande")||done("commande"))){a=attFromName(d.intervenant);why="intervention pas encore faite"}
-  }
-  return a?{...a,auto:true,why}:null}
-const attKey=d=>{const a=attenteOf(d);return a?a.k:"libre"};
+  const cs=curStep(d);if(!cs)return null;
+  const q=quiStep(d,cs.k);if(!q||q.k==="aucun")return null;
+  return{...q,step:cs.l}}
+const attKey=d=>{if(d.statut==="clos"||d.statut==="info")return"fini";const cs=curStep(d);if(!cs)return"fini";const q=quiStep(d,cs.k);return q?(q.k==="aucun"?"aucun":q.k):"libre"};
+/* Pastille « qui » d'une étape, et son sélecteur */
+function quiChip(d,k,done){const q=quiStep(d,k);
+  return `<button type="button" class="quichip ${q&&q.k!=="aucun"?"att-"+q.k:"vide"} ${done?"fait":""}" data-sq="${esc(k)}" aria-expanded="${sqOpen===k}" aria-label="Choisir sur qui on attend pour cette étape">${q&&q.k!=="aucun"?`<i class="adot"></i>${esc(attLabel(q))}`:q?"Personne":"+ qui ?"}</button>`}
+function quiPicker(d,k){if(sqOpen!==k)return"";const v=(d.etapesQui||{})[k]||"",cur=sqAutre===k||v.startsWith("autre:")?"autre":v;
+  return `<div class="quipick"><div class="pick">${[...ATT,["aucun","Personne"]].map(([a,l])=>`<button type="button" class="attc att-${a}" data-sqv="${a}" aria-pressed="${cur===a}">${a!=="aucun"?'<i class="adot"></i>':""}${esc(l)}</button>`).join("")}</div>
+    ${cur==="autre"?`<div class="addrow"><input type="text" id="sqNom" value="${esc(v.slice(6))}" placeholder="Nom : plombier, serrurier…" maxlength="80"><button class="btn" type="button" id="sqOk">OK</button></div>`:""}
+    ${v?`<button class="lnk" type="button" data-sqv="" style="align-self:flex-start">Revenir au choix automatique</button>`:""}</div>`}
 const attChips=list=>{const opts=[["","Tout le monde"],...ATT,["libre","À attribuer"]].map(([k,l])=>[k,k==="plateforme"?"Plateformes":l,k?list.filter(d=>attKey(d)===k).length:list.length]).filter(([k,,n])=>!k||n||fAtt===k);
   return `<div class="chips attchips" role="group" aria-label="On attend sur qui"><span class="chiplbl">On attend sur :</span>${opts.map(([k,l,n])=>`<button class="chip ${k?"attc att-"+k:""}" type="button" data-att="${k}" aria-pressed="${fAtt===k}">${k?'<i class="adot"></i>':""}${esc(l)}${k?" · "+n:""}</button>`).join("")}</div>`};
 const inAtt=d=>!fAtt||attKey(d)===fAtt;
@@ -513,7 +534,7 @@ const DECS=[["attente","En attente"],["accepte","Accepté"],["refuse","Refusé"]
 const decOf=d=>d.decision||(d.etapes?.accepte?.done?"accepte":"attente");
 const declared=d=>!!(d.dateDeclaration||d.etapes?.declare?.done);
 const num=v=>{const x=parseFloat(String(v??"").replace(/\s/g,"").replace(",","."));return isNaN(x)?null:x};
-function litSteps(d){const dec=decOf(d);return[["declare","Déclarer le litige",declared(d)],["proprio","Informer le propriétaire du litige",!!d.etapes?.proprio?.done],["decision","Attendre la décision",dec!=="attente"],...(dec==="accepte"?[["proprioFin","Prévenir le propriétaire du paiement",!!d.etapes?.proprioFin?.done]]:[])]}
+function litSteps(d){const dec=decOf(d);return[["declare","Déclarer le litige",declared(d)],["decision","Attendre la décision",dec!=="attente"],["proprio","Informer le propriétaire du litige",!!d.etapes?.proprio?.done],...(dec==="accepte"?[["proprioFin","Prévenir le propriétaire du paiement",!!d.etapes?.proprioFin?.done]]:[])]}
 function decBadge(d){const dec=decOf(d);if(dec==="attente")return "";const lab=DECS.find(x=>x[0]===dec)[1];return `<span class="dec dec-${dec}">${lab}${dec==="accepte"&&d.montantRecu!=null?" · "+eur(d.montantRecu):""}</span>`}
 /* ---------- urgency ---------- */
 function deadlineOf(d){if(d.type!=="litige")return null;return d.dateLimite||(d.depart?addDays(d.depart,14):d.dateIncident?addDays(d.dateIncident,14):null)}
@@ -762,7 +783,7 @@ function render(){
 }
 
 /* ---------- detail ---------- */
-function openDetail(id){if(id!==openId)stepEdit=false;if(logOpen){retLog=logOpen;logOpen=null}menOpen=null;menBack=null;auditOpen=null;openId=id;formState=null;$("#sheet").hidden=false;renderDetail()}
+function openDetail(id){if(id!==openId){stepEdit=false;sqOpen=null;sqAutre=null}if(logOpen){retLog=logOpen;logOpen=null}menOpen=null;menBack=null;auditOpen=null;openId=id;formState=null;$("#sheet").hidden=false;renderDetail()}
 function renderDetail(){
   const d=dossiers.find(x=>x.id===openId);const s=$("#sheet");
   const keep={tTxt:$("#tTxt")?.value||"",tDue:$("#tDue")?.value||"",nTxt:$("#nTxt")?.value||""},sy=s.scrollTop;
@@ -796,11 +817,13 @@ function renderDetail(){
   ${(d.fichiers||[]).length?`<div class="box"><h3>Documents PDF</h3><div class="pdfs">${d.fichiers.map(x=>`<div class="pdfl"><span class="ic">PDF</span><a href="${blob(x.id)}" target="_blank" rel="noopener">${esc(x.name||"Document PDF")}</a></div>`).join("")}</div></div>`:""}
   ${d.auditId&&audits.some(x=>x.id===d.auditId)?`<button class="btn" type="button" data-aud="${esc(d.auditId)}">Voir l'audit d'origine</button>`:""}
   ${d.menageId&&menages.some(x=>x.id===d.menageId)?`<button class="btn" type="button" data-men="${esc(d.menageId)}">Voir le ménage d'origine</button>`:""}
-  ${isOpen(d)||(d.type==="litige"&&d.statut!=="clos")?(()=>{const a=attenteOf(d),man=d.attente&&d.attente!=="aucun"?d.attente:"";
-    return `<div class="box"><h3>On attend sur qui ?</h3><div class="pick">${[...ATT,["aucun","Personne"]].map(([k,l])=>`<button type="button" class="attc att-${k}" data-attd="${k}" aria-pressed="${d.attente===k}">${k!=="aucun"?'<i class="adot"></i>':""}${esc(l)}</button>`).join("")}</div>
-    ${d.attente==="autre"?`<div class="field"><label for="attNom">Nom de l'intervenant</label><input type="text" id="attNom" value="${esc(d.attenteAutre||"")}" placeholder="Ex. : Plombier Dupont, propriétaire, serrurier…" maxlength="80"></div>`:""}
-    <span class="hint">${a&&a.auto?`Déduit automatiquement : <b>${esc(attLabel(a))}</b> (${esc(a.why)}). Touchez un nom pour choisir vous-même.`:man?"Choisi à la main. Touchez à nouveau le nom pour revenir au choix automatique.":d.attente==="aucun"?"On n'attend sur personne. Touchez à nouveau « Personne » pour revenir au choix automatique.":"Rien n'a pu être déduit des étapes : choisissez sur qui on attend."}</span></div>`})():""}
-  ${d.type==="litige"?litigeBox(d):`<div class="box"><div class="boxhead"><h3>Étapes</h3><button class="lnk" type="button" id="stEdit">${stepEdit?"Terminé":"Modifier les étapes"}</button></div><div>${steps.map(([k,l,lib])=>{const e=d.etapes?.[k];return `<div class="steprow"><label class="check ${e?.done?"done":""}"><input type="checkbox" data-step="${k}" ${e?.done?"checked":""}><span><span class="t">${esc(l)}</span>${e?.done?`<span class="who">fait le ${fmtAt(e.at)}</span>`:""}</span></label>${stepEdit?`<button class="stdel" type="button" data-delstep="${esc(k)}" data-lib="${lib?1:""}" aria-label="Supprimer l'étape ${esc(l)}">✕</button>`:""}</div>`}).join("")||`<div class="hint">Aucune étape.</div>`}</div>
+  ${d.statut!=="clos"&&d.statut!=="info"?(()=>{const cs=curStep(d);if(!cs)return"";const q=quiStep(d,cs.k);
+    return `<div class="box attbox ${q&&q.k!=="aucun"?"att-"+q.k:""}"><h3>On attend sur qui ?</h3>
+    <div class="attnow"><span class="lbl">Étape en cours</span><b>${esc(cs.l)}</b></div>
+    <div class="attnow"><span class="lbl">On attend sur</span>${quiChip(d,cs.k,false)}</div>
+    ${quiPicker(d,cs.k)}
+    <span class="hint">${q&&q.auto?"Choisi automatiquement. ":""}Chaque étape a sa personne : quand l'étape est cochée, on passe tout seul à la personne de l'étape suivante. Touchez la pastille d'une étape pour la changer.</span></div>`})():""}
+  ${d.type==="litige"?litigeBox(d):`<div class="box"><div class="boxhead"><h3>Étapes</h3><button class="lnk" type="button" id="stEdit">${stepEdit?"Terminé":"Modifier les étapes"}</button></div><div>${steps.map(([k,l,lib])=>{const e=d.etapes?.[k];return `<div class="stepwrap"><div class="steprow"><label class="check ${e?.done?"done":""}"><input type="checkbox" data-step="${k}" ${e?.done?"checked":""}><span><span class="t">${esc(l)}</span>${e?.done?`<span class="who">fait le ${fmtAt(e.at)}</span>`:""}</span></label>${stepEdit?`<button class="stdel" type="button" data-delstep="${esc(k)}" data-lib="${lib?1:""}" aria-label="Supprimer l'étape ${esc(l)}">✕</button>`:quiChip(d,k,!!e?.done)}</div>${stepEdit?"":quiPicker(d,k)}</div>`}).join("")||`<div class="hint">Aucune étape.</div>`}</div>
     ${stepEdit?`<div class="addrow"><input type="text" id="stNew" placeholder="Nouvelle étape, ex. : Clés récupérées" maxlength="120"><button class="btn" type="button" id="stAdd">Ajouter</button></div>${hidN?`<button class="lnk" type="button" id="stBack" style="align-self:flex-start">Rétablir ${hidN>1?"les "+hidN+" étapes retirées":"l'étape retirée"}</button>`:""}`:""}</div>`}
   <div class="box"><h3>Ce qu'il reste à faire</h3><div>${tasks.length?tasks.map(([id,t])=>{let due="";if(t.echeance&&!t.fait){const n=diff(t.echeance);due=`<span class="due ${n<0?"late":n<=1?"soon":"fine"}">${n<0?"En retard · prévu le "+fmt(t.echeance):"Pour le "+fmt(t.echeance)}</span>`}
       return `<label class="check ${t.fait?"done":""}"><input type="checkbox" data-task="${esc(id)}" ${t.fait?"checked":""}><span style="min-width:0;flex:1"><span class="t">${esc(t.texte)}</span><span class="who">${t.fait?"Fait le "+fmtAt(t.faitLe):due}</span></span><button class="btn ghost" type="button" data-deltask="${esc(id)}" aria-label="Retirer" style="padding:2px 8px">✕</button></label>`}).join(""):`<div class="hint">Rien pour l'instant. Ajoutez ce qui reste à faire, par exemple « Remplacer le lit ».</div>`}</div>
@@ -823,8 +846,11 @@ function renderDetail(){
   $("#nAdd").onclick=()=>{const t=$("#nTxt").value.trim();if(!t)return toast("La note est vide");$("#nTxt").value="";patch(d,{notes:{["n"+Date.now().toString(36)]:{texte:t,at:nowIso()}}},"Note ajoutée")};
   $("#editBtn").onclick=()=>openForm(d);
   if(d.type==="litige")bindLitige(d);
-  s.querySelectorAll("[data-attd]").forEach(b=>b.onclick=()=>{const k=d.attente===b.dataset.attd?null:b.dataset.attd;patch(d,{attente:k},k?(k==="aucun"?"On n'attend sur personne":"On attend sur : "+(ATT.find(x=>x[0]===k)||[,"Personne"])[1]):"Retour au choix automatique")});
-  if($("#attNom"))$("#attNom").onchange=e=>patch(d,{attenteAutre:e.target.value.trim()||null},"Intervenant enregistré");
+  s.querySelectorAll("[data-sq]").forEach(b=>b.onclick=e=>{e.preventDefault();sqOpen=sqOpen===b.dataset.sq?null:b.dataset.sq;sqAutre=null;renderDetail()});
+  s.querySelectorAll("[data-sqv]").forEach(b=>b.onclick=()=>{const k=sqOpen,v=b.dataset.sqv;if(!k)return;
+    if(v==="autre"){sqAutre=k;renderDetail();$("#sqNom")?.focus();return}
+    sqOpen=null;sqAutre=null;patch(d,{etapesQui:{[k]:v||null}},v?(v==="aucun"?"On n'attend sur personne pour cette étape":"On attend sur : "+(ATT.find(x=>x[0]===v)||[,""])[1]):"Retour au choix automatique")});
+  if($("#sqNom")){const ok=()=>{const k=sqOpen,n=$("#sqNom").value.trim();if(!n)return toast("Écrivez le nom de l'intervenant");sqOpen=null;sqAutre=null;patch(d,{etapesQui:{[k]:"autre:"+n}},"On attend sur : "+n)};$("#sqOk").onclick=ok;$("#sqNom").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();ok()}}}
   s.querySelectorAll("[data-quis]").forEach(b=>b.onclick=()=>{const k=d.quiIntervient===b.dataset.quis?null:b.dataset.quis;
     const extra=k==="nous"?{urgent:true,statut:"ouvert",closLe:null}:k==="proprietaire"?{urgent:false,statut:"info",closLe:null}:{};
     patch(d,{quiIntervient:k,...extra},k==="nous"?"Pris en charge par la conciergerie · urgent":k==="proprietaire"?"Géré par le propriétaire · classé en Info":"Enregistré")});
@@ -840,12 +866,12 @@ function litigeBox(d){
   const chk=(k,lab)=>`<label class="check" style="border:0;padding:0"><input type="checkbox" data-step="${k}" ${P[k]?.done?"checked":""}><span><span class="t">${lab}</span>${P[k]?.done?`<span class="who">fait le ${fmtAt(P[k].at)}</span>`:""}</span></label>`;
   const n=(i,ok)=>`<span class="pchk">${ok?"✓":i}</span>`;
   return `<div class="box"><h3>Résolution du litige</h3><div>
-  <div class="lstep ${st[0][2]?"done":""}">${n(1,st[0][2])}<div><b>Déclaration</b><div class="field"><label for="lDecl">Date de déclaration sur la plateforme</label><input type="date" id="lDecl" value="${esc(declDate)}"></div></div></div>
-  <div class="lstep ${st[1][2]?"done":""}">${n(2,st[1][2])}<div><b>Propriétaire</b>${chk("proprio","Propriétaire informé du litige")}</div></div>
-  <div class="lstep ${st[2][2]?"done":""}">${n(3,st[2][2])}<div><b>Décision</b><div class="decpick">${DECS.map(([k,l])=>`<button type="button" data-dec="${k}" aria-pressed="${dec===k}">${l}</button>`).join("")}</div>
+  <div class="lstep ${st[0][2]?"done":""}">${n(1,st[0][2])}<div><div class="lhead"><b>Déclaration</b>${quiChip(d,st[0][0],st[0][2])}</div>${quiPicker(d,st[0][0])}<div class="field"><label for="lDecl">Date de déclaration sur la plateforme</label><input type="date" id="lDecl" value="${esc(declDate)}"></div></div></div>
+  <div class="lstep ${st[1][2]?"done":""}">${n(2,st[1][2])}<div><div class="lhead"><b>Décision</b>${quiChip(d,st[1][0],st[1][2])}</div>${quiPicker(d,st[1][0])}<div class="decpick">${DECS.map(([k,l])=>`<button type="button" data-dec="${k}" aria-pressed="${dec===k}">${l}</button>`).join("")}</div>
     ${dec==="neutre"?`<span class="hint">Résolution neutre : pas de paiement. Si une réparation reste à faire, déclarez-la en suivi logement plus bas.</span>`:""}
     ${dec!=="attente"?`<div class="grid2">${dec==="accepte"?`<div class="field"><label for="lRecu">Montant reçu (€)</label><input type="text" inputmode="decimal" id="lRecu" value="${d.montantRecu!=null?esc(String(d.montantRecu)):""}" placeholder="Ex. : 80"></div>`:""}<div class="field"><label for="lDateDec">Date de la décision</label><input type="date" id="lDateDec" value="${esc(d.dateDecision||"")}"></div></div>`:""}</div></div>
-  ${dec==="accepte"?`<div class="lstep ${st[3][2]?"done":""}">${n(4,st[3][2])}<div><b>Paiement</b>${chk("proprioFin","Propriétaire prévenu que le litige a été payé")}</div></div>`:""}
+  <div class="lstep ${st[2][2]?"done":""}">${n(3,st[2][2])}<div><div class="lhead"><b>Propriétaire</b>${quiChip(d,st[2][0],st[2][2])}</div>${quiPicker(d,st[2][0])}${chk("proprio","Propriétaire informé du litige")}</div></div>
+  ${dec==="accepte"?`<div class="lstep ${st[3][2]?"done":""}">${n(4,st[3][2])}<div><div class="lhead"><b>Paiement</b>${quiChip(d,st[3][0],st[3][2])}</div>${quiPicker(d,st[3][0])}${chk("proprioFin","Propriétaire prévenu que le litige a été payé")}</div></div>`:""}
   <div class="lstep">${n("→",!!d.quiIntervient)}<div><b>Qui intervient ?</b><div class="pick">${[["nous","Nous (conciergerie)"],["proprietaire","Le propriétaire"],["aucun","Rien à faire"]].map(([k,l])=>`<button type="button" data-qui="${k}" aria-pressed="${d.quiIntervient===k}">${l}</button>`).join("")}</div><span class="hint">« Nous » crée un suivi <b style="color:var(--crit)">urgent</b> dans Dossiers. « Le propriétaire » le range en <b style="color:var(--warn)">Info</b>, dans Dossiers et dans la fiche du logement.</span></div></div>
   </div></div>`;
 }
