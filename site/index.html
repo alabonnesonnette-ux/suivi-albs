@@ -931,7 +931,10 @@ function renderForm(){
 function openLogSheet(nom){rqForm=false;rqDel=null;entEdit=false;entDraft=null;auditForm=false;auditOpen=null;editKey=null;addRub=false;histOpen=null;lsTab=mode==="menage"?"fiche":"suivi";menOpen=null;logOpen=nom;retLog=null;openId=null;formState=null;$("#sheet").hidden=false;renderLogSheet()}
 function renderLogSheet(){
   const nom=logOpen, l=logements.find(x=>norm(x.nom)===norm(nom)), s=$("#sheet"), sy=s.scrollTop;
-  const mine=dossiers.filter(d=>norm(d.logement)===norm(nom)), op=mine.filter(isOpen).sort(byUrgency), inf=mine.filter(d=>d.statut==="info"), cl=mine.filter(d=>d.statut==="clos");
+  const mine=dossiers.filter(d=>norm(d.logement)===norm(nom));
+  /* Les dossiers de catégorie « Ménage » sont rangés dans l'onglet Ménages du logement */
+  const isMen=d=>d.categorie==="Ménage", menD=l?mine.filter(isMen):[], hors=l?mine.filter(d=>!isMen(d)):mine;
+  const op=hors.filter(isOpen).sort(byUrgency), inf=hors.filter(d=>d.statut==="info"), cl=hors.filter(d=>d.statut==="clos");
   const keep={rubVal:$("#rubVal")?.value,rubLab:$("#rubLab")?.value,rubVis:$("#rubVis")?.checked,asTxt:$("#asTxt")?.value||""};
   const team=mode==="equipe", tab=!l?"suivi":(team?lsTab:"fiche");
   const head=`<div class="wrap"><div class="sheethead"><h2>${esc(l?.nom||nom)}</h2><button class="btn ghost" type="button" data-close>Fermer</button></div>
@@ -946,8 +949,15 @@ function renderLogSheet(){
     const RQ=Object.entries(l.remarquesMenage||{}).map(([id,r])=>({id,...r})).filter(r=>!r.supprime).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
     const rqBox=`<div class="box"><h3>Remarques ménage</h3>${rqForm?`<div class="field"><label for="rqTxt">Nouvelle remarque</label><textarea id="rqTxt" rows="4" placeholder="Ex. : bien détartrer la douche, le linge de lit se range dans l'armoire du couloir…"></textarea>${micBtn("rqTxt")}</div><div class="inline"><button class="btn pri" type="button" id="rqSave">Enregistrer</button><button class="btn ghost" type="button" id="rqCancel">Annuler</button></div>`:`<button class="btn" type="button" id="rqAdd">+ Ajouter une remarque</button>`}
       ${RQ.length?`<div class="list" style="margin-top:10px">${RQ.map(r=>`<div class="rq"><div><p>${esc(r.texte)}</p><small>${fmtAt(r.at)}${r.par?" · "+esc(r.par):""}</small></div><button class="btn ghost" type="button" data-rqdel="${esc(r.id)}" aria-label="Supprimer cette remarque" style="padding:2px 8px">${rqDel===r.id?"Confirmer":"✕"}</button></div>`).join("")}</div>`:(rqForm?"":`<div class="hint" style="margin-top:8px">Aucune remarque pour l'instant.</div>`)}</div><div class="sec-title"><span>Ménages réalisés</span></div>`;
-    s.innerHTML=head+rqBox+(ms.length?[...g.entries()].map(([k,a])=>`<div class="sec-title"><span>${MOIS[+k.slice(5)-1]} ${k.slice(0,4)}</span><span>${a.filter(x=>x.statut==="valide").length} validé${a.length>1?"s":""}</span></div><div class="list">${a.map(menCard).join("")}</div>`).join(""):`<div class="empty">Aucun ménage enregistré pour ce logement.</div>`)+`</div>`;s.scrollTop=sy;
+    const mOp=menD.filter(isOpen).sort(byUrgency),mInf=menD.filter(d=>d.statut==="info"),mCl=menD.filter(d=>d.statut==="clos");
+    const relBox=`<div class="sec-title"><span>Remarques ménage relevées</span><span>${mOp.length} en cours</span></div>
+      ${mOp.length?`<div class="list">${mOp.map(card).join("")}</div>`:`<div class="empty">Aucune remarque ménage en cours. Les problèmes signalés avec la catégorie « Ménage » se rangent ici.</div>`}
+      ${mInf.length?`<div class="sec-title"><span>Infos ménage</span><span>${mInf.length}</span></div><div class="list">${mInf.map(card).join("")}</div>`:""}
+      ${mCl.length?`<details class="pers"><summary>Remarques ménage closes · ${mCl.length}</summary>${byMonth(mCl)}</details>`:""}
+      <div class="inline" style="margin-top:10px"><button class="btn" type="button" id="lsNewMen">+ Signaler une remarque ménage</button></div>`;
+    s.innerHTML=head+rqBox.replace('<div class="sec-title"><span>Ménages réalisés</span></div>','')+relBox+'<div class="sec-title" style="margin-top:24px"><span>Ménages réalisés</span></div>'+(ms.length?[...g.entries()].map(([k,a])=>`<div class="sec-title"><span>${MOIS[+k.slice(5)-1]} ${k.slice(0,4)}</span><span>${a.filter(x=>x.statut==="valide").length} validé${a.length>1?"s":""}</span></div><div class="list">${a.map(menCard).join("")}</div>`).join(""):`<div class="empty">Aucun ménage enregistré pour ce logement.</div>`)+`</div>`;s.scrollTop=sy;
     if($("#rqAdd"))$("#rqAdd").onclick=()=>{rqForm=true;renderLogSheet();$("#rqTxt")?.focus()};
+    $("#lsNewMen").onclick=()=>{fLog=l.nom;const r=logOpen;openForm(null,"suivi",{categorie:"Ménage"});fLog=null;retLog=r};
     if($("#rqCancel"))$("#rqCancel").onclick=()=>{rqForm=false;renderLogSheet()};
     if($("#rqSave"))$("#rqSave").onclick=async()=>{const t=$("#rqTxt").value.trim();if(!t)return toast("Écrivez la remarque");$("#rqSave").disabled=true;
       try{await db.doc("logements/"+l.id).update({remarquesMenage:{["r"+Date.now().toString(36)]:{texte:t,at:nowIso(),par:who()}}});rqForm=false;toast("Remarque ajoutée");renderLogSheet()}catch(e){$("#rqSave").disabled=false;toast(failMsg(e))}};
@@ -966,6 +976,7 @@ function renderLogSheet(){
     <div class="field"><label for="orSame">Ou c'est le même logement que (nom mal écrit)</label><select id="orSame"><option value="">Choisir…</option>${[...logements].sort((a,b)=>a.nom.localeCompare(b.nom,"fr")).map(x=>`<option value="${esc(x.id)}">${esc(x.nom)}</option>`).join("")}</select></div>
     <div><button class="btn" type="button" id="orMerge">Regrouper avec ce logement</button></div></div>`:""}
   <div class="inline"><button class="btn pri" type="button" id="lsNew">+ Signaler un souci ici</button>${l?`<button class="btn" type="button" data-edlog="${esc(l.id)}">Modifier le logement</button>`:""}</div>
+  ${menD.length?`<button class="band" type="button" data-lstab="menages" style="display:block;width:100%;text-align:left;border:0;margin-top:10px;cursor:pointer">🧹 ${menD.filter(isOpen).length?menD.filter(isOpen).length+" remarque"+(menD.filter(isOpen).length>1?"s":"")+" ménage en cours":"Remarques ménage"} : voir l'onglet Ménages →</button>`:""}
   <div class="sec-title"><span>En cours</span><span>${op.length}</span></div>
   ${op.length?`<div class="list">${op.map(card).join("")}</div>`:`<div class="empty">Rien en cours pour ce logement.</div>`}
   ${inf.length?`<div class="sec-title" style="margin-top:24px"><span>Infos</span><span>${inf.length}</span></div>${byMonth(inf)}`:""}
