@@ -328,7 +328,22 @@ details.pers .list{margin-top:10px}
 .ynp button[data-v="oui"][aria-pressed="true"]{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
 .ynp button[data-v="non"][aria-pressed="true"]{background:var(--crit-bg);border-color:var(--crit);color:var(--crit)}
 .ynp button[data-v="na"][aria-pressed="true"]{background:var(--sunk);border-color:var(--muted);color:var(--ink)}
-.anok{display:flex;flex-direction:column;gap:8px;padding-left:30px}
+.anok{display:flex;flex-direction:column;gap:8px}
+.arow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.alab{flex:1;min-width:0;font-size:15px}
+.alab .who{display:block}
+.okko{display:flex;gap:6px;flex:none}
+.okko button{width:44px;height:40px;border:1.5px solid var(--line);background:var(--surface);border-radius:10px;font-size:20px;font-weight:700;line-height:1;color:var(--muted);cursor:pointer;padding:0}
+.okko .nab{width:40px;font-size:11.5px}
+.okko .okb[aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:#fff}
+.okko .kob[aria-pressed="true"]{background:var(--crit);border-color:var(--crit);color:#fff}
+.okko .nab[aria-pressed="true"]{background:var(--sunk);border-color:var(--muted);color:var(--ink)}
+.okko .okb{color:var(--ok)} .okko .kob{color:var(--crit)}
+.aitem.oui{background:linear-gradient(90deg,var(--ok-bg),transparent 70%);margin-inline:-14px;padding-inline:14px}
+.ptdos{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;font-weight:600;color:var(--crit);background:var(--surface);border:1px dashed var(--crit);border-radius:10px;padding:8px 10px}
+.pdfzone{display:flex;flex-direction:column;gap:6px;flex:1 1 100%;width:100%;margin-block:6px}
+.pdfzone .inline{flex-wrap:wrap}
+.pdfzone .inline>button{flex:1 1 calc(50% - 4px);min-width:0}
 .stats{display:flex;gap:6px;flex-wrap:wrap}
 .stats span{font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px}
 .gsec{border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:6px}
@@ -1191,10 +1206,11 @@ const KINDS={
   mnt:{flag:"maint",due:"due",idKey:"maintSuiviId",cat:"Maintenance",pref:"m_",titre:"Maintenance à prévoir",btn:"🔧 Maintenance",lab:"intervention",labs:"interventions",color:[45,106,159]},
   men:{flag:"menage",due:"dueMen",idKey:"menSuiviId",cat:"Ménage",pref:"e_",titre:"Ménage : points à reprendre",btn:"🧽 Ménage",lab:"point ménage",labs:"points ménage",color:[123,79,166]}};
 const kItems=(a,K)=>audItems(a).filter(it=>{const x=audSt(a,it.k);return x.controle&&x.rep==="non"&&x[KINDS[K].flag]});
+const kItemsG=(a,K)=>kItems(a,K).filter(it=>!audSt(a,it.k).suiviId);
 const kDoc=(a,K)=>a[KINDS[K].idKey]&&dossiers.find(d=>d.id===a[KINDS[K].idKey]);
 const inK=(a,K,k)=>{const d=kDoc(a,K);const t=d&&d.taches?.[KINDS[K].pref+k];return !!(t&&!t.supprime)};
 async function syncK(a,K,quiet){
-  const C=KINDS[K],F=kItems(a,K),ex=kDoc(a,K),now=nowIso();
+  const C=KINDS[K],F=kItemsG(a,K),ex=kDoc(a,K),now=nowIso();
   if(!F.length&&!ex){if(!quiet)toast("Aucun point marqué « "+C.cat.toLowerCase()+" »");return 0}
   const task=it=>{const x=audSt(a,it.k);return{texte:it.label+(x.note?" : "+x.note:"")+" ("+it.sec+")",echeance:x[C.due]||null}};
   const photos=[...new Set(F.flatMap(it=>audPhotos(a,it.k).map(p=>p.a)))];
@@ -1210,6 +1226,28 @@ async function syncK(a,K,quiet){
   Object.entries(ex.taches||{}).forEach(([k,t])=>{if(k.startsWith(C.pref)&&!keys.has(k)&&!t.supprime&&!t.fait)upd[k]={supprime:true}});
   await db.doc("dossiers/"+ex.id).update({taches:upd,photos:[...new Set([...(ex.photos||[]),...photos])],statut:ex.statut==="clos"&&F.some(it=>!ex.taches?.[C.pref+it.k]?.fait)?"ouvert":ex.statut,updatedAt:now});
   if(!quiet)toast("Suivi "+C.cat.toLowerCase()+" mis à jour · "+word);return n}
+/* Un point coché ✗ crée tout de suite son propre dossier (origine Audit), tenu à jour avec le point */
+const ptIds={},ptBusy={};
+async function syncPoint(a,k,patch={},addPh=[],rmPh=null){
+  const key=a.id+"|"+k;while(ptBusy[key])await ptBusy[key];
+  let done;ptBusy[key]=new Promise(r=>done=r);
+  try{
+    const it=audItems(a).find(x=>x.k===k);if(!it)return null;
+    const x={...audSt(a,k),...patch},id=x.suiviId||ptIds[key],ex=id&&dossiers.find(d=>d.id===id),now=nowIso();
+    const cat=x.menage&&!x.maint?"Ménage":x.maint?"Maintenance":"";
+    const photos=[...new Set([...audPhotos(a,k).map(p=>p.a),...addPh])].filter(v=>v!==rmPh);
+    const base={categorie:cat,titre:it.label,desc:x.note||"",photos,dateLimite:(x.maint&&x.due)||(x.menage&&x.dueMen)||null};
+    if(x.controle&&x.rep==="non"){
+      if(!id||(!ex&&!ptIds[key])){const ref=db.collection("dossiers").doc();ptIds[key]=ref.id;
+        await ref.set({type:"suivi",origine:"Audit",...base,logement:a.logement,dateIncident:a.date,mois:a.date.slice(0,7),urgent:false,statut:"ouvert",etapes:{signale:{done:true,at:now}},taches:{},
+          notes:{n0:{texte:"Point non conforme relevé à l'audit du "+fmt(a.date)+" ("+it.sec+").",at:now}},auditId:a.id,auditPoint:k,intervenant:null,montant:null,aFacturer:null,quiIntervient:null,creeLe:now,updatedAt:now});
+        await enqueue(()=>db.doc("audits/"+a.id).update({items:{[k]:{suiviId:ref.id}}}));return"cree"}
+      const upd={...base,updatedAt:now};if(ex&&ex.statut==="clos"&&ex.closParAudit){upd.statut="ouvert";upd.closLe=null;upd.closParAudit=false}
+      await db.doc("dossiers/"+id).update(upd);return upd.statut==="ouvert"?"rouvert":"maj"}
+    if(id&&ex&&ex.statut!=="clos"){await db.doc("dossiers/"+id).update({statut:"clos",closLe:now,closParAudit:true,updatedAt:now,notes:{["n"+Date.now().toString(36)]:{texte:"Point repassé "+(x.rep==="oui"?"conforme":x.rep==="na"?"non concerné":"non contrôlé")+" dans l'audit du "+fmt(a.date)+".",at:now}}});return"clos"}
+    return null
+  }catch(e){toast(failMsg(e));return null}finally{ptBusy[key]=null;done()}}
+const ptHas=(a,k)=>!!(audSt(a,k).suiviId||ptIds[a.id+"|"+k]);
 async function syncAll(a){const n1=await syncK(a,"mnt",true),n2=await syncK(a,"men",true);const p=[];if(n1)p.push(n1+" maintenance"+(n1>1?"s":""));if(n2)p.push(n2+" point"+(n2>1?"s":"")+" ménage");toast(p.length?"Suivis mis à jour : "+p.join(" · "):"Aucun point marqué maintenance ou ménage")}
 function menageText(a){const F=kItems(a,"men"),L=["Récap ménage · "+a.logement,"Audit du "+fmtLong(a.date),""];if(!F.length)L.push("Aucun point ménage à reprendre. Merci !");else{L.push("Points à reprendre :");for(const it of F){const x=audSt(a,it.k);L.push("- "+it.label+(x.note?" : "+x.note:"")+(x.dueMen?" (avant le "+fmt(x.dueMen)+")":""))}}L.push("","À La Bonne Sonnette");return L.join("\n")}
 function openAudit(id){const r=logOpen||retLog;openId=null;formState=null;logOpen=null;menOpen=null;retLog=r;auditOpen=id;$("#sheet").hidden=false;$("#sheet").scrollTop=0;renderAudit()}
@@ -1225,40 +1263,48 @@ function renderAudit(){
   <div class="prog"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline"><span class="big">${st.c} / ${st.tot} contrôlés</span><span class="hint">${pct} %</span></div><div class="bar" style="background:var(--sunk)"><i style="width:${pct}%"></i></div>
     <div class="stats"><span class="dec-accepte">${st.ok} conforme${st.ok>1?"s":""}</span><span class="dec-refuse">${st.nok} non conforme${st.nok>1?"s":""}</span><span class="dec-neutre">${st.na} non concerné${st.na>1?"s":""}</span></div></div>
   ${(a.grille||[]).map(g=>{const its=g.items,c=its.filter(it=>audSt(a,it.k).controle).length;return `<div class="box"><h3 style="display:flex;justify-content:space-between"><span>${esc(g.titre)}</span><span>${c}/${its.length}</span></h3><div>
-    ${its.map(it=>{const x=audSt(a,it.k),ph=audPhotos(a,it.k),up=audUp[a.id+"|"+it.k];return `<div class="aitem ${x.controle&&x.rep==="non"?"non":""}">
-      <label class="check"><input type="checkbox" data-actl="${esc(it.k)}" ${x.controle?"checked":""}><span><span class="t" style="text-decoration:none;color:var(--ink)">${esc(it.label)}</span>${x.controle&&!x.rep?`<span class="who">Contrôlé · bien fait ?</span>`:""}</span></label>
-      ${x.controle?`<div class="ynp">${[["oui","Oui"],["non","Non"],["na","Non concerné"]].map(([v,l])=>`<button type="button" data-arep="${esc(it.k)}" data-v="${v}" aria-pressed="${x.rep===v}">${l}</button>`).join("")}</div>`:""}
-      ${x.controle&&x.rep==="non"?`<div class="anok"><textarea data-anote="${esc(it.k)}" placeholder="Ce qui ne va pas, ce qu'il faut faire…" style="min-height:56px">${esc(x.note||"")}</textarea>
+    ${its.map(it=>{const x=audSt(a,it.k),ph=audPhotos(a,it.k),up=audUp[a.id+"|"+it.k],sid=x.suiviId||ptIds[a.id+"|"+it.k];return `<div class="aitem ${x.controle&&x.rep==="non"?"non":x.controle&&x.rep==="oui"?"oui":""}">
+      <div class="arow"><span class="alab">${esc(it.label)}${x.controle&&!x.rep?`<span class="who">Contrôlé · conforme ?</span>`:""}</span><div class="okko" role="group" aria-label="Résultat du contrôle">
+        <button type="button" class="okb" data-arep="${esc(it.k)}" data-v="oui" aria-pressed="${!!x.controle&&x.rep==="oui"}" aria-label="Conforme">✓</button>
+        <button type="button" class="kob" data-arep="${esc(it.k)}" data-v="non" aria-pressed="${!!x.controle&&x.rep==="non"}" aria-label="Problème : créer un dossier">✗</button>
+        <button type="button" class="nab" data-arep="${esc(it.k)}" data-v="na" aria-pressed="${!!x.controle&&x.rep==="na"}" aria-label="Non concerné">N/C</button></div></div>
+      ${x.controle?`<div class="anok">
+        ${x.rep==="non"?`<textarea data-anote="${esc(it.k)}" placeholder="Ce qui ne va pas, ce qu'il faut faire…" style="min-height:56px">${esc(x.note||"")}</textarea>`:""}
         ${ph.length?thumbs(ph,"A"+it.k):""}
-        ${assets?`<label class="btn photo-btn">${up?"Envoi en cours…":"📷 Ajouter une photo"}<input type="file" accept="image/*" capture="environment" multiple hidden data-aup="${esc(it.k)}"></label>`:`<span class="hint">L'ajout de photos n'est pas disponible depuis ce compte.</span>`}
-        <div style="display:flex;flex-direction:column;gap:6px"><span class="lbl">Qui doit reprendre ce point ?</span><div class="inline">${["mnt","men"].map(K=>`<button type="button" class="kbtn ${K}" data-akflag="${K}|${esc(it.k)}" aria-pressed="${!!x[KINDS[K].flag]}">${x[KINDS[K].flag]?"✓ ":""}${KINDS[K].btn}</button>`).join("")}</div>
-          ${["mnt","men"].filter(K=>x[KINDS[K].flag]).map(K=>`<div class="kbox ${K}"><div class="field"><label for="due-${K}-${esc(it.k)}" style="color:var(--${K})">${K==="mnt"?"Intervention":"Ménage"} à faire avant le (facultatif)</label><input type="date" id="due-${K}-${esc(it.k)}" data-akdue="${K}|${esc(it.k)}" value="${esc(x[KINDS[K].due]||"")}"></div><span class="hint">${inK(a,K,it.k)?"✓ Inclus dans le suivi "+KINDS[K].cat.toLowerCase()+" de cet audit.":"Sera ajouté au suivi "+KINDS[K].cat.toLowerCase()+" de l'audit."}</span></div>`).join("")}</div></div>`:""}
+        ${assets?`<label class="btn photo-btn" style="align-self:flex-start">${up?"Envoi en cours…":"📷 "+(ph.length?"Ajouter une photo":"Photo")}<input type="file" accept="image/*" capture="environment" multiple hidden data-aup="${esc(it.k)}"></label>`:""}
+        ${x.rep==="non"?`<div style="display:flex;flex-direction:column;gap:6px"><span class="lbl">Qui doit reprendre ce point ?</span><div class="inline">${["mnt","men"].map(K=>`<button type="button" class="kbtn ${K}" data-akflag="${K}|${esc(it.k)}" aria-pressed="${!!x[KINDS[K].flag]}">${x[KINDS[K].flag]?"✓ ":""}${KINDS[K].btn}</button>`).join("")}</div>
+          ${["mnt","men"].filter(K=>x[KINDS[K].flag]).map(K=>`<div class="kbox ${K}"><div class="field"><label for="due-${K}-${esc(it.k)}" style="color:var(--${K})">${K==="mnt"?"Intervention":"Ménage"} à faire avant le (facultatif)</label><input type="date" id="due-${K}-${esc(it.k)}" data-akdue="${K}|${esc(it.k)}" value="${esc(x[KINDS[K].due]||"")}"></div></div>`).join("")}
+          <div class="ptdos">${sid?`<span>📁 Dossier créé dans Dossiers${x.menage&&!x.maint?" · Ménage":x.maint?" · Maintenance":""}</span><button class="lnk" type="button" data-open="${esc(sid)}">Voir le dossier →</button>`:`<span>Création du dossier…</span>`}</div></div>`:""}
+      </div>`:""}
     </div>`}).join("")}</div>
     <div class="inline"><input type="text" data-anew="${esc(g.id)}" placeholder="Ajouter un point à contrôler"><button class="btn" type="button" data-aadd="${esc(g.id)}" style="flex:0 0 auto">Ajouter</button></div></div>`}).join("")}
   <div class="box"><h3>Nouvelle rubrique</h3><div class="inline"><input type="text" id="aSecNew" placeholder="Ex. : Jardin et piscine"><button class="btn" type="button" id="aSecAdd" style="flex:0 0 auto">Ajouter</button></div><span class="hint">Les points et rubriques ajoutés ici sont aussi gardés pour les prochains audits.</span></div>
   <div class="box"><h3>Remarque générale</h3><textarea id="aRem" placeholder="Impression générale, points à surveiller, à transmettre au propriétaire…">${esc(a.remarque||"")}</textarea></div>
   <div class="box"><h3>Finaliser</h3><div class="inline" id="aEndZone">
     ${done?`<button class="btn" type="button" id="aReopen">Rouvrir l'audit</button>`:`<button class="btn pri" type="button" id="aEnd">Terminer l'audit</button>`}
-    ${downloads?`<button class="btn ${done?"pri":""}" type="button" data-apdf="">Rapport d'audit complet (PDF)</button>`:""}
-    ${downloads&&kItems(a,"mnt").length?(done?`<button class="kbtn mnt" type="button" data-apdf="mnt" aria-pressed="true">📄 PDF maintenance</button>`:""):""}
-    ${downloads&&kItems(a,"men").length?(done?`<button class="kbtn men" type="button" data-apdf="men" aria-pressed="true">📄 PDF ménage</button>`:""):""}
+    ${downloads?`<div class="pdfzone"><span class="lbl">Télécharger en PDF</span><div class="inline">
+      <button class="btn ${done?"pri":""}" type="button" data-apdf="">📄 Audit complet</button>
+      <button class="kbtn men" type="button" data-apdf="men" aria-pressed="true">📄 Partie ménage</button>
+      <button class="kbtn mnt" type="button" data-apdf="mnt" aria-pressed="true">📄 Partie maintenance</button>
+      <button class="btn" type="button" data-apdf="proprio">📄 Pour le propriétaire</button></div>
+      <span class="hint">« Pour le propriétaire » : première version simple (bilan, points à corriger avec photos, remarque générale), à retravailler.</span></div>`:""}
     <button class="btn" type="button" id="aCopy">Copier le résumé</button>
-    ${["mnt","men"].some(K=>kItems(a,K).length||kDoc(a,K))?`<button class="btn" type="button" id="aSync">${["mnt","men"].some(K=>kDoc(a,K))?"Mettre à jour les suivis":"Créer les suivis maintenant"}</button>`:""}
+    ${["mnt","men"].some(K=>kItemsG(a,K).length||kDoc(a,K))?`<button class="btn" type="button" id="aSync">${["mnt","men"].some(K=>kDoc(a,K))?"Mettre à jour les suivis":"Créer les suivis maintenant"}</button>`:""}
     ${["mnt","men"].filter(K=>kDoc(a,K)).map(K=>`<button class="kbtn ${K}" type="button" data-open="${esc(a[KINDS[K].idKey])}">Voir le suivi ${KINDS[K].cat.toLowerCase()} (${kItems(a,K).length}) →</button>`).join("")}
     ${kItems(a,"men").length?`<button class="kbtn men" type="button" id="aMenCopy">Copier le récap pour l'équipe ménage</button>`:""}
     <button class="btn ghost" type="button" id="aDelAsk" style="color:var(--crit)">Supprimer cet audit</button></div>
     <div id="aCopyZone"></div>
-    <span class="hint">En terminant l'audit, les points marqués <b style="color:var(--mnt)">🔧 Maintenance</b> sont regroupés dans un suivi maintenance pour le technicien, et ceux marqués <b style="color:var(--men)">🧽 Ménage</b> dans un suivi ménage pour l'équipe : un seul dossier de chaque, avec une ligne par point.</span>
-    ${!done&&(kItems(a,"mnt").length||kItems(a,"men").length)?`<span class="hint">Les PDF <b style="color:var(--mnt)">maintenance</b> et <b style="color:var(--men)">ménage</b> apparaissent ici une fois l'audit terminé.</span>`:""}
-    <span class="hint">Le rapport PDF reprend les points non conformes avec leurs photos, puis le détail complet du contrôle : prêt à envoyer à Julien, puis au propriétaire.</span></div>
+    <span class="hint">Pour chaque point : <b style="color:var(--ok)">✓</b> conforme, <b style="color:var(--crit)">✗</b> problème, N/C non concerné. Un <b style="color:var(--crit)">✗</b> crée aussitôt un dossier (origine Audit) avec la note et les photos du point ; choisir 🔧 Maintenance ou 🧽 Ménage le range dans la bonne catégorie. Repasser le point en ✓ clôt ce dossier.</span></div>
   </div>`;
   s.querySelectorAll("[data-anote]").forEach(t=>{const k="n:"+t.dataset.anote;if(k in keep)t.value=keep[k]});s.querySelectorAll("[data-anew]").forEach(t=>{const k="w:"+t.dataset.anew;if(k in keep)t.value=keep[k]});s.querySelectorAll("[data-akdue]").forEach(t=>{const k="d:"+t.dataset.akdue;if(k in keep)t.value=keep[k]});["aRem","aSecNew"].forEach(i=>{if(i in keep&&$("#"+i))$("#"+i).value=keep[i]});
   if(fk){const el=fk.startsWith("n:")?s.querySelector(`[data-anote="${CSS.escape(fk.slice(2))}"]`):fk.startsWith("w:")?s.querySelector(`[data-anew="${CSS.escape(fk.slice(2))}"]`):document.getElementById(fk);if(el){el.focus();if(el.setSelectionRange&&el.value!=null)try{el.setSelectionRange(el.value.length,el.value.length)}catch(e){}}}
   s.scrollTop=sy;
   $("#aDateEd").onchange=async e=>{const v=e.target.value;if(!v)return;await audUpd(a,{date:v});const L=logByName(a.logement);const ent=L&&Object.entries(L.audits||{}).find(([,h])=>h.auditId===a.id);if(ent)try{await db.doc("logements/"+L.id).update({audits:{[ent[0]]:{date:v}}})}catch(err){}toast("Date mise à jour")};
   s.querySelectorAll("[data-actl]").forEach(c=>c.onchange=()=>audUpd(a,{items:{[c.dataset.actl]:c.checked?{controle:true,at:nowIso()}:{controle:false,rep:null}}}));
-  s.querySelectorAll("[data-arep]").forEach(b=>b.onclick=()=>{const k=b.dataset.arep,v=b.dataset.v,cur=audSt(a,k).rep;audUpd(a,{items:{[k]:{controle:true,rep:cur===v?null:v,at:nowIso()}}})});
-  s.querySelectorAll("[data-anote]").forEach(t=>t.onchange=()=>audUpd(a,{items:{[t.dataset.anote]:{note:t.value.trim()}}}));
+  s.querySelectorAll("[data-arep]").forEach(b=>b.onclick=async()=>{const k=b.dataset.arep,v=b.dataset.v,cur=audSt(a,k),on=!!cur.controle&&cur.rep===v,pt=on?{controle:false,rep:null}:{controle:true,rep:v,at:nowIso()};
+    await audUpd(a,{items:{[k]:pt}});
+    if(pt.rep==="non"||ptHas(a,k)){const r=await syncPoint(a,k,pt);if(r==="cree")toast("✗ Problème : dossier créé dans Dossiers");else if(r==="rouvert")toast("Dossier du point rouvert");else if(r==="clos")toast("Le dossier de ce point a été clos")}});
+  s.querySelectorAll("[data-anote]").forEach(t=>t.onchange=async()=>{const k=t.dataset.anote,note=t.value.trim();await audUpd(a,{items:{[k]:{note}}});if(ptHas(a,k))syncPoint(a,k,{note})});
   s.querySelectorAll("[data-aadd]").forEach(b=>b.onclick=async()=>{const id=b.dataset.aadd,inp=s.querySelector(`[data-anew="${CSS.escape(id)}"]`),v=inp.value.trim();if(!v)return toast("Écrivez le point à contrôler");inp.value="";
     const it={k:"c"+Date.now().toString(36),label:v},G=JSON.parse(JSON.stringify(a.grille)),sec=G.find(g=>g.id===id);sec.items.push(it);await audUpd(a,{grille:G});
     const GG=cloneG();let gs=GG.find(g=>g.id===id)||GG.find(g=>norm(g.titre)===norm(sec.titre));if(!gs){gs={id,titre:sec.titre,items:[]};GG.push(gs)}gs.items.push(it);await saveGrille(GG,"Point ajouté (et gardé pour les prochains audits)")});
@@ -1266,13 +1312,13 @@ function renderAudit(){
     await audUpd(a,{grille:[...a.grille,sec]});const GG=cloneG();GG.push(sec);await saveGrille(GG,"Rubrique ajoutée")};
   $("#aRem").onchange=e=>audUpd(a,{remarque:e.target.value.trim()},"Remarque enregistrée");
   if($("#aEnd"))$("#aEnd").onclick=()=>{const rest=st.tot-st.c;$("#aEndZone").innerHTML=`<div class="confirm">${rest?rest+" point"+(rest>1?"s":"")+" non contrôlé"+(rest>1?"s":"")+". ":""}Terminer l'audit ?<button class="btn pri" type="button" id="aEndYes">Oui, terminer</button><button class="btn ghost" type="button" id="aEndNo">Annuler</button></div>`;
-    $("#aEndYes").onclick=async()=>{await audUpd(a,{statut:"termine",finLe:nowIso()},"Audit terminé");if(kItems(a,"mnt").length||kItems(a,"men").length){try{await syncAll(a)}catch(e){toast(failMsg(e))}}};$("#aEndNo").onclick=renderAudit};
+    $("#aEndYes").onclick=async()=>{await audUpd(a,{statut:"termine",finLe:nowIso()},"Audit terminé");if(kItemsG(a,"mnt").length||kItemsG(a,"men").length){try{await syncAll(a)}catch(e){toast(failMsg(e))}}};$("#aEndNo").onclick=renderAudit};
   if($("#aReopen"))$("#aReopen").onclick=()=>audUpd(a,{statut:"en_cours",finLe:null},"Audit rouvert");
   s.querySelectorAll("[data-apdf]").forEach(b=>b.onclick=async()=>{const k=b.dataset.apdf||null,lab=b.textContent;b.disabled=true;b.textContent="Préparation du PDF…";try{await auditPdf(a,k)}catch(e){if(!(e&&e.code==="declined"))toast("Le PDF n'a pas pu être créé, réessayez")}b.disabled=false;b.textContent=lab});
   $("#aCopy").onclick=()=>{const t=auditText(a);const show=()=>{$("#aCopyZone").innerHTML=`<textarea class="copybox" readonly></textarea><span class="hint">Sélectionnez et copiez le texte.</span>`;const ta=$("#aCopyZone textarea");ta.value=t;ta.focus();ta.select()};
     try{navigator.clipboard.writeText(t).then(()=>toast("Résumé copié, prêt à coller"),show)}catch(e){show()}};
-  s.querySelectorAll("[data-akflag]").forEach(b=>b.onclick=()=>{const [K,k]=b.dataset.akflag.split("|"),f=KINDS[K].flag,x=audSt(a,k);audUpd(a,{items:{[k]:{[f]:!x[f]}}},(x[f]?"Retiré du ":"Ajouté au ")+"suivi "+KINDS[K].cat.toLowerCase())});
-  s.querySelectorAll("[data-akdue]").forEach(t=>t.onchange=()=>{const [K,k]=t.dataset.akdue.split("|");audUpd(a,{items:{[k]:{[KINDS[K].due]:t.value||null}}},"Date enregistrée")});
+  s.querySelectorAll("[data-akflag]").forEach(b=>b.onclick=async()=>{const [K,k]=b.dataset.akflag.split("|"),f=KINDS[K].flag,x=audSt(a,k),pt={[f]:!x[f]};await audUpd(a,{items:{[k]:pt}},x[f]?"Retiré : "+KINDS[K].cat.toLowerCase():"Dossier classé en "+KINDS[K].cat.toLowerCase());if(ptHas(a,k))syncPoint(a,k,pt)});
+  s.querySelectorAll("[data-akdue]").forEach(t=>t.onchange=async()=>{const [K,k]=t.dataset.akdue.split("|"),pt={[KINDS[K].due]:t.value||null};await audUpd(a,{items:{[k]:pt}},"Date enregistrée");if(ptHas(a,k))syncPoint(a,k,pt)});
   if($("#aSync"))$("#aSync").onclick=async()=>{const b=$("#aSync");b.disabled=true;try{await syncAll(a)}catch(e){toast(failMsg(e))}b.disabled=false};
   if($("#aMenCopy"))$("#aMenCopy").onclick=()=>{const t=menageText(a);const show=()=>{$("#aCopyZone").innerHTML=`<textarea class="copybox" readonly></textarea><span class="hint">Sélectionnez et copiez le texte.</span>`;const ta=$("#aCopyZone textarea");ta.value=t;ta.focus();ta.select()};try{navigator.clipboard.writeText(t).then(()=>toast("Récap ménage copié"),show)}catch(e){show()}};
   $("#aDelAsk").onclick=()=>{$("#aEndZone").innerHTML=`<div class="confirm">Supprimer cet audit, ses réponses et ses photos ?<button class="btn pri" type="button" id="aDelYes" style="background:var(--crit);border-color:var(--crit)">Oui, supprimer</button><button class="btn ghost" type="button" id="aDelNo">Annuler</button></div>`;
@@ -1280,7 +1326,8 @@ function renderAudit(){
       await db.doc("audits/"+a.id).delete();if(ent)await db.doc("logements/"+L.id).update({audits:{[ent[0]]:{supprime:true}}});if(assets)for(const x of ids)assets.delete(x).catch(()=>{});toast("Audit supprimé");auditOpen=null;if(retLog)openLogSheet(retLog);else closeSheet()}catch(e){toast(failMsg(e))}}};
 }
 async function handleAudUp(k,files){const a=audits.find(x=>x.id===auditOpen);if(!a||!assets||!files.length)return;const key=a.id+"|"+k;audUp[key]=(audUp[key]||0)+files.length;renderAudit();
-  for(const f of files){try{const id=await uploadOne(f);await enqueue(()=>db.doc("audits/"+a.id).update({items:{[k]:{photos:{["p"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)]:{a:id,at:nowIso()}}}}}))}catch(e){toast(upErr(e))}audUp[key]--;if(auditOpen===a.id)renderAudit()}}
+  const added=[];for(const f of files){try{const id=await uploadOne(f);await enqueue(()=>db.doc("audits/"+a.id).update({items:{[k]:{photos:{["p"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)]:{a:id,at:nowIso()}}}}}));added.push(id)}catch(e){toast(upErr(e))}audUp[key]--;if(auditOpen===a.id)renderAudit()}
+  if(added.length&&ptHas(a,k)){const fresh=audits.find(x=>x.id===a.id)||a;syncPoint(fresh,k,{},added)}}
 function auditText(a){const st=audStats(a),L=[];L.push("AUDIT · "+a.logement+(a.lieu?" ("+a.lieu+")":""));L.push("Date : "+fmtLong(a.date));L.push(st.c+"/"+st.tot+" points contrôlés · "+st.ok+" conformes · "+st.nok+" non conformes");
   const nk=audItems(a).filter(it=>audSt(a,it.k).rep==="non");if(nk.length){L.push("");L.push("À corriger :");for(const it of nk){const x=audSt(a,it.k);L.push("- "+it.label+" ("+it.sec+")"+(x.note?" : "+x.note:"")+(x.maint?" → maintenance"+(x.due?" avant le "+fmt(x.due):""):"")+(x.menage?" → ménage"+(x.dueMen?" avant le "+fmt(x.dueMen):""):"")+(audPhotos(a,it.k).length?" [photo]":""))}}else{L.push("");L.push("Aucun point non conforme.")}
   if(a.remarque){L.push("");L.push("Remarque générale : "+a.remarque)}L.push("");L.push("À La Bonne Sonnette");return L.join("\n")}
@@ -1290,11 +1337,11 @@ async function imgData(id){const r=await fetch(blob(id));if(!r.ok)throw new Erro
 async function auditPdf(a,kind){
   await loadJsPdf();const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:"mm",format:"a4"});
   const W=210,H=297,M=16,INK=[43,30,23],MUT=[122,101,88],BR=[156,91,69],GOLD=[201,161,90],CREAM=[251,243,231],OK=[63,122,77],CR=[184,58,46],NA=[140,130,120];
-  const K=kind?KINDS[kind]:null,ACC=K?K.color:BR;let y=M;
+  const P=kind==="proprio",K=kind&&!P?KINDS[kind]:null,ACC=K?K.color:BR;let y=M;
   const need=h=>{if(y+h>H-M-8){doc.addPage();y=M+4}};
   const txt=(t,size,color,bold,x=M,maxw=W-2*M)=>{doc.setFont("helvetica",bold?"bold":"normal");doc.setFontSize(size);doc.setTextColor(...color);const lines=doc.splitTextToSize(String(t),maxw),lh=size*0.43;need(lines.length*lh+1);doc.text(lines,x,y+lh*0.82);y+=lines.length*lh;};
-  const title=!K?"Rapport d'audit du logement":kind==="mnt"?"Rapport maintenance":"Récap ménage";
-  const subtitle=!K?"Contrôle complet du logement":kind==="mnt"?"Interventions à prévoir par le technicien":"Points à reprendre par l'équipe ménage";
+  const title=P?"Compte rendu de visite":!K?"Rapport d'audit du logement":kind==="mnt"?"Rapport maintenance":"Récap ménage";
+  const subtitle=P?"Contrôle de votre logement par la conciergerie":!K?"Contrôle complet du logement":kind==="mnt"?"Interventions à prévoir par le technicien":"Points à reprendre par l'équipe ménage";
   // header
   doc.setFillColor(...BR);doc.rect(0,0,W,38,"F");doc.setFillColor(...GOLD);doc.rect(0,38,W,1.6,"F");
   let tx=M;
@@ -1317,13 +1364,20 @@ async function auditPdf(a,kind){
     if(K){doc.setDrawColor(...ACC);doc.setLineWidth(0.5);doc.rect(M+1,y+1,4.2,4.2)}else{doc.setFillColor(...CR);doc.circle(M+3,y+3,1.4,"F")}
     txt((K?i+". ":"")+it.label,11.5,INK,true,M+8,W-2*M-8);txt(it.sec,8.5,MUT,false,M+8,W-2*M-8);
     if(x.note){y+=1;txt(x.note,10,INK,false,M+8,W-2*M-8)}
-    const flags=K?[kind]:["mnt","men"].filter(k=>x[KINDS[k].flag]);
+    const flags=P?[]:K?[kind]:["mnt","men"].filter(k=>x[KINDS[k].flag]);
     for(const k of flags){const dd=x[KINDS[k].due];txt((K?"À faire":(k==="mnt"?"Maintenance (technicien)":"Ménage (équipe ménage)")+" à prévoir")+(dd?" avant le "+fmt(dd)+"/"+dd.slice(0,4):(K?" dès que possible":"")),9.5,KINDS[k].color,true,M+8,W-2*M-8)}
     y+=2;const ph=audPhotos(a,it.k);let col=0,rowH=0;const pw=(W-2*M-12)/3;
     for(const p of ph){try{const im=await imgData(p.a);let w=pw,h=im.h*w/im.w;if(h>50){h=50;w=im.w*h/im.h}if(col===0)need(h+3);doc.setDrawColor(230,216,197);doc.setLineWidth(0.3);doc.rect(M+8+col*(pw+2)-0.4,y-0.4,w+0.8,h+0.8);doc.addImage(im.u,"JPEG",M+8+col*(pw+2),y,w,h);rowH=Math.max(rowH,h);col++;if(col===3){y+=rowH+3;col=0;rowH=0}}catch(e){}}
     if(col)y+=rowH+3;
     y+=3;doc.setDrawColor(236,226,212);doc.setLineWidth(0.2);need(2);doc.line(M,y,W-M,y);y+=4}
-  if(!K){y+=2;need(12);doc.setFillColor(...BR);doc.rect(M,y,3,7,"F");txt("Détail du contrôle",13,BR,true,M+6);y+=1;
+  if(P){if(a.remarque){y+=2;txt("Remarque générale",12,BR,true);y+=1;txt(a.remarque,10,INK,false)}y+=6;txt("Nous restons à votre disposition pour toute question. À La Bonne Sonnette.",10,MUT,false)}
+  else if(!K){
+    const okPh=audItems(a).filter(it=>audSt(a,it.k).controle&&audSt(a,it.k).rep!=="non"&&audPhotos(a,it.k).length);
+    if(okPh.length){y+=2;need(12);doc.setFillColor(...OK);doc.rect(M,y,3,7,"F");txt("Photos des points conformes",13,OK,true,M+6);y+=3;
+      for(const it of okPh){txt(it.label,10.5,INK,true,M+8,W-2*M-8);txt(it.sec,8.5,MUT,false,M+8,W-2*M-8);y+=2;let col=0,rowH=0;const pw=(W-2*M-12)/3;
+        for(const p of audPhotos(a,it.k)){try{const im=await imgData(p.a);let w=pw,h=im.h*w/im.w;if(h>50){h=50;w=im.w*h/im.h}if(col===0)need(h+3);doc.addImage(im.u,"JPEG",M+8+col*(pw+2),y,w,h);rowH=Math.max(rowH,h);col++;if(col===3){y+=rowH+3;col=0;rowH=0}}catch(e){}}
+        if(col)y+=rowH+3;y+=3}}
+    y+=2;need(12);doc.setFillColor(...BR);doc.rect(M,y,3,7,"F");txt("Détail du contrôle",13,BR,true,M+6);y+=1;
     for(const g of a.grille||[]){need(12);y+=2;doc.setFillColor(243,234,221);doc.rect(M,y,W-2*M,7,"F");doc.setFont("helvetica","bold");doc.setFontSize(10);doc.setTextColor(...INK);doc.text(g.titre,M+2,y+4.8);y+=8;
       for(const it of g.items){const x=audSt(a,it.k),stt=!x.controle?["Non contrôlé",NA]:x.rep==="oui"?["Conforme",OK]:x.rep==="non"?["Non conforme",CR]:x.rep==="na"?["Non concerné",NA]:["Contrôlé",MUT];
         doc.setFont("helvetica","normal");doc.setFontSize(9.5);const lines=doc.splitTextToSize(it.label,W-2*M-36),lh=4.1;need(lines.length*lh+1.5);doc.setTextColor(...INK);doc.text(lines,M+2,y+3.4);doc.setFont("helvetica","bold");doc.setTextColor(...stt[1]);doc.text(stt[0],W-M-2,y+3.4,{align:"right"});y+=lines.length*lh+1.2;doc.setDrawColor(236,226,212);doc.setLineWidth(0.2);doc.line(M,y,W-M,y);y+=0.8}}
@@ -1331,7 +1385,7 @@ async function auditPdf(a,kind){
   else{y+=4;need(26);doc.setDrawColor(230,216,197);doc.setFillColor(...CREAM);doc.roundedRect(M,y,W-2*M,22,2,2,"FD");doc.setFont("helvetica","bold");doc.setFontSize(10);doc.setTextColor(...INK);doc.text(kind==="mnt"?"Intervention réalisée le :":"Points repris le :",M+4,y+8);doc.text("Par :",M+4,y+16);doc.setDrawColor(...MUT);doc.line(M+48,y+8.5,W-M-6,y+8.5);doc.line(M+16,y+16.5,W-M-6,y+16.5);y+=26}
   const n=doc.getNumberOfPages();for(let p=1;p<=n;p++){doc.setPage(p);doc.setFillColor(...GOLD);doc.rect(0,H-14,W,0.6,"F");doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(...MUT);doc.text("À La Bonne Sonnette · "+title+" · "+a.logement+" · "+fmt(a.date)+"/"+a.date.slice(0,4),M,H-8);doc.text("Page "+p+"/"+n,W-M,H-8,{align:"right"})}
   const slug=String(a.logement).normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9]+/g,"-").replace(/^-|-$/g,"").toLowerCase();
-  await downloads.save({filename:(!K?"audit":kind==="mnt"?"maintenance":"menage")+"-"+slug+"-"+a.date+".pdf",data:doc.output("blob")});toast("PDF prêt");
+  await downloads.save({filename:(P?"compte-rendu-proprietaire":!K?"audit":kind==="mnt"?"maintenance":"menage")+"-"+slug+"-"+a.date+".pdf",data:doc.output("blob")});toast("PDF prêt");
 }
 
 /* ---------- ménages ---------- */
@@ -1402,7 +1456,7 @@ async function handleUp(k,files){
   for(const f of files){try{const a=await uploadOne(f);await enqueue(()=>db.doc("menages/"+m.id).update({photos:{[k]:{["p"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)]:{a,at:nowIso()}}}}))}catch(e){toast(upErr(e))}
     uploading[key]--;if(menOpen===m.id&&!degForm)renderMenage()}
 }
-async function delPhoto(ref){if(ref.startsWith("A")&&auditOpen){const a=audits.find(x=>x.id===auditOpen);if(!a)return;const [k,pid]=ref.slice(1).split("|");const id=a.items?.[k]?.photos?.[pid]?.a;await audUpd(a,{items:{[k]:{photos:{[pid]:{supprime:true}}}}},"Photo retirée");if(id&&assets)assets.delete(id).catch(()=>{});return}
+async function delPhoto(ref){if(ref.startsWith("A")&&auditOpen){const a=audits.find(x=>x.id===auditOpen);if(!a)return;const [k,pid]=ref.slice(1).split("|");const id=a.items?.[k]?.photos?.[pid]?.a;await audUpd(a,{items:{[k]:{photos:{[pid]:{supprime:true}}}}},"Photo retirée");if(ptHas(a,k))await syncPoint(a,k,{},[],id);if(id&&assets)assets.delete(id).catch(()=>{});return}
   const m=menages.find(x=>x.id===menOpen);if(!m)return;const [k,pid]=ref.split("|");const a=m.photos?.[k]?.[pid]?.a;
   try{await enqueue(()=>db.doc("menages/"+m.id).update({photos:{[k]:{[pid]:{supprime:true}}}}));if(a&&assets)assets.delete(a).catch(()=>{});toast("Photo retirée")}catch(e){toast(failMsg(e))}}
 
