@@ -784,7 +784,7 @@ function render(){
       ${groups.map(([li,a])=>{const d=a.filter(auditDone).length;return `<div class="sec-title"><span>${esc(li)}</span><span>${d}/${a.length}</span></div><div class="tiles">${[...a].sort(sortT).map(tile).join("")}</div>`}).join("")}
       <div class="box" style="margin-top:20px"><h3>Nouvelle tournée</h3><div class="hint">Remet tous les logements « à contrôler » pour une nouvelle série d'audits. Les audits passés restent dans la fiche de chaque logement.</div><div id="roundZone"><button class="btn" type="button" id="roundAsk">Démarrer une nouvelle tournée</button></div></div>
       ${grilleBox()}
-      <div class="box"><h3>Logo des rapports PDF</h3><div class="hint">Il apparaît en haut des rapports d'audit, maintenance et ménage.</div>
+      <div class="box"><h3>Logo des rapports PDF</h3><div class="hint">Il apparaît en haut de tous les PDF (audits, fiches logement, fiches d'entrée). Sans logo ajouté ici, c'est le logo officiel À La Bonne Sonnette qui est utilisé.</div>
         ${auditCfg.logo?`<img src="${blob(auditCfg.logo)}" alt="Logo actuel" style="max-height:70px;max-width:200px;object-fit:contain;align-self:flex-start;background:#fff;border-radius:8px;padding:6px;border:1px solid var(--line)">`:`<span class="hint">Aucun logo pour l'instant : le nom « À La Bonne Sonnette » est écrit à la place.</span>`}
         ${assets?`<div class="inline"><label class="btn photo-btn">${auditCfg.logo?"Changer le logo":"Ajouter le logo"}<input type="file" accept="image/png,image/jpeg,image/webp" hidden id="logoIn"></label>${auditCfg.logo?`<button class="btn ghost" type="button" id="logoDel">Retirer</button>`:""}</div>`:`<span class="hint">L'ajout du logo n'est pas disponible depuis ce compte.</span>`}</div>`;
     bindGrille();
@@ -1334,6 +1334,20 @@ function auditText(a){const st=audStats(a),L=[];L.push("AUDIT · "+a.logement+(a
 let jspdfP=null;
 function loadJsPdf(){if(window.jspdf)return Promise.resolve();if(!jspdfP)jspdfP=new Promise((res,rej)=>{const sc=document.createElement("script");sc.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";sc.onload=res;sc.onerror=()=>{jspdfP=null;rej(new Error("jspdf"))};document.head.appendChild(sc)});return jspdfP}
 async function imgData(id){const r=await fetch(blob(id));if(!r.ok)throw new Error("img");const bmp=await createImageBitmap(await r.blob());const sc=Math.min(1,1100/Math.max(bmp.width,bmp.height));const c=document.createElement("canvas");c.width=Math.round(bmp.width*sc);c.height=Math.round(bmp.height*sc);const g=c.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,c.width,c.height);g.drawImage(bmp,0,0,c.width,c.height);return{u:c.toDataURL("image/jpeg",0.82),w:c.width,h:c.height}}
+/* Logo des PDF : celui choisi dans les réglages, sinon le logo officiel du site.
+   Seules les marges transparentes autour du dessin sont retirées : le logo garde ses proportions. */
+let albsLogoP=null;
+function albsLogo(){
+  if(auditCfg.logo)return imgData(auditCfg.logo).then(x=>({...x,fmt:"JPEG"}));
+  if(!albsLogoP)albsLogoP=(async()=>{const r=await fetch("logo-albs.png");if(!r.ok)throw new Error("logo");const bmp=await createImageBitmap(await r.blob());
+    const c=document.createElement("canvas");c.width=bmp.width;c.height=bmp.height;const g=c.getContext("2d");g.drawImage(bmp,0,0);const d=g.getImageData(0,0,c.width,c.height).data;
+    let x0=c.width,y0=c.height,x1=0,y1=0;for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++)if(d[(y*c.width+x)*4+3]>8){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}
+    if(x1<x0)throw new Error("logo");const w=x1-x0+1,h=y1-y0+1,o=document.createElement("canvas");o.width=w;o.height=h;o.getContext("2d").drawImage(c,x0,y0,w,h,0,0,w,h);
+    return{u:o.toDataURL("image/png"),w,h,fmt:"PNG"}})().catch(e=>{albsLogoP=null;throw e});
+  return albsLogoP}
+/* Pose le logo dans un cartouche blanc arrondi ; renvoie la largeur occupée */
+function pdfLogo(doc,lg,x,y,maxW,maxH,pad=2.5){let w=maxW,h=lg.h*w/lg.w;if(h>maxH){h=maxH;w=lg.w*h/lg.h}
+  doc.setFillColor(255,255,255);doc.roundedRect(x,y,w+2*pad,h+2*pad,2.5,2.5,"F");doc.addImage(lg.u,lg.fmt,x+pad,y+pad,w,h);return{w:w+2*pad,h:h+2*pad}}
 async function auditPdf(a,kind){
   await loadJsPdf();const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:"mm",format:"a4"});
   const W=210,H=297,M=16,INK=[43,30,23],MUT=[122,101,88],BR=[156,91,69],GOLD=[201,161,90],CREAM=[251,243,231],OK=[63,122,77],CR=[184,58,46],NA=[140,130,120];
@@ -1345,9 +1359,9 @@ async function auditPdf(a,kind){
   // header
   doc.setFillColor(...BR);doc.rect(0,0,W,38,"F");doc.setFillColor(...GOLD);doc.rect(0,38,W,1.6,"F");
   let tx=M;
-  if(auditCfg.logo){try{const lg=await imgData(auditCfg.logo);const h=24,w=Math.min(48,lg.w*h/lg.h);doc.setFillColor(255,255,255);doc.roundedRect(M-2,7,w+4,h+4,2,2,"F");doc.addImage(lg.u,"JPEG",M,9,w,h);tx=M+w+8}catch(e){}}
-  doc.setTextColor(...CREAM);doc.setFont("helvetica","normal");doc.setFontSize(9.5);doc.text("À LA BONNE SONNETTE · CONCIERGERIE",tx,14);
-  doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(20);doc.text(title,tx,24);
+  let hasLogo=false,lgW=0;try{const lg=await albsLogo();let w=48,h=lg.h*w/lg.w;if(h>20){h=20;w=lg.w*h/lg.h}lgW=pdfLogo(doc,lg,W-M-w-5,(38-h-5)/2,w,h).w;hasLogo=true}catch(e){}
+  doc.setTextColor(...CREAM);doc.setFont("helvetica","normal");doc.setFontSize(9.5);doc.text(hasLogo?"CONCIERGERIE · "+a.logement.toUpperCase().slice(0,40):"À LA BONNE SONNETTE · CONCIERGERIE",tx,14);
+  doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(20);if(hasLogo&&doc.getTextWidth(title)>W-2*M-lgW-6)doc.setFontSize(16);doc.text(title,tx,24);
   doc.setFont("helvetica","normal");doc.setFontSize(10);doc.setTextColor(...CREAM);doc.text(subtitle,tx,31);
   y=50;
   txt(a.logement,18,INK,true);y+=1;txt((a.lieu?a.lieu+" · ":"")+"Audit du "+fmtLong(a.date),10,MUT,false);y+=6;
@@ -1669,14 +1683,15 @@ function pdfVal(f,v){
   if(f.t==="equip"){const eq=v.eq||{},on=f.items.filter(i=>eq[i]===1),buy=f.items.filter(i=>eq[i]===2);return [on.join(", "),buy.length?"À acheter : "+buy.join(", "):""].filter(Boolean).join("\n")}
   if(f.t==="docs")return "";if(f.t==="date")return v[f.k]?fmt(v[f.k]):"";const x=v[f.k];return Array.isArray(x)?x.join(", "):(x??"")}
 function prospectOf(l){return prospects.find(p=>p.logementId===l.id)||prospects.find(p=>norm(pV(p).log_nom)===norm(l.nom))||null}
-function fichePdfPages(doc,l,first){
+function fichePdfPages(doc,l,first,lg){
   const W=210,M=16,CW=W-2*M,BR=[156,91,69];let y=0;
   const page=()=>{doc.addPage();y=M};
   const need=h=>{if(y+h>297-M)page()};
   if(!first)doc.addPage();y=M;
   doc.setFillColor(...BR);doc.rect(0,0,W,30,"F");doc.setTextColor(255,255,255);doc.setFont("helvetica","normal");doc.setFontSize(9);
-  doc.text(pdfTxt("À LA BONNE SONNETTE · FICHE LOGEMENT"),M,10);doc.setFont("helvetica","bold");doc.setFontSize(18);doc.text(pdfTxt(l.nom).slice(0,60),M,20);
+  doc.text(pdfTxt(lg?"FICHE LOGEMENT":"À LA BONNE SONNETTE · FICHE LOGEMENT"),M,10);doc.setFont("helvetica","bold");doc.setFontSize(18);doc.text(pdfTxt(l.nom).slice(0,60),M,20);
   doc.setFont("helvetica","normal");doc.setFontSize(9);doc.text(pdfTxt((l.lieu||"Sans secteur")+(l.ancien?" · ancien logement":"")+" · exportée le "+new Date().toLocaleDateString("fr-FR")),M,26);
+  if(lg)try{let w=44,h=lg.h*w/lg.w;if(h>18){h=18;w=lg.w*h/lg.w}pdfLogo(doc,lg,W-M-w-5,(30-h-5)/2,w,h)}catch(e){}
   doc.setTextColor(30,30,30);y=40;
   const h2=t=>{need(14);doc.setFont("helvetica","bold");doc.setFontSize(11);doc.setTextColor(...BR);doc.text(pdfTxt(t).toUpperCase(),M,y);doc.setDrawColor(...BR);doc.setLineWidth(.3);doc.line(M,y+1.6,W-M,y+1.6);doc.setTextColor(30,30,30);y+=7};
   const kv=(k,val,note)=>{val=pdfTxt(val);if(!val)return;doc.setFontSize(9.5);const kl=doc.splitTextToSize(pdfTxt(k),50),vl=doc.splitTextToSize(val,CW-54);const h=Math.max(kl.length,vl.length)*4.4+(note?4:0)+2;need(h);
@@ -1772,10 +1787,10 @@ async function entreePdf(l){
   const CREAM=[243,237,224],GOLD=[168,147,49],DARK=[42,38,20],MUT=[110,102,74];
   let y=0;const bg=()=>{doc.setFillColor(...CREAM);doc.rect(0,0,W,H,"F")};const newPage=()=>{doc.addPage();bg();y=M};const need=h=>{if(y+h>H-20)newPage()};
   bg();doc.setFillColor(...GOLD);doc.rect(0,0,W,50,"F");let lx=M;
-  if(auditCfg.logo){try{const lg=await imgData(auditCfg.logo);const h=28,w=Math.min(56,lg.w*h/lg.h);doc.setFillColor(255,255,255);doc.roundedRect(M-2,10,w+4,h+4,3,3,"F");doc.addImage(lg.u,"JPEG",M,12,w,h);lx=M+w+9}catch(err){}}
-  doc.setTextColor(255,255,255);doc.setFont("helvetica","normal");doc.setFontSize(9);doc.setCharSpace(1.2);doc.text("À LA BONNE SONNETTE · FICHE D'ENTREE",lx,17);doc.setCharSpace(0);
-  doc.setFont("times","bold");doc.setFontSize(25);doc.text(pdfTxt(l.nom).slice(0,38),lx,30);
-  if(P.adresse){doc.setFont("helvetica","normal");doc.setFontSize(10.5);doc.text(doc.splitTextToSize(pdfTxt(P.adresse),W-lx-M).slice(0,2),lx,38)}
+  let lgW=0;try{const lg=await albsLogo();let w=48,h=lg.h*w/lg.w;if(h>20){h=20;w=lg.w*h/lg.h}lgW=pdfLogo(doc,lg,W-M-w-5,(50-h-5)/2,w,h).w}catch(err){}
+  doc.setTextColor(255,255,255);doc.setFont("helvetica","normal");doc.setFontSize(9);doc.setCharSpace(1.2);doc.text(lgW?"FICHE D'ENTREE":"À LA BONNE SONNETTE · FICHE D'ENTREE",lx,17);doc.setCharSpace(0);
+  doc.setFont("times","bold");doc.setFontSize(25);{const mw=W-M-lx-(lgW?lgW+6:0);if(doc.getTextWidth(pdfTxt(l.nom))>mw)doc.setFontSize(19);doc.text(doc.splitTextToSize(pdfTxt(l.nom),mw)[0],lx,30)}
+  if(P.adresse){doc.setFont("helvetica","normal");doc.setFontSize(10.5);doc.text(doc.splitTextToSize(pdfTxt(P.adresse),W-lx-M-(lgW?lgW+6:0)).slice(0,2),lx,38)}
   y=60;
   if(P.code){doc.setFillColor(...DARK);doc.roundedRect(M,y,CW,22,3,3,"F");doc.setTextColor(...CREAM);doc.setFont("helvetica","normal");doc.setFontSize(9);doc.setCharSpace(1);doc.text("CODE DE LA BOITE A CLES",M+8,y+12.5);doc.setCharSpace(0);
     doc.setFont("helvetica","bold");doc.setFontSize(22);doc.text(pdfTxt(P.code),W-M-8,y+14.5,{align:"right"});y+=29}
@@ -1798,7 +1813,8 @@ async function entreePdf(l){
 async function downloadFiches(list,name){toast("Préparation du PDF…");
   try{await loadJsPdf()}catch(e){return toast("Le PDF n'a pas pu se préparer : vérifiez la connexion")}
   const doc=new window.jspdf.jsPDF({unit:"mm",format:"a4"});
-  list.forEach((l,i)=>fichePdfPages(doc,l,i===0));
+  let lg=null;try{lg=await albsLogo()}catch(e){}
+  list.forEach((l,i)=>fichePdfPages(doc,l,i===0,lg));
   const n=doc.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(7.5);doc.setTextColor(140,140,140);doc.text("Suivi ALBS · "+new Date().toLocaleDateString("fr-FR")+" · page "+i+"/"+n,210-16,297-8,{align:"right"})}
   await pdfDeliver(doc.output("blob"),name)}
 
