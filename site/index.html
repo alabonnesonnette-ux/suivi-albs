@@ -1046,7 +1046,7 @@ function renderLogSheet(){
   const nom=logOpen, l=logements.find(x=>norm(x.nom)===norm(nom)), s=$("#sheet"), sy=s.scrollTop;
   const mine=dossiers.filter(d=>norm(d.logement)===norm(nom));
   /* Les dossiers de catégorie « Ménage » sont rangés dans l'onglet Ménages du logement */
-  const isMen=d=>d.categorie==="Ménage", menD=l?mine.filter(isMen):[], hors=l?mine.filter(d=>!isMen(d)):mine;
+  const isMen=d=>d.categorie==="Ménage"||attKey(d)==="menage", menD=l?mine.filter(isMen):[], hors=l?mine.filter(d=>!isMen(d)):mine;
   const op=hors.filter(isOpen).sort(byUrgency), inf=hors.filter(d=>d.statut==="info"), cl=hors.filter(d=>d.statut==="clos");
   const keep={rubVal:$("#rubVal")?.value,rubLab:$("#rubLab")?.value,rubVis:$("#rubVis")?.checked,asTxt:$("#asTxt")?.value||""};
   const team=mode==="equipe", tab=!l?"suivi":(team?lsTab:"fiche");
@@ -1060,11 +1060,11 @@ function renderLogSheet(){
   if(tab==="entree"){renderEntree(l,head,s,sy);return}
   if(tab==="menages"){const ms=menages.filter(x=>norm(x.logement)===norm(l.nom));const g=new Map();for(const x of [...ms].sort((a,b)=>b.date.localeCompare(a.date))){const k=x.date.slice(0,7);if(!g.has(k))g.set(k,[]);g.get(k).push(x)}
     const RQ=Object.entries(l.remarquesMenage||{}).map(([id,r])=>({id,...r})).filter(r=>!r.supprime).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
-    const rqBox=`<div class="box"><h3>Remarques ménage</h3>${rqForm?`<div class="field"><label for="rqTxt">Nouvelle remarque</label><textarea id="rqTxt" rows="4" placeholder="Ex. : bien détartrer la douche, le linge de lit se range dans l'armoire du couloir…"></textarea>${micBtn("rqTxt")}</div><div class="inline"><button class="btn pri" type="button" id="rqSave">Enregistrer</button><button class="btn ghost" type="button" id="rqCancel">Annuler</button></div>`:`<button class="btn" type="button" id="rqAdd">+ Ajouter une remarque</button>`}
-      ${RQ.length?`<div class="list" style="margin-top:10px">${RQ.map(r=>`<div class="rq"><div><p>${esc(r.texte)}</p><small>${fmtAt(r.at)}${r.par?" · "+esc(r.par):""}</small></div><button class="btn ghost" type="button" data-rqdel="${esc(r.id)}" aria-label="Supprimer cette remarque" style="padding:2px 8px">${rqDel===r.id?"Confirmer":"✕"}</button></div>`).join("")}</div>`:(rqForm?"":`<div class="hint" style="margin-top:8px">Aucune remarque pour l'instant.</div>`)}</div><div class="sec-title"><span>Ménages réalisés</span></div>`;
+    const rqBox=`<div class="box"><h3>Remarques ménage</h3>${rqForm?`<div class="field"><label for="rqTxt">Nouvelle remarque</label><textarea id="rqTxt" rows="4" placeholder="Ex. : bien détartrer la douche, le linge de lit se range dans l'armoire du couloir…"></textarea>${micBtn("rqTxt")}</div>${assets?`<div class="field"><span class="lbl">Photos</span><label class="btn photo-btn" style="align-self:flex-start">📷 Ajouter une ou plusieurs photos<input type="file" id="rqPh" accept="image/*" multiple hidden></label><span class="hint" id="rqPhN"></span></div>`:""}<div class="inline"><button class="btn pri" type="button" id="rqSave">Enregistrer</button><button class="btn ghost" type="button" id="rqCancel">Annuler</button></div>`:`<button class="btn" type="button" id="rqAdd">+ Ajouter une remarque</button>`}
+      ${RQ.length?`<div class="list" style="margin-top:10px">${RQ.map(r=>`<div class="rq"><div style="min-width:0;flex:1">${r.texte?`<p>${esc(r.texte)}</p>`:""}${(r.photos||[]).length?thumbs(r.photos.map(a=>({a}))):""}<small>${fmtAt(r.at)}${r.par?" · "+esc(r.par):""}</small></div><button class="btn ghost" type="button" data-rqdel="${esc(r.id)}" aria-label="Supprimer cette remarque" style="padding:2px 8px">${rqDel===r.id?"Confirmer":"✕"}</button></div>`).join("")}</div>`:(rqForm?"":`<div class="hint" style="margin-top:8px">Aucune remarque pour l'instant.</div>`)}</div><div class="sec-title"><span>Ménages réalisés</span></div>`;
     const mOp=menD.filter(isOpen).sort(byUrgency),mInf=menD.filter(d=>d.statut==="info"),mCl=menD.filter(d=>d.statut==="clos");
-    const relBox=`<div class="sec-title"><span>Remarques ménage relevées</span><span>${mOp.length} en cours</span></div>
-      ${mOp.length?`<div class="list">${mOp.map(card).join("")}</div>`:`<div class="empty">Aucune remarque ménage en cours. Les problèmes signalés avec la catégorie « Ménage » se rangent ici.</div>`}
+    const relBox=`<div class="sec-title"><span>Problèmes ménage déclarés</span><span>${mOp.length} en cours</span></div>
+      ${mOp.length?`<div class="list">${mOp.map(card).join("")}</div>`:`<div class="empty">Aucun problème ménage en cours. Ici se rangent tous les dossiers de catégorie « Ménage » (audits, femmes de ménage, voyageurs…) et ceux qui attendent l'équipe ménage.</div>`}
       ${mInf.length?`<div class="sec-title"><span>Infos ménage</span><span>${mInf.length}</span></div><div class="list">${mInf.map(card).join("")}</div>`:""}
       ${mCl.length?`<details class="pers"><summary>Remarques ménage closes · ${mCl.length}</summary>${byMonth(mCl)}</details>`:""}
       <div class="inline" style="margin-top:10px"><button class="btn" type="button" id="lsNewMen">+ Signaler une remarque ménage</button></div>`;
@@ -1072,8 +1072,10 @@ function renderLogSheet(){
     if($("#rqAdd"))$("#rqAdd").onclick=()=>{rqForm=true;renderLogSheet();$("#rqTxt")?.focus()};
     $("#lsNewMen").onclick=()=>{fLog=l.nom;const r=logOpen;openForm(null,"suivi",{categorie:"Ménage"});fLog=null;retLog=r};
     if($("#rqCancel"))$("#rqCancel").onclick=()=>{rqForm=false;renderLogSheet()};
-    if($("#rqSave"))$("#rqSave").onclick=async()=>{const t=$("#rqTxt").value.trim();if(!t)return toast("Écrivez la remarque");$("#rqSave").disabled=true;
-      try{await db.doc("logements/"+l.id).update({remarquesMenage:{["r"+Date.now().toString(36)]:{texte:t,at:nowIso(),par:who()}}});rqForm=false;toast("Remarque ajoutée");renderLogSheet()}catch(e){$("#rqSave").disabled=false;toast(failMsg(e))}};
+    if($("#rqPh"))$("#rqPh").onchange=e=>{const n=e.target.files.length;$("#rqPhN").textContent=n?n+" photo"+(n>1?"s":"")+" sélectionnée"+(n>1?"s":""):""};
+    if($("#rqSave"))$("#rqSave").onclick=async()=>{const t=$("#rqTxt").value.trim(),files=[...($("#rqPh")?.files||[])];if(!t&&!files.length)return toast("Écrivez la remarque ou ajoutez une photo");const b=$("#rqSave");b.disabled=true;if(files.length)b.textContent="Envoi des photos…";
+      try{const ids=[];for(const f of files)ids.push(await uploadOne(f));
+        await db.doc("logements/"+l.id).update({remarquesMenage:{["r"+Date.now().toString(36)]:{texte:t,photos:ids,at:nowIso(),par:who()}}});rqForm=false;toast("Remarque ajoutée");renderLogSheet()}catch(e){b.disabled=false;b.textContent="Enregistrer";toast(failMsg(e))}};
     s.querySelectorAll("[data-rqdel]").forEach(b=>b.onclick=async()=>{const id=b.dataset.rqdel;if(rqDel!==id){rqDel=id;renderLogSheet();return}rqDel=null;
       try{await db.doc("logements/"+l.id).update({remarquesMenage:{[id]:{supprime:true}}});toast("Remarque supprimée")}catch(e){toast(failMsg(e))}});
     return}
