@@ -144,6 +144,9 @@ button.sum[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1
 .card .ttl{font-weight:600;font-size:15px;min-width:0;flex:1 1 190px}
 .card .row1{flex-wrap:wrap}
 .card .meta{font-size:13px;color:var(--muted)}
+.lgname{font-family:var(--f-display);font-weight:700;font-size:19px;line-height:1.2;color:var(--ink);letter-spacing:.005em}
+.lgname.big{font-size:22px;margin-top:-4px}
+.lgname.vide{font-family:var(--f-body);font-size:14px;font-weight:600;color:var(--muted);font-style:italic}
 .card .next{font-size:13px}
 .card .next em{font-style:normal;color:var(--muted)}
 .pill{font-size:12px;font-weight:600;border-radius:999px;padding:3px 9px;white-space:nowrap;flex:none}
@@ -595,11 +598,12 @@ function byUrgency(a,b){const ka=sortKey(a),kb=sortKey(b);for(let i=0;i<3;i++){i
 function card(d){
   const u=urgency(d), s=stepsOf(d), ns=nextStep(d), ot=openTasks(d);
   const L=d.type==="litige",mt=L?(d.montantDemande??d.montant):d.montant;
-  const meta=[d.logement, d.dateIncident?("le "+fmt(d.dateIncident)):null, L?d.voyageur:d.intervenant, mt!=null?(L?"demandé ":"")+eur(mt):null].filter(Boolean).map(esc).join(" · ");
+  const meta=[d.dateIncident?("le "+fmt(d.dateIncident)):null, L?d.voyageur:d.intervenant, mt!=null?(L?"demandé ":"")+eur(mt):null].filter(Boolean).map(esc).join(" · ");
   const bars=L?litSteps(d).map(x=>x[2]):s.map(([k])=>!!d.etapes?.[k]?.done);
   return `<button class="card" type="button" data-open="${esc(d.id)}">
+    <div class="lgname ${d.logement?"":"vide"}">${d.logement?esc(d.logement):"Logement non précisé"}</div>
     <div class="row1"><div class="ttl"><span class="tag">${esc(d.type!=="litige"&&d.litigeId?"Suivi logement · suite d'un litige":(d.origine||(d.type==="litige"?"Litige":"Suivi")))}${d.categorie?` · <span style="${d.categorie==="Maintenance"?"color:var(--mnt)":d.categorie==="Ménage"?"color:var(--men)":""}">${esc(d.categorie)}</span>`:""}</span> ${L?decBadge(d):""}<br>${esc(d.titre||"Sans titre")}</div><span class="pill ${u.l==="info"?"info":"l"+u.l}">${esc(u.t)}</span></div>
-    <div class="meta">${meta||"Logement non précisé"}</div>
+    ${meta?`<div class="meta">${meta}</div>`:""}
     ${(()=>{const a=attenteOf(d);return a?`<div class="attline att-${a.k}"><i class="adot"></i>On attend sur <b>${esc(attLabel(a))}</b></div>`:""})()}
     ${oublie(d)?`<div class="stale">⏳ Aucune action depuis ${sansAction(d)} jours</div>`:""}
     <div class="steps" aria-hidden="true">${bars.map(b=>`<i class="${b?"on":""}"></i>`).join("")}</div>
@@ -823,6 +827,7 @@ function renderDetail(){
   }
   s.innerHTML=`<div class="wrap">
   <div class="sheethead"><h2>${esc(d.titre)}</h2><button class="btn ghost" type="button" data-close>Fermer</button></div>
+  ${d.logement?`<div class="lgname big">${esc(d.logement)}</div>`:""}
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="tag">${esc(d.origine||(d.type==="litige"?"Litige":"Suivi logement"))}${d.categorie?" · "+esc(d.categorie):""}</span><span class="pill ${u.l==="info"?"info":"l"+u.l}">${esc(u.t)}</span></div>
   ${dlHtml}
   ${rappelHtml(d)}
