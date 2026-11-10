@@ -79,7 +79,7 @@ input.hasmic{padding-right:42px!important}
 .rq small{display:block;color:var(--muted);font-size:12px;margin-top:4px}
 .fac-l{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-bottom:8px}
 .fac-h{display:flex;justify-content:space-between;gap:8px;padding:10px 14px;background:var(--sunk);font-weight:700}
-.fac-r{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:9px 14px;border-top:1px solid var(--line);font-size:14px}
+.fac-r{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;justify-content:space-between;padding:9px 14px;border-top:1px solid var(--line);font-size:14px}
 .fac-r .t{min-width:0;flex:1}
 .fac-r .t span{display:block;font-size:12px;color:var(--muted)}
 .fac-r .m{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -302,6 +302,8 @@ textarea{min-height:76px;resize:vertical}
 .trrow{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-top:1px solid var(--line)}.trrow:first-of-type{border-top:0}.trfr{font-weight:600}
 .trrow label{display:grid;grid-template-columns:26px 1fr;gap:6px;align-items:start}
 .pavoir{background:var(--warn-bg);border:1px solid var(--warn);border-radius:10px;padding:10px 12px;margin:8px 0;display:flex;flex-direction:column;gap:4px;white-space:pre-wrap;font-size:14px}
+.fac-r>.t{flex:1 1 calc(100% - 100px);min-width:0}.fac-r>.ftype{margin-left:auto}
+.ftype{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;flex:none}.ftype button{border:0;background:var(--surface);font-size:12px;padding:5px 9px;color:var(--muted)}.ftype button[aria-pressed="true"]{background:var(--brand);color:#fff;font-weight:600}
 .rub:first-of-type{border-top:0}
 .rub-i{font-size:17px;width:30px;height:30px;border-radius:999px;background:var(--sunk);display:inline-grid;place-items:center;letter-spacing:0;flex:none}
 .rub-v .rv{padding:1px 0}.rub-v .rk{font-weight:600;color:var(--brand)}.rub-v{padding-left:36px}
@@ -680,8 +682,8 @@ let facF="afaire",factures=[];
 window.setMoisFac=(id,v)=>{const d=dossiers.find(x=>x.id===id);if(!d||!v)return;patch(d,{moisFac:v},"Rangé en "+MOIS[+v.slice(5,7)-1].toLowerCase()+" "+v.slice(0,4)+" dans la facturation")};
 function facRows(){
   const kidOf=new Set(dossiers.filter(x=>x.litigeId&&x.type!=="litige").map(x=>x.litigeId));
-  const a=dossiers.filter(d=>d.aFacturer===true&&!(d.type==="litige"&&kidOf.has(d.id))).map(d=>({k:"d",id:d.id,titre:d.titre||"Sans titre",sub:[fmt(d.dateIncident),d.intervenant?esc(d.intervenant):"",d.type==="litige"?"litige":d.litigeId?"suite d'un litige":""].filter(Boolean).join(" · "),logement:d.logement,mois:facMois(d),montant:facMontant(d),fait:!!d.facture?.fait,le:d.facture?.le,date:d.dateIncident||""}));
-  const b=factures.map(f=>({k:"f",id:f.id,titre:f.detail||"Sans détail",sub:"ajouté à la main",logement:f.logement,mois:f.mois||"inconnu",montant:f.montant,fait:!!f.facture?.fait,le:f.facture?.le,date:(f.creeLe||"").slice(0,10)}));
+  const a=dossiers.filter(d=>d.aFacturer===true&&!(d.type==="litige"&&kidOf.has(d.id))).map(d=>({k:"d",id:d.id,titre:d.titre||"Sans titre",sub:[fmt(d.dateIncident),d.intervenant?esc(d.intervenant):"",d.type==="litige"?"litige":d.litigeId?"suite d'un litige":""].filter(Boolean).join(" · "),logement:d.logement,mois:facMois(d),montant:facMontant(d),type:d.facType||"",fait:!!d.facture?.fait,le:d.facture?.le,date:d.dateIncident||""}));
+  const b=factures.map(f=>({k:"f",id:f.id,titre:f.detail||"Sans détail",sub:"ajouté à la main",logement:f.logement,mois:f.mois||"inconnu",montant:f.montant,type:f.facType||"",fait:!!f.facture?.fait,le:f.facture?.le,date:(f.creeLe||"").slice(0,10)}));
   return a.concat(b);
 }
 function facView(m){
@@ -695,16 +697,18 @@ function facView(m){
   ${list.length&&downloads?`<button class="btn" type="button" id="facCsv">Exporter cette liste (Excel / CSV)</button>`:""}</div>
   ${months.length?months.map(mo=>{const a=list.filter(r=>r.mois===mo);const byL=new Map();a.forEach(r=>{const k=r.logement||"Logement non précisé";if(!byL.has(k))byL.set(k,[]);byL.get(k).push(r)});
     return `<div class="sec-title"><span>${mo==="inconnu"?"Date inconnue":MOIS[+mo.slice(5,7)-1]+" "+mo.slice(0,4)}</span><span>${eur(tot(a))}</span></div>`+[...byL.entries()].sort((x,y)=>x[0].localeCompare(y[0],"fr")).map(([lg,rs])=>`<div class="fac-l"><div class="fac-h"><span>${esc(lg)}</span><span>${eur(tot(rs))}</span></div>
-      ${rs.sort((x,y)=>String(x.date).localeCompare(String(y.date))).map(r=>`<div class="fac-r ${r.fait?"done":""}"><button class="t" type="button" ${r.k==="d"?`data-open="${esc(r.id)}"`:`data-facedit="${esc(r.id)}"`} style="background:none;border:0;padding:0;text-align:left;font:inherit;color:inherit">${esc(r.titre)}<span>${r.sub}</span></button><span class="m">${r.montant!=null?eur(r.montant):`<span style="color:var(--warn);font-weight:600;font-size:12px">montant ?</span>`}</span><button class="fbtn ${r.fait?"ok":""}" type="button" data-fact="${r.k}:${esc(r.id)}">${r.fait?"✓ Facturé "+fmt((r.le||"").slice(0,10)):"Marquer facturé"}</button>${r.fait||r.k==="f"?"":`<button class="fbtn" type="button" data-unfac="${esc(r.id)}" title="Ne pas facturer" aria-label="Retirer de la facturation" style="padding:5px 9px">✕</button>`}</div>`).join("")}</div>`).join("")}).join("")
+      ${rs.sort((x,y)=>String(x.date).localeCompare(String(y.date))).map(r=>`<div class="fac-r ${r.fait?"done":""}"><button class="t" type="button" ${r.k==="d"?`data-open="${esc(r.id)}"`:`data-facedit="${esc(r.id)}"`} style="background:none;border:0;padding:0;text-align:left;font:inherit;color:inherit">${esc(r.titre)}<span>${r.sub}</span></button><span class="m">${r.montant!=null?eur(r.montant):`<span style="color:var(--warn);font-weight:600;font-size:12px">montant ?</span>`}</span><span class="ftype" role="group" aria-label="Type">${["Débours","Vente"].map(t=>`<button type="button" data-factype="${r.k}:${esc(r.id)}:${t}" aria-pressed="${r.type===t}">${t}</button>`).join("")}</span><button class="fbtn ${r.fait?"ok":""}" type="button" data-fact="${r.k}:${esc(r.id)}">${r.fait?"✓ Facturé "+fmt((r.le||"").slice(0,10)):"Marquer facturé"}</button>${r.fait||r.k==="f"?"":`<button class="fbtn" type="button" data-unfac="${esc(r.id)}" title="Ne pas facturer" aria-label="Retirer de la facturation" style="padding:5px 9px">✕</button>`}</div>`).join("")}</div>`).join("")}).join("")
   :`<div class="empty">${facF==="faits"?"Rien n'a encore été marqué comme facturé.":"Rien à facturer pour l'instant. Ajoutez une ligne avec le bouton ci-dessus, ou choisissez « À facturer : Oui » dans un dossier."}</div>`}`;
   $("#facAdd").onclick=()=>openFacForm();
   m.querySelectorAll("[data-facf]").forEach(b=>b.onclick=()=>{facF=b.dataset.facf;render()});
   m.querySelectorAll("[data-facedit]").forEach(b=>b.onclick=()=>openFacForm(b.dataset.facedit));
   m.querySelectorAll("[data-fact]").forEach(b=>b.onclick=async()=>{const [k,id]=b.dataset.fact.split(":");const src=k==="d"?dossiers.find(x=>x.id===id):factures.find(x=>x.id===id);if(!src)return;const on=!src.facture?.fait;const v={facture:{fait:on,le:on?nowIso():null}};const msg=on?"Marqué comme facturé":"Remis à facturer";
     if(k==="d")patch(src,v,msg);else try{await db.doc("factures/"+id).update({...v,updatedAt:nowIso()});toast(msg)}catch(e){toast(failMsg(e))}});
+  m.querySelectorAll("[data-factype]").forEach(b=>b.onclick=async()=>{const [k,id,t]=b.dataset.factype.split(":");const src=k==="d"?dossiers.find(x=>x.id===id):factures.find(x=>x.id===id);if(!src)return;const nt=src.facType===t?"":t;const msg=nt?"Noté : "+nt.toLowerCase():"Type retiré";
+    if(k==="d")patch(src,{facType:nt},msg);else try{await db.doc("factures/"+id).update({facType:nt,updatedAt:nowIso()});toast(msg)}catch(e){toast(failMsg(e))}});
   m.querySelectorAll("[data-unfac]").forEach(b=>b.onclick=()=>{const d=dossiers.find(x=>x.id===b.dataset.unfac);if(!d)return;patch(d,{aFacturer:false},"Retiré de la facturation (À facturer : Non)")});
-  if($("#facCsv"))$("#facCsv").onclick=async()=>{const q=c=>'"'+String(c??"").replace(/"/g,'""')+'"';const L=[["Mois","Logement","Date","Objet","Montant (€)","Facturé le"].map(q).join(";")];
-    [...list].sort((a,b)=>(a.mois+a.logement).localeCompare(b.mois+b.logement)).forEach(r=>{L.push([r.mois,r.logement,r.date?r.date.split("-").reverse().join("/"):"",r.titre,r.montant!=null?String(r.montant).replace(".",","):"",r.fait?(r.le||"").slice(0,10).split("-").reverse().join("/"):""].map(q).join(";"))});
+  if($("#facCsv"))$("#facCsv").onclick=async()=>{const q=c=>'"'+String(c??"").replace(/"/g,'""')+'"';const L=[["Mois","Logement","Date","Objet","Type","Montant (€)","Facturé le"].map(q).join(";")];
+    [...list].sort((a,b)=>(a.mois+a.logement).localeCompare(b.mois+b.logement)).forEach(r=>{L.push([r.mois,r.logement,r.date?r.date.split("-").reverse().join("/"):"",r.titre,r.type,r.montant!=null?String(r.montant).replace(".",","):"",r.fait?(r.le||"").slice(0,10).split("-").reverse().join("/"):""].map(q).join(";"))});
     try{await downloads.save({filename:"facturation-albs-"+today()+".csv",data:"\uFEFF"+L.join("\r\n")});toast("Liste exportée")}catch(e){toast("L'export n'a pas pu être fait")}};
 }
 function openFacForm(id){
@@ -714,12 +718,14 @@ function openFacForm(id){
   <div class="field"><label for="xLog">Logement</label><input type="text" id="xLog" list="logList" value="${esc(f?.logement||"")}" placeholder="Tapez le nom, ex. : L'Échappée Belle" autocomplete="off"></div>
   <div class="field"><label for="xDet">Détail</label><textarea id="xDet" rows="3" placeholder="Ex. : remplacement grande serviette">${esc(f?.detail||"")}</textarea></div>
   <div class="field"><label for="xMont">Prix (€)</label><input type="text" id="xMont" inputmode="decimal" value="${f?.montant!=null?esc(String(f.montant).replace(".",",")):""}" placeholder="Ex. : 10"></div>
+  <div class="field"><label>Type</label><div class="chips">${["Débours","Vente"].map(t=>`<button type="button" class="chip" data-xtype="${t}" aria-pressed="${(f?.facType||"")===t}">${t}</button>`).join("")}</div></div>
   <div class="field"><label for="xMois">Mois de facturation</label><input type="month" id="xMois" value="${esc(f?.mois||today().slice(0,7))}"></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" type="button" id="xSave">${f?"Enregistrer":"Ajouter"}</button>${f?`<button class="btn" type="button" id="xDel" style="color:var(--bad)">Supprimer cette ligne</button>`:""}</div></div>`;
   $("#xLog").focus();
+  s.querySelectorAll("[data-xtype]").forEach(b=>b.onclick=()=>{const on=b.getAttribute("aria-pressed")!=="true";s.querySelectorAll("[data-xtype]").forEach(x=>x.setAttribute("aria-pressed","false"));b.setAttribute("aria-pressed",String(on))});
   $("#xSave").onclick=async()=>{const lg=$("#xLog").value.trim(),det=$("#xDet").value.trim(),mt=num($("#xMont").value),mo=$("#xMois").value;
     if(!lg)return toast("Indiquez le logement");if(!det)return toast("Écrivez le détail");if(mt==null)return toast("Indiquez le prix");if(!mo)return toast("Choisissez le mois");
-    const known=logements.find(l=>norm(l.nom)===norm(lg));const body={logement:known?known.nom:lg,detail:det,montant:mt,mois:mo,updatedAt:nowIso()};
+    const known=logements.find(l=>norm(l.nom)===norm(lg));const tb=s.querySelector('[data-xtype][aria-pressed="true"]');const body={logement:known?known.nom:lg,detail:det,montant:mt,mois:mo,facType:tb?tb.dataset.xtype:"",updatedAt:nowIso()};
     $("#xSave").disabled=true;
     try{if(f)await db.doc("factures/"+f.id).update(body);else await db.collection("factures").doc().set({...body,facture:{fait:false,le:null},creeLe:nowIso()});toast(f?"Ligne modifiée":"Ligne ajoutée à la facturation");closeSheet()}catch(e){$("#xSave").disabled=false;toast(failMsg(e))}};
   if($("#xDel")){let armed=false;$("#xDel").onclick=async()=>{if(!armed){armed=true;$("#xDel").textContent="Confirmer la suppression";return}
