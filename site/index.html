@@ -1665,6 +1665,13 @@ const P_EQOLD2={"Vaisselle complète":"Cuisine · vaisselle","Draps fournis":"Li
 /* prix des packs : consommables 20 € au-delà de 4 couchages, sinon 15 € ; shampoing / gel douche 5 € */
 const pCouchages=v=>{if(+v.cap_voy)return +v.cap_voy;let n=0;for(const b of Object.values(v.beds||{}))for(const e of [b,...((b&&b.x)||[])]){if(!e||!e.t||e.t==="—")continue;n+=(+e.n||1)*(/90|80|simple|bébé|1 place/i.test(e.t)?1:2)}return n};
 const packsPrix=v=>{const P=v.packs||[],c=pCouchages(v),L=[];if(P.includes("Pack consommables"))L.push(["Pack consommables",c>4?20:15,c?(c>4?"plus de 4 couchages":"4 couchages ou moins")+" ("+c+")":"couchages non renseignés : 15 € par défaut"]);if(P.includes("Pack shampoing / gel douche"))L.push(["Pack shampoing / gel douche",5,""]);return L};
+/* facturation : une ligne automatique au mois suivant pour chaque pack coché */
+async function pSyncPacks(p){if(!p||!p.id)return;const v=pV(p),lg=((logements.find(l=>l.id===p.logementId)||{}).nom)||pName(p),d=new Date(),nm=new Date(d.getFullYear(),d.getMonth()+1,1),mois=nm.getFullYear()+"-"+String(nm.getMonth()+1).padStart(2,"0");
+  const L=packsPrix(v);
+  for(const [nom,slug] of [["Pack consommables","conso"],["Pack shampoing / gel douche","shampoing"]]){const id="pack_"+p.id+"_"+slug,f=factures.find(x=>x.id===id),pr=L.find(x=>x[0]===nom);
+    try{if(pr){if(!f)await db.doc("factures/"+id).set({logement:lg,detail:nom+" (option du logement)",montant:pr[1],mois,auto:true,facture:{fait:false,le:null},creeLe:nowIso(),updatedAt:nowIso()});
+        else if(!f.facture?.fait&&(f.montant!==pr[1]||f.logement!==lg))await db.doc("factures/"+id).update({montant:pr[1],logement:lg,updatedAt:nowIso()})}
+      else if(f&&!f.facture?.fait)await db.doc("factures/"+id).delete()}catch(e){}}}
 const LITERIE=["Lit double","Lit simple","Matelas","Alèse / protège-matelas","Oreillers","Traversin","Couette","Housse de couette","Draps housses","Taies d'oreiller","Plaid"];
 const pPieces=v=>Array.isArray(v.pieces)?v.pieces:Array.from({length:Math.max(1,Math.min(6,+v.cap_ch||1))},(_,i)=>({id:"c"+(i+1),nom:"Chambre "+(i+1),type:"chambre"}));
 /* options quand l'équipement est présent */
@@ -1791,7 +1798,7 @@ function pField(f){const v=prosCur.v,val=v[f.k],id="pf_"+f.k,w=f.w?"":` style="g
       ${opts.map(x=>{const o=P_EQOPT[x.l];return `<div class="field" style="margin-top:8px"><label>${esc(o[1])}</label><div class="chips">${o[2].map(y=>`<button type="button" class="chip" data-pchip="${o[0]}" data-pmulti="" data-pval="${esc(y)}" aria-pressed="${v[o[0]]===y}">${esc(y)}</button>`).join("")}</div></div>`}).join("")}
       <div class="inline" style="margin-top:8px"><input type="text" data-peqnew="${esc(g)}" placeholder="Ajouter un équipement"><button class="btn" type="button" data-peqadd="${esc(g)}" style="flex:0 0 auto">Ajouter</button></div></div>`}
    case "equipL":return `<div style="grid-column:1/-1"><label style="font-size:13px;font-weight:600">Détail du linge fourni par le propriétaire</label></div>`+pField({k:"eq_linge",t:"equip",sc:lingeSc(v)});
-   case "packsprix":{const L=packsPrix(v);return `<div class="field" style="grid-column:1/-1"><label>Prix des packs</label>${L.map(([n,p,why])=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0"><span>${esc(n)}${why?`<br><small class="hint">${esc(why)}</small>`:""}</span><b>${p} €</b></div>`).join("")}${L.length>1?`<div style="display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:6px;margin-top:4px"><span>Total</span><b>${L.reduce((a,x)=>a+x[1],0)} €</b></div>`:""}<span class="hint">Calculé selon le nombre de voyageurs max (étape Logement), sinon selon les couchages.</span></div>`}
+   case "packsprix":{const L=packsPrix(v);return `<div class="field" style="grid-column:1/-1"><label>Prix des packs</label>${L.map(([n,p,why])=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0"><span>${esc(n)}${why?`<br><small class="hint">${esc(why)}</small>`:""}</span><b>${p} €</b></div>`).join("")}<span class="hint">Calculé selon le nombre de voyageurs max (étape Logement), sinon selon les couchages. Une ligne est ajoutée automatiquement dans la facturation du mois suivant.</span></div>`}
    case "pieces":{const pcs=pPieces(v);return `<div style="grid-column:1/-1;display:flex;flex-direction:column;gap:8px">${pcs.map(pc=>`<div class="inline"><span style="flex:none">${(PIECE_TYPES.find(x=>x[0]===pc.type)||PIECE_TYPES[2])[2]}</span><input type="text" data-ppiecename="${pc.id}" value="${esc(pc.nom)}" aria-label="Nom de la pièce"><button type="button" class="btn ghost" data-ppiecerm="${pc.id}" style="flex:0 0 auto">Retirer</button></div>`).join("")}
       <div class="chips">${PIECE_TYPES.map(([t,lab,ic])=>`<button type="button" class="chip" data-ppieceadd="${t}">+ ${ic} ${lab}</button>`).join("")}</div></div>`}
    case "docs":{const slots=f.slots||P_DOCS,docs=v.docs||{};return `<div style="grid-column:1/-1">${slots.map(([k,l,sub])=>{const d=docs[k]||{},fs=(d.files||[]);return `<div class="check"><input type="checkbox" id="pd_${k}" data-pdoc="${k}" ${d.ok||fs.length?"checked":""}><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px"><label for="pd_${k}" class="t" style="font-weight:600">${esc(l)}${sub?`<span class="who">${esc(sub)}</span>`:""}</label>
@@ -1876,6 +1883,7 @@ async function pPushFiche(L,isNew){if(!L)return toast("Logement introuvable");co
   const achats=prosCur.v.eq_achats||"",invOld=JSON.stringify([I0.groupes||[],I0.achats||""]),invNew=JSON.stringify([inv,achats]);
   if(!n&&invOld===invNew){toast("La fiche est déjà à jour");return}
   const upd={fiche:patch};if(invOld!==invNew){upd.inventaire={groupes:inv,achats,maj:now,par:who()};if(!n)n=1}
+  pSyncPacks(prosCur);
   try{await db.doc("logements/"+L.id).update(upd);toast(isNew?"Logement créé · fiche remplie ("+n+" rubriques)":n+" rubrique"+(n>1?"s":"")+" mise"+(n>1?"s":"")+" à jour")}catch(e){toast(failMsg(e))}}
 async function pCreateLog(){const nom=$("#pLNom").value.trim(),sel=$("#pLLieu").value,lieu=canonLieu(sel==="__new"?$("#pLLieuNew").value:sel);if(!nom)return toast("Indiquez le nom du logement");if(!lieu)return toast("Choisissez le secteur");
   const b=$("#pCreate");b.disabled=true;
@@ -1890,7 +1898,7 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-pros],[dat
   if(t.dataset.plog){const nom=t.dataset.plog;prosFlush();prosOpen=null;prosCur=null;openLogSheet(nom);lsTab="fiche";renderLogSheet();return}
   if(t.dataset.ptab){prosTab=t.dataset.ptab;prosAsk=null;$("#sheet").scrollTop=0;renderProspect();return}
   if(t.dataset.pstep){prosStep=+t.dataset.pstep;prosTab="fiche";$("#sheet").scrollTop=0;renderProspect();return}
-  if(t.dataset.pchip){const k=t.dataset.pchip,val=t.dataset.pval;if(t.dataset.pmulti){const a=new Set(v[k]||[]);a.has(val)?a.delete(val):a.add(val);v[k]=[...a]}else v[k]=v[k]===val?"":val;prosTouch();renderProspect();return}
+  if(t.dataset.pchip){const k=t.dataset.pchip,val=t.dataset.pval;if(t.dataset.pmulti){const a=new Set(v[k]||[]);a.has(val)?a.delete(val):a.add(val);v[k]=[...a]}else v[k]=v[k]===val?"":val;prosTouch();renderProspect();if(k==="packs")pSyncPacks(prosCur).then(()=>toast(v.packs&&v.packs.length?"Noté dans la facturation du mois prochain":"Retiré de la facturation"));return}
   if(t.dataset.peq){const k=t.dataset.peq;v.eq=v.eq||{};const n=((v.eq[k]||0)+1)%3;if(n)v.eq[k]=n;else delete v.eq[k];t.dataset.s=n;t.textContent=k+(n===2?" · à acheter":n===1?" ✓":"");prosTouch();renderProspect();return}
   if(t.dataset.pbedadd){const k=t.dataset.pbedadd;v.beds=v.beds||{};const r=v.beds[k]=v.beds[k]||{};r.x=[...(r.x||[]),{t:"—",n:""}];prosTouch();renderProspect();return}
   if(t.dataset.pbedrm){const [k,i]=t.dataset.pbedrm.split("|");const r=(v.beds||{})[k];if(r&&r.x){r.x.splice(+i,1)}prosTouch();renderProspect();return}
