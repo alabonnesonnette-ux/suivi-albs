@@ -1651,16 +1651,17 @@ const P_EQUIP=[
  ["Sécurité",["Détecteur de fumée","Détecteur de CO","Extincteur","Trousse de secours","Couverture anti-feu"]],
  ["Accès & parking",["Parking gratuit sur place","Garage","Recharge véhicule électrique","Ascenseur","Arrivée autonome","Local vélos"]]];
 /* pièces : chambres, salles de bain, autres */
-const PIECE_TPL={chambre:["Lit double","Lit simple","Matelas","Alèse / protège-matelas","Oreillers","Traversin","Couette","Housse de couette","Draps housses","Taies d'oreiller","Plaid","Table de chevet","Lampe de chevet","Penderie / armoire","Commode","Cintres","Rideaux occultants","Miroir","Bureau","Chaise","Télévision"],
+const BED_ITEMS=["Alèse matelas","Alèse oreiller","Oreillers","Traversin","Couette","Housse de couette","Draps housses","Taies d'oreiller","Plaid"];
+const PIECE_TPL={chambre:["Lit double","Lit simple","Matelas",...BED_ITEMS,"Table de chevet","Lampe de chevet","Penderie / armoire","Commode","Cintres","Rideaux occultants","Miroir","Bureau","Chaise","Télévision"],
  sdb:["Douche","Baignoire","Lavabo","WC","Miroir","Sèche-cheveux","Serviettes de bain","Tapis de bain","Porte-serviettes","Poubelle salle de bain"],autre:[]};
 const PIECE_TYPES=[["chambre","Chambre","🛏️"],["sdb","Salle de bain","🛁"],["autre","Autre pièce","🚪"]];
 const LINGE_ITEMS=["Draps","Parures de lit","Grandes serviettes","Petites serviettes","Torchons","Tapis de bain","Oreillers","Couvertures","Plaids","Couettes de rechange","Alèse drap","Alèse oreiller"];
 const lingeSc=v=>({g:"LingeInv",t:"Linge fourni par le propriétaire",ico:"🧺",items:LINGE_ITEMS.map(l=>({k:"linge|"+l,l})).concat(((v.eqx||{}).LingeInv||[]).map(l=>({k:"linge|"+l,l,cu:1})))});
 const eqKey=(g,l)=>g.startsWith("P:")?g.slice(2)+"|"+l:g==="LingeInv"?"linge|"+l:l;
 /* quantités : seulement vaisselle, couverts, linge du propriétaire et quelques objets */
-const EQ_CNT_G=new Set(["Cuisine · vaisselle","Cuisine · couverts","LingeInv","Linge"]),EQ_CNT_I=new Set(["Casseroles","Poêles","Faitout / marmite","Couvercles","Couteau de cuisine","Planche à découper","Maniques","Torchons","Poubelle de cuisine","Oreillers","Traversin","Couette","Alèse / protège-matelas","Lit double","Lit simple"]);
+const EQ_CNT_G=new Set(["Cuisine · vaisselle","Cuisine · couverts","LingeInv","Linge"]),EQ_CNT_I=new Set(["Casseroles","Poêles","Faitout / marmite","Couvercles","Couteau de cuisine","Planche à découper","Maniques","Torchons","Poubelle de cuisine","Oreillers","Traversin","Couette","Alèse matelas","Alèse oreiller","Lit double","Lit simple"]);
 const EQ_DROP=new Set(["Couvertures","Plaids","Oreillers","Couettes de rechange","Alèse drap","Alèse oreiller","Vaisselle complète","Ustensiles de cuisine","Couverts de service","Serviettes","Serviettes de bain","Serviettes de toilette","Papier toilette","Oreillers en double","Alèses de rechange","Draps fournis"]);
-const eqCountable=(g,l)=>EQ_CNT_G.has(g)||EQ_CNT_I.has(l);
+const eqCountable=(g,l)=>EQ_CNT_G.has(g)||EQ_CNT_I.has(String(l).split(" – ")[0]);
 const P_EQOLD2={"Vaisselle complète":"Cuisine · vaisselle","Draps fournis":"Linge","Oreillers en double":"Linge","Couvertures":"Linge","Rideaux occultants":"Salon et repas","Penderie / armoire":"Salon et repas"};
 /* prix des packs : consommables 20 € au-delà de 4 couchages, sinon 15 € ; shampoing / gel douche 5 € */
 const pCouchages=v=>{if(+v.cap_voy)return +v.cap_voy;let n=0;for(const b of Object.values(v.beds||{}))for(const e of [b,...((b&&b.x)||[])]){if(!e||!e.t||e.t==="—")continue;n+=(+e.n||1)*(/90|80|simple|bébé|1 place/i.test(e.t)?1:2)}return n};
@@ -1672,14 +1673,14 @@ async function pSyncPacks(p){if(!p||!p.id)return;const v=pV(p),lg=((logements.fi
     try{if(pr){if(!f)await db.doc("factures/"+id).set({logement:lg,detail:nom+" (option du logement)",montant:pr[1],mois,auto:true,facture:{fait:false,le:null},creeLe:nowIso(),updatedAt:nowIso()});
         else if(!f.facture?.fait&&(f.montant!==pr[1]||f.logement!==lg))await db.doc("factures/"+id).update({montant:pr[1],logement:lg,updatedAt:nowIso()})}
       else if(f&&!f.facture?.fait)await db.doc("factures/"+id).delete()}catch(e){}}}
-const LITERIE=["Lit double","Lit simple","Matelas","Alèse / protège-matelas","Oreillers","Traversin","Couette","Housse de couette","Draps housses","Taies d'oreiller","Plaid"];
+const LITERIE=["Lit double","Lit simple","Matelas",...BED_ITEMS];
 const pPieces=v=>Array.isArray(v.pieces)?v.pieces:Array.from({length:Math.max(1,Math.min(6,+v.cap_ch||1))},(_,i)=>({id:"c"+(i+1),nom:"Chambre "+(i+1),type:"chambre"}));
 /* options quand l'équipement est présent */
 const P_EQOPT={"Cafetière":["eq_cafe","Type de cafetière",["Nespresso","Dolce Gusto","Senseo","Tassimo","Filtre","Italienne","Grains"]],"Plaques de cuisson":["eq_plaques","Type de plaques",["Induction","Vitrocéramique","Gaz","Électrique"]]};
 /* anciens noms (premières fiches) */
 const P_EQOLD={"Ustensiles de cuisine":"Cuisine · ustensiles","Vaisselle complète":"Cuisine · vaisselle","Serviettes":"Salle de bain","Draps fournis":"Linge de lit","Oreillers en double":"Linge de lit","Couvertures":"Linge de lit","Télévision":"Salon et repas"};
 const EQ_ICO_G={"Linge":"🧺","Cuisine":"🍳","Linge & entretien":"🧺","Cuisine · électroménager":"🍳","Cuisine · vaisselle":"🍽️","Cuisine · couverts":"🍴","Cuisine · ustensiles":"🥄","Cuisine · produits de base":"🧂","Salle de bain":"🛁","Linge de lit":"🛏️","Entretien":"🧺","Chambres":"🛏️","Salon et repas":"🛋️","Confort":"✨","Famille":"🧸","Extérieur":"🌿","Sécurité":"🧯","Accès & parking":"🚗","Autres":"📦"};
-const EQ_ICO={"Lit double":"🛏️","Lit simple":"🛏️","Matelas":"🛏️","Alèse / protège-matelas":"🛏️","Traversin":"🛏️","Couette":"🛏️","Housse de couette":"🛏️","Plaid":"🧣","Table de chevet":"🪑","Commode":"🗄️","Bureau":"💻","Chaise":"🪑","Lavabo":"🚰","WC":"🚽","Tapis de bain":"🧶","Porte-serviettes":"🧖","Canapé convertible":"🛋️","Table basse":"🪑","Rideaux":"🪟","Petites assiettes":"🍰","Couvercles":"🍲","Passoire":"🥣","Maniques":"🧤","Égouttoir":"🍽️","Brosse WC":"🚽","Pelle et balayette":"🧹","Chauffage d'appoint":"🔥","Mobilier de jardin":"🪑","Ustensiles de cuisine":"🥄","Vaisselle complète":"🍽️","Serviettes":"🧖","Draps fournis":"🛏️","Oreillers en double":"🛏️","Couvertures":"🧣","Hotte":"💨","Table à repasser":"👔","Netflix / streaming":"🎬","Barrière de sécurité":"🚧","Mobilier de jardin":"🪑","Couverture anti-feu":"🔥","Réfrigérateur":"🧊","Congélateur":"❄️","Four":"🔥","Micro-ondes":"📟","Plaques de cuisson":"🍳","Lave-vaisselle":"🫧","Cafetière":"☕","Bouilloire":"🫖","Grille-pain":"🍞","Mixeur / blender":"🥤","Presse-agrumes":"🍋","Appareil à raclette":"🧀","Appareil à fondue":"🫕","Gaufrier":"🧇",
+const EQ_ICO={"Alèse matelas":"🛏️","Alèse oreiller":"🛏️","Lit double":"🛏️","Lit simple":"🛏️","Matelas":"🛏️","Alèse / protège-matelas":"🛏️","Traversin":"🛏️","Couette":"🛏️","Housse de couette":"🛏️","Plaid":"🧣","Table de chevet":"🪑","Commode":"🗄️","Bureau":"💻","Chaise":"🪑","Lavabo":"🚰","WC":"🚽","Tapis de bain":"🧶","Porte-serviettes":"🧖","Canapé convertible":"🛋️","Table basse":"🪑","Rideaux":"🪟","Petites assiettes":"🍰","Couvercles":"🍲","Passoire":"🥣","Maniques":"🧤","Égouttoir":"🍽️","Brosse WC":"🚽","Pelle et balayette":"🧹","Chauffage d'appoint":"🔥","Mobilier de jardin":"🪑","Ustensiles de cuisine":"🥄","Vaisselle complète":"🍽️","Serviettes":"🧖","Draps fournis":"🛏️","Oreillers en double":"🛏️","Couvertures":"🧣","Hotte":"💨","Table à repasser":"👔","Netflix / streaming":"🎬","Barrière de sécurité":"🚧","Mobilier de jardin":"🪑","Couverture anti-feu":"🔥","Réfrigérateur":"🧊","Congélateur":"❄️","Four":"🔥","Micro-ondes":"📟","Plaques de cuisson":"🍳","Lave-vaisselle":"🫧","Cafetière":"☕","Bouilloire":"🫖","Grille-pain":"🍞","Mixeur / blender":"🥤","Presse-agrumes":"🍋","Appareil à raclette":"🧀","Appareil à fondue":"🫕","Gaufrier":"🧇",
  "Grandes assiettes":"🍽️","Petites assiettes (dessert)":"🍰","Assiettes creuses":"🥣","Bols":"🥣","Tasses à café":"☕","Mugs":"☕","Verres à eau":"🥛","Verres à vin":"🍷","Flûtes à champagne":"🥂","Carafe":"🫗","Saladier":"🥗","Plat à four":"🥘","Plateau de service":"🍱",
  "Fourchettes":"🍴","Couteaux":"🔪","Cuillères à soupe":"🥄","Petites cuillères":"🥄","Couteaux à steak":"🔪","Couverts de service":"🍴","Casseroles":"🍲","Poêles":"🍳","Faitout / marmite":"🍲","Couteau de cuisine":"🔪","Planche à découper":"🪵","Tire-bouchon":"🍾","Décapsuleur":"🍺","Ciseaux de cuisine":"✂️","Torchons":"🧻","Poubelle de cuisine":"🗑️",
  "Huile, sel, poivre":"🧂","Sucre":"🍬","Café / capsules":"☕","Thé / tisanes":"🍵","Liquide vaisselle":"🧴","Éponges":"🧽","Sacs poubelle":"🗑️","Essuie-tout":"🧻",
@@ -1691,7 +1692,7 @@ const EQ_ICO={"Lit double":"🛏️","Lit simple":"🛏️","Matelas":"🛏️",
  "Lit bébé":"👶","Chaise haute":"🪑","Jouets":"🧸","Balcon":"🌇","Terrasse":"☀️","Jardin":"🌳","Barbecue":"🍖","Piscine":"🏊","Jacuzzi":"♨️","Parasol":"⛱️",
  "Détecteur de fumée":"🚨","Détecteur de CO":"🚨","Extincteur":"🧯","Trousse de secours":"⛑️","Parking gratuit sur place":"🅿️","Garage":"🚗","Recharge véhicule électrique":"🔌","Ascenseur":"🛗","Arrivée autonome":"🔑","Local vélos":"🚲"};
 const bedsList=v=>Object.entries(v.beds||{}).map(([k,b])=>{const L=[b,...((b&&b.x)||[])].filter(e=>e&&e.t&&e.t!=="—").map(e=>(e.n>1?e.n+" × ":"")+e.t);return L.length?(P_ROOMS.find(r=>r[0]===k)||[k,k])[1]+" : "+L.join(" + "):""}).filter(Boolean);
-const eqIco=(l,g)=>EQ_ICO[l]||EQ_ICO_G[g]||"•";
+const eqIco=(l,g)=>EQ_ICO[l]||EQ_ICO[String(l).split(" – ")[0]]||EQ_ICO_G[g]||"•";
 const eqOn=(v,k)=>(v.eq||{})[k]||0;
 const eqCount=(v,k)=>eqOn(v,k)?(+((v.eqn||{})[k])||0):0;
 const eqBuy=(v,k)=>(v.eq||{})[k]===2;
@@ -1699,7 +1700,8 @@ const eqNote=(v,k)=>((v.eqnote||{})[k]||"").trim();
 let pEqNoteOpen=new Set();
 /* sections d'équipement de la fiche prospect (catégories + pièces) */
 function eqSecs(v){const out=P_EQUIP.map(([g,items])=>({g,t:g,ico:EQ_ICO_G[g]||"📦",items:items.map(l=>({k:l,l}))}));
-  for(const pc of pPieces(v)){const g="P:"+pc.id,ty=PIECE_TYPES.find(x=>x[0]===pc.type)||PIECE_TYPES[2];out.push({g,t:pc.nom||ty[1],ico:ty[2],piece:pc,items:(PIECE_TPL[pc.type]||[]).map(l=>({k:pc.id+"|"+l,l}))})}
+  for(const pc of pPieces(v)){const g="P:"+pc.id,ty=PIECE_TYPES.find(x=>x[0]===pc.type)||PIECE_TYPES[2];let L=(PIECE_TPL[pc.type]||[]);if(pc.type==="chambre"){const B=["Lit double","Lit simple"].filter(b=>eqOn(v,pc.id+"|"+b));if(B.length>1){const rest=L.filter(x=>!BED_ITEMS.includes(x)&&!B.includes(x));L=[...B,...B.flatMap(b=>BED_ITEMS.map(x=>x+" – "+b.toLowerCase())),...rest]}}
+    out.push({g,t:pc.nom||ty[1],ico:ty[2],piece:pc,items:L.map(l=>({k:pc.id+"|"+l,l}))})}
   const shown=new Set();out.forEach(sc=>{sc.items=sc.items.concat(((v.eqx||{})[sc.g]||[]).map(l=>({k:sc.piece?sc.piece.id+"|"+l:l,l,cu:1})));sc.items.forEach(x=>shown.add(x.k))});
   const old=Object.keys(v.eq||{}).filter(k=>v.eq[k]&&!shown.has(k)&&!k.includes("|")&&!EQ_DROP.has(k));for(const l of old){const sc=out.find(x=>x.g===(P_EQOLD2[l]||"Linge"))||out[0];sc.items.push({k:l,l})}
   const pids=new Set(pPieces(v).map(x=>x.id));out.forEach(sc=>sc.items=sc.items.filter(x=>!x.k.includes("|")||pids.has(x.k.split("|")[0])));
@@ -1859,7 +1861,7 @@ function pToFiche(v){const inv=pInventaire(v),buy=inv.flatMap(g=>g.items.filter(
    wifi:[pj(pl("Réseau",v.wifi_nom),pl("Mot de passe",v.wifi_code)),true],
    parking:[pj(v.park,v.park_det,sn("Parking")),true],
    poubelles:[pj(pl("Emplacement",v.pb_lieu),pl("Collecte",v.pb_jours),pl("Tri",v.pb_tri),v.pb_tri_note,sn("Poubelles et tri")),true],
-   linge:[pj(pl("Linge",v.linge),v.linge_note,beds.length?"Couchages : "+beds.join(" ; "):"",...pPieces(v).filter(pc=>pc.type==="chambre").map(pc=>{const L=LITERIE.filter(l=>eqOn(v,pc.id+"|"+l)).map(l=>{const k=pc.id+"|"+l,n=eqCount(v,k);return l+(n?" ×"+n:"")+(eqNote(v,k)?" ("+eqNote(v,k)+")":"")});return L.length?pc.nom+" : "+L.join(", "):""})),true],
+   linge:[pj(pl("Linge",v.linge),v.linge_note,beds.length?"Couchages : "+beds.join(" ; "):"",...pPieces(v).filter(pc=>pc.type==="chambre").map(pc=>{const L=(eqSecs(v).find(x=>x.g==="P:"+pc.id)||{items:[]}).items.map(x=>x.l).filter(l=>LITERIE.includes(l.split(" – ")[0])&&eqOn(v,pc.id+"|"+l)).map(l=>{const k=pc.id+"|"+l,n=eqCount(v,k);return l+(n?" ×"+n:"")+(eqNote(v,k)?" ("+eqNote(v,k)+")":"")});return L.length?pc.nom+" : "+L.join(", "):""})),true],
    packs:[pj(packsPrix(v).map(([n,p])=>n+" : "+p+" €").join("\n"),v.packs_note),true],
    consignes:[pj(pl("Ménage assuré par",v.men_qui),pl("Contact",v.men_nom),pl("Tarif ménage voyageur",v.men_tarif?v.men_tarif+" €":""),v.men_proto,sn("Ménage et linge")),true],
    tv:[pj(pl("TV",v.tv),v.tv_mode),true],
