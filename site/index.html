@@ -201,6 +201,8 @@ textarea{min-height:76px;resize:vertical}
 .stdel{flex:none;border:0;background:var(--crit-bg);color:var(--crit);width:28px;height:28px;border-radius:50%;padding:0;font-size:12px}
 .check input{width:20px;height:20px;accent-color:var(--brand);margin:1px 0 0;flex:none}
 .check .who{display:block;font-size:12px;color:var(--muted)}
+.pnote{margin-top:4px;font-size:13px;white-space:pre-wrap;background:var(--sunk);border-radius:8px;padding:6px 8px}
+.stpj{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:0 0 8px 30px}.stpj .thumbs{margin:0}.stpj a.pj{font-size:13px}.stpj .lnk{font-size:13px}
 .check.done .t{color:var(--muted);text-decoration:line-through}
 .due{font-size:12px;font-weight:600}
 .due.late{color:var(--crit)} .due.soon{color:var(--warn)} .due.fine{color:var(--muted)}
@@ -822,6 +824,12 @@ function render(){
 
 /* ---------- detail ---------- */
 function openDetail(id){if(id!==openId){stepEdit=false;sqOpen=null;sqAutre=null}if(logOpen){retLog=logOpen;logOpen=null}menOpen=null;menBack=null;auditOpen=null;openId=id;formState=null;$("#sheet").hidden=false;renderDetail()}
+let stUp={};
+const stPjOf=(d,k)=>Object.entries((d.etapesPJ||{})[k]||{}).filter(([,x])=>x&&!x.supprime&&x.a).map(([id,x])=>({id,...x})).sort((a,b)=>String(a.at).localeCompare(String(b.at)));
+function stPjHtml(d,k){const L=stPjOf(d,k),im=L.filter(x=>x.type!=="application/pdf"),pdf=L.filter(x=>x.type==="application/pdf");
+  return `<div class="stpj">${im.length?`<div class="thumbs">${im.map(x=>`<span class="th"><button class="im" type="button" data-thumb="${esc(x.a)}" aria-label="Agrandir la photo"><img src="${blob(x.a)}" alt="" loading="lazy"></button><button class="x" type="button" data-stpjdel="${esc(k+"|"+x.id)}" aria-label="Retirer la photo">✕</button></span>`).join("")}</div>`:""}
+  ${pdf.map(x=>`<span class="chip" style="display:inline-flex;gap:6px;align-items:center"><a class="pj" href="${blob(x.a)}" target="_blank" rel="noopener" style="color:inherit">📄 ${esc(x.name||"PDF")}</a><button type="button" class="btn ghost" data-stpjdel="${esc(k+"|"+x.id)}" aria-label="Retirer ${esc(x.name||"le PDF")}" style="padding:0 4px">✕</button></span>`).join("")}
+  ${assets?(stUp[d.id+"|"+k]?`<span class="hint">Envoi en cours…</span>`:`<label class="lnk" style="cursor:pointer">📎 Photo ou PDF<input type="file" hidden multiple accept="image/*,application/pdf" data-stpj="${esc(k)}"></label>`):""}</div>`}
 function renderDetail(){
   const d=dossiers.find(x=>x.id===openId);const s=$("#sheet");
   const keep={tTxt:$("#tTxt")?.value||"",tDue:$("#tDue")?.value||"",nTxt:$("#nTxt")?.value||""},sy=s.scrollTop;
@@ -862,7 +870,7 @@ function renderDetail(){
     <div class="attnow"><span class="lbl">On attend sur</span>${quiChip(d,cs.k,false)}</div>
     ${quiPicker(d,cs.k)}
     <span class="hint">${q&&q.auto?"Choisi automatiquement. ":""}Chaque étape a sa personne : quand l'étape est cochée, on passe tout seul à la personne de l'étape suivante. Touchez la pastille d'une étape pour la changer.</span></div>`})():""}
-  ${d.type==="litige"?litigeBox(d):`<div class="box"><div class="boxhead"><h3>Étapes</h3><button class="lnk" type="button" id="stEdit">${stepEdit?"Terminé":"Modifier les étapes"}</button></div><div>${steps.map(([k,l,lib])=>{const e=d.etapes?.[k];return `<div class="stepwrap"><div class="steprow"><label class="check ${e?.done?"done":""}"><input type="checkbox" data-step="${k}" ${e?.done?"checked":""}><span><span class="t">${esc(l)}</span>${e?.done?`<span class="who">fait le ${fmtAt(e.at)}</span>`:""}</span></label>${stepEdit?`<button class="stdel" type="button" data-delstep="${esc(k)}" data-lib="${lib?1:""}" aria-label="Supprimer l'étape ${esc(l)}">✕</button>`:quiChip(d,k,!!e?.done)}</div>${stepEdit?"":quiPicker(d,k)}</div>`}).join("")||`<div class="hint">Aucune étape.</div>`}</div>
+  ${d.type==="litige"?litigeBox(d):`<div class="box"><div class="boxhead"><h3>Étapes</h3><button class="lnk" type="button" id="stEdit">${stepEdit?"Terminé":"Modifier les étapes"}</button></div><div>${steps.map(([k,l,lib])=>{const e=d.etapes?.[k];return `<div class="stepwrap"><div class="steprow"><label class="check ${e?.done?"done":""}"><input type="checkbox" data-step="${k}" ${e?.done?"checked":""}><span><span class="t">${esc(l)}</span>${e?.done?`<span class="who">fait le ${fmtAt(e.at)}</span>`:""}</span></label>${stepEdit?`<button class="stdel" type="button" data-delstep="${esc(k)}" data-lib="${lib?1:""}" aria-label="Supprimer l'étape ${esc(l)}">✕</button>`:quiChip(d,k,!!e?.done)}</div>${stepEdit?"":quiPicker(d,k)}${stepEdit?"":stPjHtml(d,k)}</div>`}).join("")||`<div class="hint">Aucune étape.</div>`}</div>
     ${stepEdit?`<div class="addrow"><input type="text" id="stNew" placeholder="Nouvelle étape, ex. : Clés récupérées" maxlength="120"><button class="btn" type="button" id="stAdd">Ajouter</button></div>${hidN?`<button class="lnk" type="button" id="stBack" style="align-self:flex-start">Rétablir ${hidN>1?"les "+hidN+" étapes retirées":"l'étape retirée"}</button>`:""}`:""}</div>`}
   ${tasks.length?`<div class="box"><h3>Ce qu'il reste à faire</h3><div>${tasks.map(([id,t])=>{let due="";if(t.echeance&&!t.fait){const n=diff(t.echeance);due=`<span class="due ${n<0?"late":n<=1?"soon":"fine"}">${n<0?"En retard · prévu le "+fmt(t.echeance):"Pour le "+fmt(t.echeance)}</span>`}
       return `<label class="check ${t.fait?"done":""}"><input type="checkbox" data-task="${esc(id)}" ${t.fait?"checked":""}><span style="min-width:0;flex:1"><span class="t">${esc(t.texte)}</span><span class="who">${t.fait?"Fait le "+fmtAt(t.faitLe):due}</span></span><button class="btn ghost" type="button" data-deltask="${esc(id)}" aria-label="Retirer" style="padding:2px 8px">✕</button></label>`}).join("")}</div></div>`:""}
@@ -877,6 +885,10 @@ function renderDetail(){
   <div class="box"><h3>Dossier</h3><div id="closeZone" class="inline">${d.statut==="clos"||d.statut==="info"?`<button class="btn" type="button" id="reopen">${d.statut==="info"?"Repasser en ouvert":"Rouvrir le dossier"}</button>`:""}${d.statut!=="clos"?`<button class="btn" type="button" id="closeAsk">Clore le dossier</button>`:""}${d.type!=="litige"&&d.statut!=="info"?`<button class="btn" type="button" id="toInfo" style="color:var(--warn)">Classer en info</button>`:""}<button class="btn ghost" type="button" id="delAsk" style="color:var(--crit)">Supprimer définitivement</button></div><span class="hint">Clore range le dossier dans l'historique du logement. Supprimer l'efface pour tout le monde, sans retour possible.</span></div>
   </div>`;
   $("#nTxt").value=keep.nTxt;s.scrollTop=sy;
+  s.querySelectorAll("[data-stpj]").forEach(inp=>inp.onchange=async()=>{const k=inp.dataset.stpj,files=[...inp.files];inp.value="";if(!files.length||!assets)return;const uk=d.id+"|"+k;stUp[uk]=true;renderDetail();let bad=0,add={};
+    for(const f of files){try{const isPdf=f.type==="application/pdf";const a=isPdf?(await assets.upload(f,{type:"application/pdf"})).id:await uploadOne(f);add["f"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)]={a,type:isPdf?"application/pdf":"image/jpeg",name:f.name,at:nowIso()}}catch(e){bad++}}
+    stUp[uk]=false;if(Object.keys(add).length)await patch(d,{etapesPJ:{[k]:add}},Object.keys(add).length>1?"Fichiers ajoutés à l'étape":"Fichier ajouté à l'étape");else renderDetail();if(bad)toast(bad+" fichier"+(bad>1?"s":"")+" non envoyé"+(bad>1?"s":"")+" : photo ou PDF uniquement")});
+  s.querySelectorAll("[data-stpjdel]").forEach(b=>b.onclick=()=>{const [k,id]=b.dataset.stpjdel.split("|");patch(d,{etapesPJ:{[k]:{[id]:{supprime:true}}}},"Fichier retiré de l'étape")});
   s.querySelectorAll("[data-step]").forEach(c=>c.onchange=()=>patch(d,{etapes:{[c.dataset.step]:{done:c.checked,at:nowIso()}}},c.checked?"Étape cochée":"Étape décochée"));
   if($("#stEdit"))$("#stEdit").onclick=()=>{stepEdit=!stepEdit;renderDetail()};
   s.querySelectorAll("[data-delstep]").forEach(b=>b.onclick=()=>{const k=b.dataset.delstep;patch(d,b.dataset.lib?{etapesLibres:{[k]:{supprime:true}}}:{etapesMasquees:{[k]:true}},"Étape supprimée")});
@@ -1326,7 +1338,7 @@ function renderAudit(){
     </div>`}).join("")}</div>
     <div class="inline"><input type="text" data-anew="${esc(g.id)}" placeholder="Ajouter un point à contrôler"><button class="btn" type="button" data-aadd="${esc(g.id)}" style="flex:0 0 auto">Ajouter</button></div></div>`}).join("")}
   <div class="box"><h3>Nouvelle rubrique</h3><div class="inline"><input type="text" id="aSecNew" placeholder="Ex. : Jardin et piscine"><button class="btn" type="button" id="aSecAdd" style="flex:0 0 auto">Ajouter</button></div><span class="hint">Les points et rubriques ajoutés ici sont aussi gardés pour les prochains audits.</span></div>
-  <div class="box"><h3>Remarque générale</h3><textarea id="aRem" placeholder="Impression générale, points à surveiller, à transmettre au propriétaire…">${esc(a.remarque||"")}</textarea></div>
+  <div class="box"><h3>Notes libres / remarque générale</h3><textarea id="aRem" rows="5" placeholder="Impression générale, points à surveiller, à transmettre au propriétaire… Vous pouvez aussi dicter.">${esc(a.remarque||"")}</textarea>${micBtn("aRem")}</div>
   <div class="box"><h3>Finaliser</h3><div class="inline" id="aEndZone">
     ${done?`<button class="btn" type="button" id="aReopen">Rouvrir l'audit</button>`:`<button class="btn pri" type="button" id="aEnd">Terminer l'audit</button>`}
     ${downloads?`<div class="pdfzone"><span class="lbl">Télécharger en PDF</span><div class="inline">
@@ -1525,15 +1537,15 @@ async function delPhoto(ref){if(ref.startsWith("A")&&auditOpen){const a=audits.f
 const P_TEAM=["Manon","Franck","Marion","Julien"];
 const P_STATUTS=[["prospect","Prospect"],["rdv","RDV fait"],["docs","Documents en attente"],["annonce","Annonce en préparation"],["lance","En ligne"]];
 const P_CHECK=[
- ["Acceptation « Bosser avec nous »",[["a1","Planifier le 1er RDV","Manon"],["a2","Attendre la réception des pièces du propriétaire","Manon"],["a3","Rédiger le contrat + bon de commande","Manon"],["a4","Envoyer le bon de commande",""],["a5","Contrat et devis signés","Manon"],["a6","Ranger les pièces du contrat dans le dossier","Manon"],["a7","Passer le document PROSPECT en client","Manon"]]],
- ["Prépa 3e RDV",[["b1","Créer le groupe WhatsApp propriétaire","Manon"],["b2","Créer le groupe WhatsApp équipe","Manon"],["b3","Envoyer le mail 3","Manon"],["b4","Assigner une femme de ménage","Julien"],["b5","Trouver une solution pour les clés et le linge",""],["b6","Proposer des noms pour le logement","Marion"],["b7","Recevoir les inventaires signés","Manon"],["b8","Préparer le document RÉCEPTION des clés","Manon"],["b9","Recevoir les clés + photo des clés","Manon"],["b10","Faire signer le document de réception au propriétaire","Manon"],["b11","Ranger le document RÉCEPTION","Manon"],["b12","Préparer le kit de lancement",""],["b13","Préparer le kit de bienvenue",""],["b14","Saisir le 1er RDV LANCEMENT dans l'appli","Manon"],["b15","Ranger la remise de clés signée",""]]],
- ["Prépa RDV 4",[["c1","Préparer les messages automatiques","Manon"],["c2","Préparer les textes de l'annonce","Manon"],["c3","Créer le livret d'accueil + l'imprimer",""],["c4","Ajouter la femme de ménage au groupe WhatsApp","Julien"],["c5","Organiser la date du ménage","Julien"],["c6","Ménage","Julien"]]],
+ ["Acceptation « Bosser avec nous »",[["a1","Planifier le 1er RDV","Manon"],["a2","Attendre la réception des pièces du propriétaire","Manon"],["a8","Demander le CERFA de déclaration en mairie","Manon"],["a9","Réclamer les identifiants extranet de la taxe de séjour","Manon"],["a3","Rédiger le contrat + bon de commande","Manon"],["a4","Envoyer le bon de commande",""],["a5","Contrat et devis signés","Manon"],["a6","Ranger les pièces du contrat dans le dossier","Manon"],["a7","Passer le document PROSPECT en client","Manon"]]],
+ ["Prépa 3e RDV",[["b1","Créer le groupe WhatsApp propriétaire","Manon"],["b2","Créer le groupe WhatsApp équipe","Manon"],["b4","Assigner une femme de ménage","Julien"],["b5","Trouver une solution pour les clés et le linge",""],["b6","Proposer des noms pour le logement","Marion"],["b7","Recevoir les inventaires signés","Manon"],["b8","Préparer le document RÉCEPTION des clés","Manon"],["b9","Recevoir les clés + photo des clés","Manon"],["b10","Faire signer le document de réception au propriétaire","Manon"],["b11","Ranger le document RÉCEPTION","Manon"],["b12","Préparer le kit de lancement",""],["b13","Préparer le kit de bienvenue",""],["b14","Saisir le 1er RDV LANCEMENT dans l'appli","Manon"],["b15","Ranger la remise de clés signée",""]]],
+ ["Prépa RDV 4",[["e6","Ajouter la fiche logement (une fois toutes les infos du logement cochées)","Marion"],["c1","Préparer les messages automatiques","Manon"],["c2","Préparer les textes de l'annonce","Manon"],["c3","Créer le livret d'accueil + l'imprimer",""],["c4","Ajouter la femme de ménage au groupe WhatsApp","Julien"],["c5","Organiser la date du ménage","Julien"],["c6","Ménage","Julien"]]],
  ["RDV 4 : lancement",[["d1","RDV de lancement du logement","Manon"]]],
- ["Prépa annonce",[["e1","Traiter les photos","Manon"],["e2","Traiter les vidéos d'entrée","Manon"],["e3","Ajouter les infos au doc LIENS YouTube","Manon"],["e4","Créer l'annonce","Marion"],["e5","Envoyer l'annonce pour relecture","Marion"],["e6","Ajouter la fiche logement","Marion"],["e7","Connecter à Lodgify","Marion"],["e8","Demander la création du compte Stripe propriétaire","Marion"],["e9","Suivre la création du compte Stripe","Marion"]]],
+ ["Prépa annonce",[["e1","Traiter les photos","Manon"],["e2","Traiter les vidéos d'entrée","Manon"],["e4","Créer l'annonce","Marion"],["e5","Envoyer l'annonce pour relecture","Marion"],["e7","Connecter à Lodgify","Marion"],["e8","Demander la création du compte Stripe propriétaire","Marion"],["e9","Suivre la création du compte Stripe","Marion"]]],
  ["Mise en ligne et suivi",[["f1","Mettre l'annonce en ligne","Marion"],["f2","Déclaration en mairie à réception","Manon"],["f3","Recevoir les codes de connexion",""],["f4","Obtenir les 3 premiers commentaires",""],["f5","Attribuer dans Lodgify : ménage + équipe",""]]],
  ["Suivi lancement",[["g1","Vérifier que tout est en place",""]]]];
 const P_TASKS=P_CHECK.flatMap(([,t])=>t);
-const P_DOCS=[["contrat","Contrat de gestion signé"],["id","Pièce d'identité","de tous les propriétaires"],["kbis","KBIS","si société"],["acte","Acte de propriété"],["rib","RIB"],["assurance","Attestation d'assurance PNO"],["mairie","Déclaration en mairie","n° d'enregistrement meublé de tourisme"],["copro","Règlement de copropriété","autorisation location courte durée"],["dpe","DPE"],["inv_log","Inventaire logement"],["inv_linge","Inventaire linge"],["cles","Fiche remise des clés"],["livret","Livret d'accueil"]];
+const P_DOCS=[["contrat","Contrat de gestion signé"],["id","Pièce d'identité","de tous les propriétaires"],["kbis","KBIS","si société"],["acte","Acte de propriété"],["rib","RIB"],["assurance","Attestation d'assurance PNO"],["mairie","Déclaration en mairie","n° d'enregistrement meublé de tourisme"],["cerfa","CERFA de déclaration en mairie","formulaire rempli par le propriétaire"],["copro","Règlement de copropriété","autorisation location courte durée"],["dpe","DPE"],["inv_log","Inventaire logement"],["inv_linge","Inventaire linge"],["cles","Fiche remise des clés"],["livret","Livret d'accueil"]];
 const P_BEDS=["—","Lit 90×190","Lit 140×190","Lit 140×200","Lit 160×200","Lit 180×200","Canapé convertible 140","Canapé convertible 160","Lits superposés","Lit d'appoint"];
 const P_ROOMS=[["salon","Salon"],["ch1","Chambre 1"],["ch2","Chambre 2"],["ch3","Chambre 3"],["ch4","Chambre 4"]];
 const P_EQUIP=[
@@ -1552,6 +1564,7 @@ const P_STEPS=[
   {t:"Rendez-vous",f:[{k:"rdv_date",l:"Date du 1er RDV",t:"date",w:1},{k:"rdv_lieu",l:"Lieu du RDV",t:"chips",o:["Au logement","Au bureau","Visio","Téléphone"],w:1},{k:"source",l:"Comment nous a-t-il connus ?",t:"chips",o:["Instagram","TikTok","Site internet","Bouche-à-oreille","Agence immo","Autre"]}]},
   {t:"Identité",f:[{k:"statut_jur",l:"Le bien est détenu",t:"chips",o:["En nom propre","Par une société","En indivision"]},{k:"prop_nom",l:"Nom et prénom",t:"text",w:1},{k:"soc_nom",l:"Société",t:"text",w:1,show:v=>v.statut_jur==="Par une société"},{k:"prop_tel",l:"Téléphone",t:"tel",w:1},{k:"prop_mail",l:"E-mail",t:"email",w:1},{k:"prop_adr",l:"Adresse postale du propriétaire",t:"area"},{k:"prop_contact",l:"Préfère être contacté par",t:"chips",o:["Téléphone","SMS","WhatsApp","E-mail"]}]},
   {t:"Accord avec la conciergerie",f:[{k:"formule",l:"Formule / commission",t:"text",w:1},{k:"travaux",l:"Travaux sans validation jusqu'à",t:"text",w:1,ph:"ex. 150 €"},{k:"prop_notes",l:"Notes sur le propriétaire",t:"area"}]},
+  {t:"Taxe de séjour",h:"Identifiants de l'extranet de la mairie pour déclarer la taxe de séjour.",f:[{k:"ts_site",l:"Site / extranet",t:"text",ph:"ex. mulhouse.taxesejour.fr"},{k:"ts_id",l:"Identifiant",t:"text",w:1},{k:"ts_mdp",l:"Mot de passe",t:"text",w:1}]},
   {t:"Documents du propriétaire",h:"Cochez quand c'est reçu et ajoutez le fichier (photo ou PDF). Vous pouvez compléter plus tard.",f:[{k:"docs",t:"docs"}]}]},
  {n:"Logement",secs:[
   {t:"Le bien",f:[{k:"log_nom",l:"Nom du logement",t:"text",ph:"ex. Le Cocon fleuri"},{k:"log_adr",l:"Adresse",t:"text"},{k:"log_cp",l:"Code postal",t:"text",w:1},{k:"log_ville",l:"Ville",t:"text",w:1},{k:"log_cpl",l:"Complément",t:"text",ph:"Bâtiment, étage, porte, nom sur la sonnette…"},{k:"log_type",l:"Type",t:"chips",o:["Studio","T1","T2","T3","T4 et +","Maison"]},{k:"log_m2",l:"Surface (m²)",t:"num",w:1},{k:"cap_voy",l:"Voyageurs max",t:"num",w:1},{k:"cap_ch",l:"Chambres",t:"num",w:1},{k:"cap_sdb",l:"Salles de bain",t:"num",w:1},{k:"beds",l:"Couchages",t:"beds"}]},
@@ -1560,6 +1573,7 @@ const P_STEPS=[
   {t:"Wifi et TV",f:[{k:"wifi_nom",l:"Nom du wifi",t:"text",w:1},{k:"wifi_code",l:"Mot de passe wifi",t:"text",w:1},{k:"tv",l:"TV",t:"multi",o:["Box TV","Antenne TNT","Netflix","Smart TV","Pas de TV"]}]},
   {t:"Technique",f:[{k:"chauf",l:"Chauffage",t:"chips",o:["Électrique","Gaz","Collectif","Pompe à chaleur","Poêle / bois","Fioul"]},{k:"chauf_part",l:"Particularités chauffage",t:"text"},{k:"elec_lieu",l:"Tableau électrique",t:"text",w:1},{k:"eau_lieu",l:"Compteur / vanne d'eau",t:"text",w:1},{k:"lv_lieu",l:"Machine à laver",t:"text",w:1},{k:"box_lieu",l:"Box internet",t:"text",w:1},{k:"ravit_lieu",l:"Ravitailleuse / stockage",t:"text"}]},
   {t:"Poubelles",f:[{k:"pb_lieu",l:"Emplacement",t:"text"},{k:"pb_jours",l:"Jours de collecte",t:"text",w:1},{k:"pb_tri",l:"Tri sélectif",t:"chips",o:["Oui","Non","Verre à déposer"],w:1}]},
+  {t:"Notes libres sur le logement",f:[{k:"log_notes",l:"Spécificités, remarques, ce que vous voulez noter",t:"area",ph:"Ex. : volet de la chambre fragile, voisin du dessous sensible au bruit…"}]},
   {t:"Photos de la visite",f:[{k:"ph",t:"docs",slots:[["photos","Photos de la 1re visite","plusieurs fichiers possibles"]]}]}]},
  {n:"Équipements",h:"Touchez une fois si c'est présent, deux fois si c'est à acheter.",secs:P_EQUIP.map(([g,items])=>({t:g,f:[{k:"eq_"+g,t:"equip",items}]})).concat([{t:"Précisions",f:[{k:"eq_cafe",l:"Cafetière",t:"chips",o:["Nespresso","Dolce Gusto","Senseo","Tassimo","Filtre","Italienne","Grains"]},{k:"eq_plaques",l:"Plaques",t:"chips",o:["Induction","Vitrocéramique","Gaz","Électrique"]},{k:"eq_achats",l:"Achats à prévoir / budget",t:"area"}]}])},
  {n:"Organisation",secs:[
@@ -1571,6 +1585,7 @@ const P_STEPS=[
   {t:"Messages voyageurs",f:[{k:"an_arrivee",l:"Instructions d'arrivée",t:"area"},{k:"an_depart",l:"Instructions de départ",t:"area"}]},
   {t:"Légal et photos",f:[{k:"an_enreg",l:"N° d'enregistrement",t:"text",w:1},{k:"an_shoot",l:"Shooting photo prévu le",t:"date",w:1},{k:"anph",t:"docs",slots:[["photos_annonce","Photos pour l'annonce"]]},{k:"an_notes",l:"Notes pour Marion",t:"area"}]}]}];
 
+let pNoteOpen=null;
 let prosMineOpen=false, prospects=[], prosOpen=null, prosCur=null, prosTab="lancement", prosStep=0, prosDirty=false, prosSaving=false, prosT=null, prosAsk=null, prosUp={};
 const pV=p=>p.v||{};
 const pName=p=>pV(p).log_nom||[pV(p).log_type,pV(p).log_adr].filter(Boolean).join(" · ")||"Nouveau prospect";
@@ -1605,7 +1620,7 @@ async function newProspect(){
   try{await ref.set(d);openProspect(ref.id,"fiche")}catch(e){toast(failMsg(e))}
 }
 function openProspect(id,tab){const p=prospects.find(x=>x.id===id)||{id,...(SB.store.get("prospects")?.get(id)||{})};
-  prosOpen=id;prosCur=JSON.parse(JSON.stringify(p));prosCur.v=prosCur.v||{};prosCur.suivi=prosCur.suivi||{};prosTab=tab||"lancement";prosStep=0;prosAsk=null;prosDirty=false;
+  pNoteOpen=null;prosOpen=id;prosCur=JSON.parse(JSON.stringify(p));prosCur.v=prosCur.v||{};prosCur.suivi=prosCur.suivi||{};prosTab=tab||"lancement";prosStep=0;prosAsk=null;prosDirty=false;
   openId=null;formState=null;logOpen=null;retLog=null;menOpen=null;auditOpen=null;$("#sheet").hidden=false;$("#sheet").scrollTop=0;renderProspect()}
 function prosTouch(){prosDirty=true;prosCur.majLe=nowIso();clearTimeout(prosT);prosT=setTimeout(prosFlush,700)}
 async function prosFlush(){clearTimeout(prosT);if(!prosCur||!prosDirty)return;if(prosSaving){prosT=setTimeout(prosFlush,400);return}
@@ -1616,7 +1631,7 @@ async function prosFlush(){clearTimeout(prosT);if(!prosCur||!prosDirty)return;if
 function pField(f){const v=prosCur.v,val=v[f.k],id="pf_"+f.k,w=f.w?"":` style="grid-column:1/-1"`;
   switch(f.t){
    case "text":case "tel":case "email":case "num":case "date":return `<div class="field"${w}><label for="${id}">${esc(f.l)}${f.max?` <span data-pcount="${f.k}">${(val||"").length}/${f.max}</span>`:""}</label><input type="${f.t==="num"?"number":f.t==="text"?"text":f.t}" ${f.t==="num"?'inputmode="decimal" min="0"':""} id="${id}" data-pk="${f.k}" value="${esc(val)}" placeholder="${esc(f.ph||"")}"></div>`;
-   case "area":return `<div class="field"${w}><label for="${id}">${esc(f.l)}</label><textarea id="${id}" data-pk="${f.k}" placeholder="${esc(f.ph||"")}">${esc(val)}</textarea></div>`;
+   case "area":return `<div class="field"${w}><label for="${id}">${esc(f.l)}</label><textarea id="${id}" data-pk="${f.k}" placeholder="${esc(f.ph||"")}">${esc(val)}</textarea>${micBtn(id)}</div>`;
    case "chips":case "multi":{const sel=f.t==="multi"?(val||[]):[val];return `<div class="field"${w}><label>${esc(f.l)}</label><div class="chips">${f.o.map(o=>`<button type="button" class="chip" data-pchip="${f.k}" data-pmulti="${f.t==="multi"?1:""}" data-pval="${esc(o)}" aria-pressed="${sel.includes(o)}">${esc(o)}</button>`).join("")}</div></div>`}
    case "beds":{const b=v.beds||{};return `<div class="field" style="grid-column:1/-1"><label>${esc(f.l)}</label><div style="display:grid;gap:6px">${P_ROOMS.map(([k,l])=>{const r=b[k]||{};return `<div style="display:grid;grid-template-columns:90px minmax(0,1fr) 64px;gap:6px;align-items:center"><span style="font-size:13px">${l}</span><select data-pbed="${k}" data-ppart="t" aria-label="${l} : type de lit">${P_BEDS.map(t=>`<option ${r.t===t?"selected":""}>${t}</option>`).join("")}</select><input type="number" min="1" inputmode="numeric" data-pbed="${k}" data-ppart="n" value="${esc(r.n||"")}" placeholder="Nb" aria-label="${l} : nombre"></div>`}).join("")}</div></div>`}
    case "equip":{const eq=v.eq||{};return `<div class="chips" style="grid-column:1/-1">${f.items.map(i=>{const s=eq[i]||0;return `<button type="button" class="chip peq" data-peq="${esc(i)}" data-s="${s}">${esc(i)}${s===2?" · à acheter":s===1?" ✓":""}</button>`}).join("")}</div>`}
@@ -1639,7 +1654,7 @@ function pLogBox(){const L=prosCur.logementId&&logements.find(x=>x.id===prosCur.
     ${dup?`<div class="band">Un logement « ${esc(dup.nom)} » existe déjà : sa fiche sera complétée au lieu d'en créer un deuxième.</div>`:""}
     <div><button class="btn pri" type="button" id="pCreate">${dup?"Compléter sa fiche":"Créer le logement"}</button></div></div>`}
 function pLancHtml(){const p=prosCur,g=pProg(p),c=p.suivi._custom||[];
-  const row=(id,l,st,custom)=>`<div class="check${st.done?" done":""}"><input type="checkbox" id="pt_${id}" data-ptask="${id}" ${st.done?"checked":""}><div style="flex:1;min-width:0"><label class="t" for="pt_${id}">${esc(l)}</label><span class="who">${st.done&&st.at?"Fait le "+fmt(st.at.slice(0,10))+(st.par?" · "+esc(st.par):""):""}${custom?` <button type="button" class="lnk" data-prmt="${id}">Retirer</button>`:""}</span></div>
+  const row=(id,l,st,custom)=>`<div class="check${st.done?" done":""}"><input type="checkbox" id="pt_${id}" data-ptask="${id}" ${st.done?"checked":""}><div style="flex:1;min-width:0"><label class="t" for="pt_${id}">${esc(l)}</label><span class="who">${st.done&&st.at?"Fait le "+fmt(st.at.slice(0,10))+(st.par?" · "+esc(st.par):""):""}${custom?` <button type="button" class="lnk" data-prmt="${id}">Retirer</button>`:""} <button type="button" class="lnk" data-pnoteopen="${id}">${pNoteOpen===id?"Fermer la note":st.note?"Modifier la note":"+ Note"}</button></span>${pNoteOpen===id?`<textarea id="pn_${id}" data-pnote="${id}" rows="2" placeholder="Ex. : c'est le propriétaire qui s'en occupe" style="margin-top:6px">${esc(st.note||"")}</textarea>${micBtn("pn_"+id)}`:st.note?`<div class="pnote">${esc(st.note)}</div>`:""}</div>
     <select data-pwho="${id}" aria-label="Responsable : ${esc(l)}" style="flex:none;width:auto;font-size:13px;padding:4px 6px"><option value="">—</option>${P_TEAM.map(n=>`<option ${st.who===n?"selected":""}>${n}</option>`).join("")}</select></div>`;
   return `<div class="box"><h3>Statut</h3><div class="chips">${P_STATUTS.map(([k,l])=>`<button type="button" class="chip" data-pstat="${k}" aria-pressed="${(p.statut||"prospect")===k}">${l}</button>`).join("")}</div>
     <div class="prog" style="margin:0"><span class="big">${g.pct} %</span><span class="hint">${g.ok} tâche${g.ok>1?"s":""} faite${g.ok>1?"s":""} sur ${g.tot}</span><div class="bar"><i style="width:${g.pct}%"></i></div></div></div>
@@ -1695,7 +1710,7 @@ async function pCreateLog(){const nom=$("#pLNom").value.trim(),sel=$("#pLLieu").
     await pPushFiche(L,true);renderProspect()}catch(e){b.disabled=false;toast(failMsg(e))}}
 
 /* ---- événements du prospect ---- */
-document.addEventListener("click",e=>{const t=e.target.closest("[data-pros],[data-ptab],[data-pstep],[data-pchip],[data-peq],[data-pstat],[data-prmt],[data-prmf],[data-plog]");if(!t)return;
+document.addEventListener("click",e=>{const t=e.target.closest("[data-pros],[data-ptab],[data-pstep],[data-pchip],[data-peq],[data-pstat],[data-prmt],[data-prmf],[data-plog],[data-pnoteopen]");if(!t)return;
   if(t.dataset.pros){openProspect(t.dataset.pros);return}
   if(!prosCur)return;const v=prosCur.v;
   if(t.dataset.plog){const nom=t.dataset.plog;prosFlush();prosOpen=null;prosCur=null;openLogSheet(nom);lsTab="fiche";renderLogSheet();return}
@@ -1703,11 +1718,13 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-pros],[dat
   if(t.dataset.pstep){prosStep=+t.dataset.pstep;prosTab="fiche";$("#sheet").scrollTop=0;renderProspect();return}
   if(t.dataset.pchip){const k=t.dataset.pchip,val=t.dataset.pval;if(t.dataset.pmulti){const a=new Set(v[k]||[]);a.has(val)?a.delete(val):a.add(val);v[k]=[...a]}else v[k]=v[k]===val?"":val;prosTouch();renderProspect();return}
   if(t.dataset.peq){const k=t.dataset.peq;v.eq=v.eq||{};const n=((v.eq[k]||0)+1)%3;if(n)v.eq[k]=n;else delete v.eq[k];t.dataset.s=n;t.textContent=k+(n===2?" · à acheter":n===1?" ✓":"");prosTouch();return}
+  if(t.dataset.pnoteopen){const id=t.dataset.pnoteopen;pNoteOpen=pNoteOpen===id?null:id;renderProspect();if(pNoteOpen){const ta=$("#pn_"+id);if(ta)ta.focus()}return}
   if(t.dataset.pstat){prosCur.statut=t.dataset.pstat;prosTouch();renderProspect();return}
   if(t.dataset.prmt){prosCur.suivi._custom=(prosCur.suivi._custom||[]).filter(x=>x.id!==t.dataset.prmt);prosTouch();renderProspect();return}
   if(t.dataset.prmf){const [k,i]=t.dataset.prmf.split("|");const d=(v.docs||{})[k];if(!d)return;const [f]=d.files.splice(+i,1);prosTouch();renderProspect();if(f&&assets)assets.delete(f.id).catch(()=>{});return}
 });
 document.addEventListener("input",e=>{const t=e.target;if(!prosCur||!t.closest("#sheet"))return;const v=prosCur.v;
+  if(t.dataset.pnote){const id=t.dataset.pnote,p=prosCur;const st=id.startsWith("x")?(p.suivi._custom||[]).find(x=>x.id===id):(p.suivi[id]=pTask(p,id));if(st){st.note=t.value;prosTouch()}return}
   if(t.dataset.pk){v[t.dataset.pk]=t.value;prosTouch();const c=document.querySelector(`[data-pcount="${t.dataset.pk}"]`);if(c)c.textContent=t.value.length+"/50";if(t.dataset.pk==="log_nom"){const h=document.querySelector(".sheethead h2");if(h)h.textContent=pName(prosCur)}}
   else if(t.dataset.pbed){v.beds=v.beds||{};const r=v.beds[t.dataset.pbed]=v.beds[t.dataset.pbed]||{};r[t.dataset.ppart]=t.dataset.ppart==="n"?(t.value?+t.value:""):t.value;prosTouch()}});
 document.addEventListener("change",async e=>{const t=e.target;if(!prosCur||!t.closest("#sheet"))return;const p=prosCur,v=p.v;
@@ -1790,7 +1807,7 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-mic]");if(
   const base=ta.value?ta.value.replace(/\s*$/," "):"";let fin="";
   r.onresult=ev=>{let inter="";for(let i=ev.resultIndex;i<ev.results.length;i++){const t=ev.results[i][0].transcript;if(ev.results[i].isFinal)fin+=t;else inter+=t}ta.value=base+fin+inter;ta.dispatchEvent(new Event("input",{bubbles:true}))};
   r.onerror=ev=>{toast(ev.error==="not-allowed"?"Autorisez le micro pour dicter":"La dictée s'est arrêtée")};
-  r.onend=()=>{if(micFor===id){micRec=null;micFor=null;document.querySelectorAll("[data-mic]").forEach(x=>{x.classList.remove("on");x.textContent="🎤 Dicter"})}};
+  r.onend=()=>{ta.dispatchEvent(new Event("change",{bubbles:true}));if(micFor===id){micRec=null;micFor=null;document.querySelectorAll("[data-mic]").forEach(x=>{x.classList.remove("on");x.textContent="🎤 Dicter"})}};
   try{r.start();micRec=r;micFor=id;b.classList.add("on");b.textContent="⏹ Arrêter la dictée"}catch(err){toast("La dictée n'est pas disponible ici")}
 },true);
 /* ---- onglet Entrée ---- */
