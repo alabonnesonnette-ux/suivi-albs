@@ -1662,6 +1662,9 @@ const eqKey=(g,l)=>g.startsWith("P:")?g.slice(2)+"|"+l:g==="LingeInv"?"linge|"+l
 const EQ_CNT_G=new Set(["Cuisine · vaisselle","Cuisine · couverts","LingeInv"]),EQ_CNT_I=new Set(["Casseroles","Poêles","Oreillers","Traversin","Couvertures","Plaids","Oreillers en double","Serviettes","Serviettes de bain","Serviettes de toilette"]);
 const eqCountable=(g,l)=>EQ_CNT_G.has(g)||EQ_CNT_I.has(l);
 const P_EQOLD2={"Vaisselle complète":"Cuisine · vaisselle","Draps fournis":"Linge","Oreillers en double":"Linge","Couvertures":"Linge","Rideaux occultants":"Salon et repas","Penderie / armoire":"Salon et repas"};
+/* prix des packs : consommables 20 € au-delà de 4 couchages, sinon 15 € ; shampoing / gel douche 5 € */
+const pCouchages=v=>{if(+v.cap_voy)return +v.cap_voy;let n=0;for(const b of Object.values(v.beds||{}))for(const e of [b,...((b&&b.x)||[])]){if(!e||!e.t||e.t==="—")continue;n+=(+e.n||1)*(/90|80|simple|bébé|1 place/i.test(e.t)?1:2)}return n};
+const packsPrix=v=>{const P=v.packs||[],c=pCouchages(v),L=[];if(P.includes("Pack consommables"))L.push(["Pack consommables",c>4?20:15,c?(c>4?"plus de 4 couchages":"4 couchages ou moins")+" ("+c+")":"couchages non renseignés : 15 € par défaut"]);if(P.includes("Pack shampoing / gel douche"))L.push(["Pack shampoing / gel douche",5,""]);return L};
 const LITERIE=["Lit double","Lit simple","Matelas","Alèse / protège-matelas","Oreillers","Traversin","Couette","Housse de couette","Draps housses","Taies d'oreiller","Plaid"];
 const pPieces=v=>Array.isArray(v.pieces)?v.pieces:Array.from({length:Math.max(1,Math.min(6,+v.cap_ch||1))},(_,i)=>({id:"c"+(i+1),nom:"Chambre "+(i+1),type:"chambre"}));
 /* options quand l'équipement est présent */
@@ -1724,7 +1727,7 @@ const P_STEPS=[
  {n:"Organisation",secs:[
   {t:"Lancement",f:[{k:"lan_date",l:"Lancement souhaité",t:"date",w:1},{k:"lan_nuit",l:"Prix par nuit envisagé (€)",t:"num",w:1},{k:"lan_min",l:"Séjour minimum (nuits)",t:"num",w:1},{k:"lan_plat",l:"Plateformes",t:"multi",o:["Airbnb","Booking","Abritel","Réservation directe"]},{k:"lan_blocage",l:"Dates bloquées par le propriétaire",t:"area"}]},
   {t:"Ménage et linge",f:[{k:"men_qui",l:"Ménage assuré par",t:"chips",o:["Équipe ALBS","Femme de ménage du propriétaire","Prestataire externe"]},{k:"men_nom",l:"Personne / contact",t:"text",w:1},{k:"men_tarif",l:"Tarif ménage voyageur (€)",t:"num",w:1},{k:"men_proto",l:"Consignes ménage particulières",t:"area"},{k:"linge_note",l:"Précisions linge et literie",t:"area",ph:"Ex. : on passe par la blanchisserie, alèses sur tous les lits, 2 oreillers par personne…"},{k:"linge_stock",l:"Stock et rangement (linge, consommables…)",t:"text",ph:"Ex. : meubles fermés dans la buanderie"}]},
-  {t:"Options et packs",nonote:1,f:[{k:"packs",l:"Options souscrites",t:"multi",o:["Pack consommables","Pack shampoing / gel douche"]},{k:"packs_note",l:"Précisions",t:"text",ph:"Ex. : à partir du 1er décembre",show:v=>(v.packs||[]).length>0}]},
+  {t:"Options et packs",nonote:1,f:[{k:"packs",l:"Options souscrites",t:"multi",o:["Pack consommables","Pack shampoing / gel douche"]},{k:"packs_prix",t:"packsprix",show:v=>(v.packs||[]).length>0},{k:"packs_note",l:"Précisions",t:"text",ph:"Ex. : à partir du 1er décembre",show:v=>(v.packs||[]).length>0}]},
   {t:"Pour l'annonce (à l'attention de Marion)",h:"Ce que tu écris ici arrive dans la fiche info du logement, rubrique « Pour l'annonce », là où Marion le verra.",nonote:1,f:[{k:"an_marion",l:"À préciser dans l'annonce",t:"area",ph:"Ex. : le propriétaire veut que l'annonce précise : pas d'enterrement de vie de jeune fille, pas de soirée."}]},
   {t:"Règles de séjour",f:[{k:"r_animaux",l:"Animaux",t:"chips",o:["Acceptés","Refusés","Sur demande"],w:1},{k:"r_fumeur",l:"Fumeurs",t:"chips",o:["Non","Extérieur uniquement","Oui"],w:1},{k:"r_autres",l:"Autres règles du propriétaire",t:"area"}]}]}];
 
@@ -1788,6 +1791,7 @@ function pField(f){const v=prosCur.v,val=v[f.k],id="pf_"+f.k,w=f.w?"":` style="g
       ${opts.map(x=>{const o=P_EQOPT[x.l];return `<div class="field" style="margin-top:8px"><label>${esc(o[1])}</label><div class="chips">${o[2].map(y=>`<button type="button" class="chip" data-pchip="${o[0]}" data-pmulti="" data-pval="${esc(y)}" aria-pressed="${v[o[0]]===y}">${esc(y)}</button>`).join("")}</div></div>`}).join("")}
       <div class="inline" style="margin-top:8px"><input type="text" data-peqnew="${esc(g)}" placeholder="Ajouter un équipement"><button class="btn" type="button" data-peqadd="${esc(g)}" style="flex:0 0 auto">Ajouter</button></div></div>`}
    case "equipL":return `<div style="grid-column:1/-1"><label style="font-size:13px;font-weight:600">Détail du linge fourni par le propriétaire</label></div>`+pField({k:"eq_linge",t:"equip",sc:lingeSc(v)});
+   case "packsprix":{const L=packsPrix(v);return `<div class="field" style="grid-column:1/-1"><label>Prix des packs</label>${L.map(([n,p,why])=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0"><span>${esc(n)}${why?`<br><small class="hint">${esc(why)}</small>`:""}</span><b>${p} €</b></div>`).join("")}${L.length>1?`<div style="display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:6px;margin-top:4px"><span>Total</span><b>${L.reduce((a,x)=>a+x[1],0)} €</b></div>`:""}<span class="hint">Calculé selon le nombre de voyageurs max (étape Logement), sinon selon les couchages.</span></div>`}
    case "pieces":{const pcs=pPieces(v);return `<div style="grid-column:1/-1;display:flex;flex-direction:column;gap:8px">${pcs.map(pc=>`<div class="inline"><span style="flex:none">${(PIECE_TYPES.find(x=>x[0]===pc.type)||PIECE_TYPES[2])[2]}</span><input type="text" data-ppiecename="${pc.id}" value="${esc(pc.nom)}" aria-label="Nom de la pièce"><button type="button" class="btn ghost" data-ppiecerm="${pc.id}" style="flex:0 0 auto">Retirer</button></div>`).join("")}
       <div class="chips">${PIECE_TYPES.map(([t,lab,ic])=>`<button type="button" class="chip" data-ppieceadd="${t}">+ ${ic} ${lab}</button>`).join("")}</div></div>`}
    case "docs":{const slots=f.slots||P_DOCS,docs=v.docs||{};return `<div style="grid-column:1/-1">${slots.map(([k,l,sub])=>{const d=docs[k]||{},fs=(d.files||[]);return `<div class="check"><input type="checkbox" id="pd_${k}" data-pdoc="${k}" ${d.ok||fs.length?"checked":""}><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px"><label for="pd_${k}" class="t" style="font-weight:600">${esc(l)}${sub?`<span class="who">${esc(sub)}</span>`:""}</label>
@@ -1850,7 +1854,7 @@ function pToFiche(v){const inv=pInventaire(v),buy=inv.flatMap(g=>g.items.filter(
    poubelles:[pj(pl("Emplacement",v.pb_lieu),pl("Collecte",v.pb_jours),pl("Tri",v.pb_tri),v.pb_tri_note,sn("Poubelles et tri")),true],
    linge:[pj(pl("Linge",v.linge),pl("Sets de linge",v.linge_sets),v.linge_note,beds.length?"Couchages : "+beds.join(" ; "):"",...pPieces(v).filter(pc=>pc.type==="chambre").map(pc=>{const L=LITERIE.filter(l=>eqOn(v,pc.id+"|"+l)).map(l=>{const k=pc.id+"|"+l,n=eqCount(v,k);return l+(n?" ×"+n:"")+(eqNote(v,k)?" ("+eqNote(v,k)+")":"")});return L.length?pc.nom+" : "+L.join(", "):""})),true],
    stock:[pj(v.linge_stock),true],
-   packs:[pj((v.packs||[]).map(x=>"• "+x).join("\n"),v.packs_note),true],
+   packs:[pj(packsPrix(v).map(([n,p])=>n+" : "+p+" €").join("\n"),v.packs_note),true],
    consignes:[pj(pl("Ménage assuré par",v.men_qui),pl("Contact",v.men_nom),pl("Tarif ménage voyageur",v.men_tarif?v.men_tarif+" €":""),v.men_proto,sn("Ménage et linge")),true],
    tv:[pj(pl("TV",v.tv),v.tv_mode),true],
    p_tech:["Technique",pj(pl("Chauffage",v.chauf),v.chauf_part,pl("Tableau électrique",v.elec_lieu),pl("Eau",v.eau_lieu),pl("Machine à laver",v.lv_lieu),pl("Box internet",v.box_lieu),pl("Ravitailleuse",v.ravit_lieu),sn("Technique")),true],
@@ -1928,6 +1932,7 @@ function pdfVal(f,v){
   if(f.t==="beds")return bedsList(v).join(" ; ");
   if(f.t==="equip"){const sel=f.sc.items.filter(x=>eqOn(v,x.k)),lab=x=>x.l+(eqCount(v,x.k)?" ×"+eqCount(v,x.k):"")+(eqNote(v,x.k)?" ("+eqNote(v,x.k)+")":"");return [sel.filter(x=>eqOn(v,x.k)===1).map(lab).join(", "),sel.some(x=>eqOn(v,x.k)===2)?"À acheter : "+sel.filter(x=>eqOn(v,x.k)===2).map(lab).join(", "):""].filter(Boolean).join("\n")}
   if(f.t==="pieces")return pPieces(v).map(x=>x.nom).join(", ");
+  if(f.t==="packsprix")return packsPrix(v).map(([n,p])=>n+" : "+p+" €").join("\n");
   if(f.t==="equipL")return pdfVal({t:"equip",sc:lingeSc(v)},v);
   if(f.t==="docs")return "";if(f.t==="date")return v[f.k]?fmt(v[f.k]):"";const x=v[f.k];return Array.isArray(x)?x.join(", "):(x??"")}
 function prospectOf(l){return prospects.find(p=>p.logementId===l.id)||prospects.find(p=>norm(pV(p).log_nom)===norm(l.nom))||null}
