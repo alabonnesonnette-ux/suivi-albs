@@ -1659,7 +1659,7 @@ const LINGE_ITEMS=["Draps","Parures de lit","Grandes serviettes","Petites servie
 const lingeSc=v=>({g:"LingeInv",t:"Linge fourni par le propriétaire",ico:"🧺",items:LINGE_ITEMS.map(l=>({k:"linge|"+l,l})).concat(((v.eqx||{}).LingeInv||[]).map(l=>({k:"linge|"+l,l,cu:1})))});
 const eqKey=(g,l)=>g.startsWith("P:")?g.slice(2)+"|"+l:g==="LingeInv"?"linge|"+l:l;
 /* quantités : seulement vaisselle, couverts, linge du propriétaire et quelques objets */
-const EQ_CNT_G=new Set(["Cuisine · vaisselle","Cuisine · couverts","LingeInv"]),EQ_CNT_I=new Set(["Casseroles","Poêles","Oreillers","Traversin","Couvertures","Plaids","Oreillers en double","Serviettes","Serviettes de bain","Serviettes de toilette"]);
+const EQ_CNT_G=new Set(["Cuisine · vaisselle","Cuisine · couverts","LingeInv"]),EQ_CNT_I=new Set(["Casseroles","Poêles","Oreillers","Traversin","Couette","Alèse / protège-matelas","Lit double","Lit simple","Couvertures","Plaids","Oreillers en double","Serviettes","Serviettes de bain","Serviettes de toilette"]);
 const eqCountable=(g,l)=>EQ_CNT_G.has(g)||EQ_CNT_I.has(l);
 const P_EQOLD2={"Vaisselle complète":"Cuisine · vaisselle","Draps fournis":"Linge","Oreillers en double":"Linge","Couvertures":"Linge","Rideaux occultants":"Salon et repas","Penderie / armoire":"Salon et repas"};
 /* prix des packs : consommables 20 € au-delà de 4 couchages, sinon 15 € ; shampoing / gel douche 5 € */
