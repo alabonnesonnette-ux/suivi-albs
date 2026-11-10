@@ -300,6 +300,7 @@ textarea{min-height:76px;resize:vertical}
 .entcap{display:flex;flex-direction:column;gap:4px;min-width:0}
 .trrow{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-top:1px solid var(--line)}.trrow:first-of-type{border-top:0}.trfr{font-weight:600}
 .trrow label{display:grid;grid-template-columns:26px 1fr;gap:6px;align-items:start}
+.pavoir{background:var(--warn-bg);border:1px solid var(--warn);border-radius:10px;padding:10px 12px;margin:8px 0;display:flex;flex-direction:column;gap:4px;white-space:pre-wrap;font-size:14px}
 .rub:first-of-type{border-top:0}
 .rub-i{font-size:17px;width:30px;height:30px;border-radius:999px;background:var(--sunk);display:inline-grid;place-items:center;letter-spacing:0;flex:none}
 .rub-v .rv{padding:1px 0}.rub-v .rk{font-weight:600;color:var(--brand)}.rub-v{padding-left:36px}
@@ -1238,12 +1239,14 @@ function proprioHtml(l,team,row){
   if(!team)return"";
   const p=prospectOf(l),v=p?pV(p):{};
   const nom=[v.prop_nom,v.soc_nom].filter(Boolean).join(" · ");
-  const lines=[["Téléphone",v.prop_tel],["E-mail",v.prop_mail],["Adresse",v.prop_adr],["Préfère être contacté par",Array.isArray(v.prop_contact)?v.prop_contact.join(", "):v.prop_contact]].filter(([,x])=>x);
+  const lines=[["Téléphone",v.prop_tel],["E-mail",v.prop_mail],["Adresse",v.prop_adr],["Préfère être contacté par",Array.isArray(v.prop_contact)?v.prop_contact.join(", "):v.prop_contact],["Formule",v.formule],["Travaux sans validation jusqu'à",v.travaux]].filter(([,x])=>x);
+  const avoir=[v.prop_notes,...["Rendez-vous","Identité","Accord avec la conciergerie"].map(t=>v[snKey(t)])].filter(x=>x&&String(x).trim());
   return `<div class="box proprio"><h3>Propriétaire</h3>
     ${nom?`<div class="pname">${esc(nom)}</div>`:""}
     ${lines.length?`<div class="pinfos">${lines.map(([k,x])=>`<div><span class="lbl">${esc(k)}</span><span class="pv">${esc(x)}</span></div>`).join("")}</div>`:""}
-    ${nom||lines.length?`<span class="hint">Repris du dossier prospect.</span>`:""}
-    ${row?rubRow(row,team):""}</div>`}
+    ${avoir.length?`<div class="pavoir"><b>💡 À savoir sur le propriétaire</b>${avoir.map(x=>`<div>${esc(x)}</div>`).join("")}</div>`:""}
+    ${nom||lines.length||avoir.length?`<span class="hint">Repris du dossier prospect.</span>`:""}
+    ${row&&(!p||(row.val&&!(v.prop_nom&&row.val.includes(v.prop_nom))))?rubRow(row,team):""}</div>`}
 function invHtml(l){const I=l.inventaire,G=(I&&I.groupes)||[];if(!G.length)return"";
   return `<div class="box"><h3>Équipements et inventaire</h3>${I.maj?`<div class="hint">Repris de la fiche prospect le ${fmtAt(I.maj)}${I.par?" · "+esc(I.par):""}</div>`:""}
   ${G.map(g=>`<div class="invg">${g.ico} ${esc(g.g)}</div><div class="inv">${g.items.map(x=>`<div class="invc${x.buy?" buy":""}"><span class="ic" aria-hidden="true">${x.ico}</span><span>${esc(x.l)}${x.opt?`<br><small>${esc(x.opt)}</small>`:""}${x.buy?`<br><small>🛒 à acheter</small>`:""}</span><b>${x.n?(x.n>1?"×"+x.n:"✓"):""}</b></div>`).join("")}</div>`).join("")}</div>`}
@@ -1758,7 +1761,7 @@ const pj=(...a)=>a.filter(x=>x!=null&&String(x).trim()!=="").join("\n");
 const pl=(lab,x)=>{if(x==null)return"";if(Array.isArray(x))x=x.join(", ");x=String(x).trim();return x?lab+" : "+x:""};
 function pToFiche(v){const inv=pInventaire(v),buy=inv.flatMap(g=>g.items.filter(x=>x.buy).map(x=>x.l));
   const beds=bedsList(v);
-  const sn=t=>v[snKey(t)]||"";const mapped=["Accès et clés","Parking","Poubelles et tri","Ménage et linge","Technique","Le bien"];const notes=P_STEPS.flatMap(S=>S.secs).filter(x=>!x.nonote&&!mapped.includes(x.t)&&sn(x.t)).map(x=>x.t+" : "+sn(x.t));
+  const sn=t=>v[snKey(t)]||"";const mapped=["Rendez-vous","Identité","Accord avec la conciergerie","Accès et clés","Parking","Poubelles et tri","Ménage et linge","Technique","Le bien"];const notes=P_STEPS.flatMap(S=>S.secs).filter(x=>!x.nonote&&!mapped.includes(x.t)&&sn(x.t)).map(x=>x.t+" : "+sn(x.t));
   return {
    adresse:[pj([v.log_adr,[v.log_cp,v.log_ville].filter(Boolean).join(" ")].filter(Boolean).join(", "),v.log_cpl),true],
    boite:[v.acc_mode==="Boîte à clés"?pj(v.acc_bal_code,pl("Emplacement",v.acc_bal_lieu)):v.acc_mode==="Serrure connectée"?pj("Serrure connectée",v.acc_serrure):"",true],
@@ -1769,7 +1772,6 @@ function pToFiche(v){const inv=pInventaire(v),buy=inv.flatMap(g=>g.items.filter(
    linge:[pj(pl("Linge fourni par",v.linge),pl("Stock",v.linge_stock),beds.length?"Couchages : "+beds.join(" ; "):""),true],
    consignes:[pj(pl("Ménage assuré par",v.men_qui),pl("Contact",v.men_nom),pl("Tarif ménage voyageur",v.men_tarif?v.men_tarif+" €":""),v.men_proto,sn("Ménage et linge")),true],
    equip:[pj(...inv.map(g=>g.g+" : "+g.items.filter(x=>x.n).map(x=>x.l+(x.n>1?" ×"+x.n:"")+(x.opt?" ("+x.opt+")":"")).join(", ")).filter(x=>!/: $/.test(x)),buy.length?"À acheter : "+buy.join(", "):"",pl("Achats à prévoir",v.eq_achats)),true],
-   proprio:[pj(v.statut_jur==="Par une société"?v.soc_nom:"",v.prop_nom,pl("Tél.",v.prop_tel),pl("E-mail",v.prop_mail),pl("Adresse",v.prop_adr),pl("Préfère",v.prop_contact),pl("Travaux sans validation jusqu'à",v.travaux),pl("Formule",v.formule),v.prop_notes),false],
    tv:[pj(pl("TV",v.tv),v.tv_mode),true],
    p_tech:["Technique",pj(pl("Chauffage",v.chauf),v.chauf_part,pl("Tableau électrique",v.elec_lieu),pl("Eau",v.eau_lieu),pl("Machine à laver",v.lv_lieu),pl("Box internet",v.box_lieu),pl("Ravitailleuse",v.ravit_lieu),sn("Technique")),true],
    p_cap:["Capacité",pj([v.log_type,v.log_m2?v.log_m2+" m²":""].filter(Boolean).join(" · "),pl("Voyageurs max",v.cap_voy),pl("Chambres",v.cap_ch),pl("Salles de bain",v.cap_sdb),sn("Le bien")),true],
