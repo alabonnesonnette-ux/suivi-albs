@@ -491,7 +491,7 @@ const ICO={
  mlog:'<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>'};
 const ico=k=>ICO[k]?`<svg viewBox="0 0 24 24" aria-hidden="true">${ICO[k]}</svg>`:"";
 const TABS={equipe:[["prio","Priorités"],["dos","Dossiers"],["log","Logements"],["audit","Audit"],["lit","Litiges"],["fac","Facturation"],["pros","Prospects"]],menage:[["mm","Mes ménages"],["mlog","Logements"]]};
-const FICHE_TPL=[["adresse","Adresse",true],["boite","Code boîte à clés",true],["acces","Accès / entrée",true],["wifi","Wi-Fi (nom et mot de passe)",true],["tv","Télévision (fonctionnement)",true],["parking","Parking",true],["poubelles","Poubelles / tri",true],["linge","Linge et lits",true],["consignes","Consignes ménage",true],["equip","Équipements",true],["proprio","Propriétaire (contact)",false],["airbnb","Codes Airbnb et plateformes",false],["mairie","Mairie et taxe de séjour (extranet)",false]];
+const FICHE_TPL=[["adresse","Adresse",true],["boite","Code boîte à clés",true],["acces","Accès / entrée",true],["wifi","Wi-Fi (nom et mot de passe)",true],["tv","Télévision (fonctionnement)",true],["parking","Parking",true],["poubelles","Poubelles / tri",true],["linge","Linge et lits",true],["consignes","Consignes ménage",true],["equip","Équipements",true],["proprio","Propriétaire (contact)",false],["airbnb","Codes Airbnb et plateformes",false],["mairie","Mairie et taxe de séjour (extranet)",false],["annonce","Pour l'annonce (Marion)",false]];
 let auditCfg={}, auditForm=false, audits=[], auditOpen=null, grEdit=false, audUp={};
 const GR0=[
  ["Entrée et accès",["Boîte à clés / serrure connectée fonctionne","Porte d'entrée, poignée et serrure","Éclairage de l'entrée","Détecteur de fumée présent et fonctionnel"]],
@@ -1226,7 +1226,7 @@ function techHtml(l,team){
       ${techUp.libre?`<span class="hint">Envoi en cours…</span>`:`<label class="btn photo-btn" style="align-self:flex-start">📷 Choisir la photo<input type="file" hidden multiple accept="image/*,application/pdf" id="techLibre"></label>`}
       <span class="hint">Elle se range dans « Autres photos techniques », avec sa description.</span></div>`:""}
     ${team&&!prospectOf(l)?`<span class="hint">Aucun dossier prospect relié à ce logement : ajoutez les photos directement.</span>`:""}</div>`}
-const RUB_ICO={adresse:"📍",boite:"🔐",acces:"🚪",wifi:"📶",parking:"🅿️",poubelles:"♻️",linge:"🛏️",consignes:"🧹",equip:"🍽️",proprio:"👤",video:"🎬",tv:"📺",p_tech:"🔧",p_cap:"🏠",p_regles:"📋",airbnb:"🔑",mairie:"🏛️",p_lancement:"🚀",p_annonce:"📝",p_notes:"🗒️"};
+const RUB_ICO={adresse:"📍",boite:"🔐",acces:"🚪",wifi:"📶",parking:"🅿️",poubelles:"♻️",linge:"🛏️",consignes:"🧹",equip:"🍽️",proprio:"👤",video:"🎬",tv:"📺",p_tech:"🔧",p_cap:"🏠",p_regles:"📋",airbnb:"🔑",mairie:"🏛️",p_lancement:"🚀",annonce:"📝",p_notes:"🗒️"};
 function rubIco(x){if(RUB_ICO[x.k])return RUB_ICO[x.k];const l=norm(x.label);return /wifi|internet/.test(l)?"📶":/tele|tv/.test(l)?"📺":/airbnb|booking|code/.test(l)?"🔑":/mairie|taxe/.test(l)?"🏛️":/chauff|electri|eau|compteur|techn/.test(l)?"🔧":/poubel|tri/.test(l)?"♻️":/menage|linge/.test(l)?"🧹":/note/.test(l)?"🗒️":/parking|garage/.test(l)?"🅿️":"📌"}
 function rubVal(t){return String(t).split(/\n/).map(li=>{const m=li.match(/^([^:]{2,40}) : (.+)$/);return `<div class="rv">${m?`<span class="rk">${esc(m[1])}</span> ${esc(m[2])}`:esc(li)}</div>`}).join("").replace(/(https?:\/\/[^\s<"]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')}
 function rubRow(x,team){return editKey===x.k?rubForm(x):`<div class="rub"><div class="rub-h"><span class="rub-l"><span class="rub-i" aria-hidden="true">${rubIco(x)}</span>${esc(x.label)}${daysSince(x.r.modifLe)<=7&&(x.hist.length||!x.t)?`<span class="new">Nouveau</span>`:""}${team&&!x.vis?`<span class="priv">Équipe seulement</span>`:""}</span>${team?`<button class="lnk" type="button" data-editrub="${esc(x.k)}">Modifier</button>`:""}</div>
@@ -1648,11 +1648,8 @@ const P_STEPS=[
  {n:"Organisation",secs:[
   {t:"Lancement",f:[{k:"lan_date",l:"Lancement souhaité",t:"date",w:1},{k:"lan_nuit",l:"Prix par nuit envisagé (€)",t:"num",w:1},{k:"lan_min",l:"Séjour minimum (nuits)",t:"num",w:1},{k:"lan_plat",l:"Plateformes",t:"multi",o:["Airbnb","Booking","Abritel","Réservation directe"]},{k:"lan_blocage",l:"Dates bloquées par le propriétaire",t:"area"}]},
   {t:"Ménage et linge",f:[{k:"men_qui",l:"Ménage assuré par",t:"chips",o:["Équipe ALBS","Femme de ménage du propriétaire","Prestataire externe"]},{k:"men_nom",l:"Personne / contact",t:"text",w:1},{k:"men_tarif",l:"Tarif ménage voyageur (€)",t:"num",w:1},{k:"men_proto",l:"Consignes ménage particulières",t:"area"},{k:"linge",l:"Linge fourni par",t:"chips",o:["ALBS (location)","Propriétaire","Voyageurs"]},{k:"linge_stock",l:"Stock de linge / emplacement",t:"text"}]},
-  {t:"Règles de séjour",f:[{k:"r_animaux",l:"Animaux",t:"chips",o:["Acceptés","Refusés","Sur demande"],w:1},{k:"r_fumeur",l:"Fumeurs",t:"chips",o:["Non","Extérieur uniquement","Oui"],w:1},{k:"r_autres",l:"Autres règles du propriétaire",t:"area"}]}]},
- {n:"Annonce",h:"Ce dont Marion a besoin pour l'annonce Airbnb.",secs:[
-  {t:"Présentation",f:[{k:"an_titre",l:"Idée de titre",t:"text",max:50},{k:"an_unique",l:"Ce qui rend ce logement unique",t:"area"},{k:"an_desc",l:"Description du logement",t:"area"},{k:"an_quartier",l:"Le quartier, distances clés",t:"area",ph:"Gare, EuroAirport, Bâle, tram, commerces…"},{k:"an_reco",l:"Recommandations du propriétaire",t:"area"}]},
-  {t:"Messages voyageurs",f:[{k:"an_arrivee",l:"Instructions d'arrivée",t:"area"},{k:"an_depart",l:"Instructions de départ",t:"area"}]},
-  {t:"Légal et photos",f:[{k:"an_enreg",l:"N° d'enregistrement",t:"text",w:1},{k:"an_shoot",l:"Shooting photo prévu le",t:"date",w:1},{k:"anph",t:"docs",slots:[["photos_annonce","Photos pour l'annonce"]]},{k:"an_notes",l:"Notes pour Marion",t:"area"}]}]}];
+  {t:"Pour l'annonce (à l'attention de Marion)",h:"Ce que tu écris ici arrive dans la fiche info du logement, rubrique « Pour l'annonce », là où Marion le verra.",nonote:1,f:[{k:"an_marion",l:"À préciser dans l'annonce",t:"area",ph:"Ex. : le propriétaire veut que l'annonce précise : pas d'enterrement de vie de jeune fille, pas de soirée."}]},
+  {t:"Règles de séjour",f:[{k:"r_animaux",l:"Animaux",t:"chips",o:["Acceptés","Refusés","Sur demande"],w:1},{k:"r_fumeur",l:"Fumeurs",t:"chips",o:["Non","Extérieur uniquement","Oui"],w:1},{k:"r_autres",l:"Autres règles du propriétaire",t:"area"}]}]}];
 
 let pNoteOpen=null,pSnOpen=new Set();
 const snKey=t=>"sn_"+String(t).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,"");
@@ -1780,7 +1777,7 @@ function pToFiche(v){const inv=pInventaire(v),buy=inv.flatMap(g=>g.items.filter(
    airbnb:[pj(pl("Identifiant Airbnb",v.abnb_id),pl("Mot de passe Airbnb",v.abnb_mdp),pl("Annonce",v.abnb_lien),pl("Identifiant Booking / autre",v.bk_id),pl("Mot de passe Booking / autre",v.bk_mdp)),false],
    mairie:[pj(pl("Extranet",v.ts_site),pl("Identifiant",v.ts_id),pl("Mot de passe",v.ts_mdp),pl("N° d'enregistrement",v.ts_enreg||v.an_enreg)),false],
    p_lancement:["Lancement",pj(pl("Lancement souhaité",v.lan_date?fmt(v.lan_date):""),pl("Prix par nuit envisagé",v.lan_nuit?v.lan_nuit+" €":""),pl("Séjour minimum",v.lan_min?v.lan_min+" nuits":""),pl("Plateformes",v.lan_plat),pl("Dates bloquées",v.lan_blocage)),false],
-   p_annonce:["Annonce",pj(pl("Titre",v.an_titre),pl("Ce qui le rend unique",v.an_unique),pl("Description",v.an_desc),pl("Quartier",v.an_quartier),pl("Recommandations",v.an_reco),pl("Arrivée",v.an_arrivee),pl("Départ",v.an_depart),pl("Notes pour Marion",v.an_notes)),false],
+   annonce:[pj(v.an_marion,pl("Titre",v.an_titre),pl("Ce qui le rend unique",v.an_unique),pl("Description",v.an_desc),pl("Quartier",v.an_quartier),pl("Recommandations",v.an_reco),pl("Arrivée",v.an_arrivee),pl("Départ",v.an_depart),pl("Notes pour Marion",v.an_notes)),false],
    p_notes:["Notes libres",pj(v.log_notes,...notes),true]};
 }
 async function pPushFiche(L,isNew){if(!L)return toast("Logement introuvable");const F=pToFiche(prosCur.v),old=L.fiche||{},patch={},now=nowIso();let n=0,i=0;
