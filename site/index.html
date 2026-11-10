@@ -499,7 +499,7 @@ const ICO={
  mlog:'<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>'};
 const ico=k=>ICO[k]?`<svg viewBox="0 0 24 24" aria-hidden="true">${ICO[k]}</svg>`:"";
 const TABS={equipe:[["prio","Priorités"],["dos","Dossiers"],["log","Logements"],["audit","Audit"],["lit","Litiges"],["fac","Facturation"],["pros","Prospects"]],menage:[["mm","Mes ménages"],["mlog","Logements"]]};
-const FICHE_TPL=[["adresse","Adresse",true],["boite","Code boîte à clés",true],["acces","Accès / entrée",true],["wifi","Wi-Fi (nom et mot de passe)",true],["tv","Télévision (fonctionnement)",true],["parking","Parking",true],["poubelles","Poubelles / tri",true],["linge","Linge et lits",true],["stock","Stock et rangement",true],["packs","Options et packs",true],["consignes","Consignes ménage",true],["equip","Équipements",true],["proprio","Propriétaire (contact)",false],["airbnb","Codes Airbnb et plateformes",false],["mairie","Mairie et taxe de séjour (extranet)",false],["annonce","Pour l'annonce (Marion)",false]];
+const FICHE_TPL=[["adresse","Adresse",true],["boite","Code boîte à clés",true],["acces","Accès / entrée",true],["wifi","Wi-Fi (nom et mot de passe)",true],["tv","Télévision (fonctionnement)",true],["parking","Parking",true],["poubelles","Poubelles / tri",true],["linge","Linge et lits",true],["packs","Options et packs",true],["consignes","Consignes ménage",true],["equip","Équipements",true],["proprio","Propriétaire (contact)",false],["airbnb","Codes Airbnb et plateformes",false],["mairie","Mairie et taxe de séjour (extranet)",false],["annonce","Pour l'annonce (Marion)",false]];
 let auditCfg={}, auditForm=false, audits=[], auditOpen=null, grEdit=false, audUp={};
 const GR0=[
  ["Entrée et accès",["Boîte à clés / serrure connectée fonctionne","Porte d'entrée, poignée et serrure","Éclairage de l'entrée","Détecteur de fumée présent et fonctionnel"]],
@@ -1203,7 +1203,7 @@ function renderLogSheet(){
 function back(){if(retLog){openLogSheet(retLog)}else closeSheet()}
 
 /* ---------- fiche logement ---------- */
-function ficheRows(l){const F=l.fiche||{};const tk=FICHE_TPL.map(t=>t[0]);const extra=Object.keys(F).filter(k=>!tk.includes(k)&&!F[k].supprime).sort((a,b)=>(F[a].ordre||0)-(F[b].ordre||0));
+function ficheRows(l){const F=l.fiche||{};const tk=FICHE_TPL.map(t=>t[0]);const extra=Object.keys(F).filter(k=>k!=="stock"&&!tk.includes(k)&&!F[k].supprime).sort((a,b)=>(F[a].ordre||0)-(F[b].ordre||0));
   return [...tk,...extra].map(k=>{const t=FICHE_TPL.find(x=>x[0]===k),r=F[k]||{};return{k,t,r,label:r.label||(t?t[1]:k),vis:r.menage!=null?r.menage:(t?t[2]:true),val:r.valeur||"",hist:Object.entries(r.hist||{}).map(([id,h])=>({id,...h})).sort((a,b)=>String(b.le).localeCompare(String(a.le)))}}).filter(x=>!x.r.supprime)}
 function rubForm(x){return `<div class="rub"><div class="field">${x&&x.t?`<span class="rub-l">${esc(x.label)}</span>`:`<label for="rubLab">Nom de la rubrique</label><input type="text" id="rubLab" value="${esc(x?x.label:"")}" placeholder="Ex. : Compteur électrique">`}</div>
   <div class="field"><label for="rubVal">Information</label><textarea id="rubVal" placeholder="Écrivez librement">${esc(x?x.val:"")}</textarea></div>
@@ -1298,7 +1298,7 @@ async function invPdf(l){const I=l.inventaire||{},G=I.groupes||[];if(!G.length)r
   await pdfDeliver(doc.output("blob"),"Inventaire "+l.nom.replace(/œ/g,"oe").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9 '._-]/g,"").trim()+".pdf")}
 function ficheHtml(l,team){
   const AS=Object.entries(l.aSavoir||{}).filter(([,a])=>!a.supprime).map(([id,a])=>({id,...a})).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
-  const hasInv=!!((l.inventaire||{}).groupes||[]).length;const all=ficheRows(l).filter(x=>!(hasInv&&x.k==="equip")).filter(x=>team||(x.vis&&x.val)),prow=all.find(x=>x.k==="proprio"),rows=all.filter(x=>x.k!=="proprio");
+  const hasInv=!!((l.inventaire||{}).groupes||[]).length;const all=ficheRows(l).filter(x=>!(hasInv&&x.k==="equip")&&x.k!=="stock").filter(x=>team||(x.vis&&x.val)),prow=all.find(x=>x.k==="proprio"),rows=all.filter(x=>x.k!=="proprio");
   return `${proprioHtml(l,team,prow)}
   <div class="box"><h3>Fiche du logement</h3><div>
     ${rows.map(x=>rubRow(x,team)).join("")||`<div class="hint">Aucune information partagée pour ce logement.</div>`}
@@ -1733,7 +1733,7 @@ const P_STEPS=[
  {n:"Équipements",h:"Touchez une fois : présent (vert), deux fois : à acheter (orange). Sur ce qui est coché, indiquez le nombre et ajoutez une note si besoin.",secs:[],dyn:v=>eqSecs(v).map(sc=>({t:sc.t,ico:sc.ico,piece:sc.piece,f:[{k:"eq_"+sc.g,t:"equip",sc}]})).flatMap(x=>x.t==="Salle de bain"?[x,{t:"Linge",ico:"🧺",h:"Si c'est le propriétaire qui fournit le linge, l'inventaire s'affiche : cochez et notez le nombre.",f:[{k:"linge",l:"Linge fourni par",t:"chips",o:["Propriétaire","Blanchisserie"]},{k:"linge_inv",t:"equipL",show:v=>v.linge==="Propriétaire"}]}]:[x]).concat([{t:"Pièces",nonote:1,h:"Ajoutez une chambre, une salle de bain ou une autre pièce : elle aura sa propre liste.",f:[{k:"pieces",t:"pieces"}]},{t:"Achats à prévoir",f:[{k:"eq_achats",l:"Achats à prévoir / budget",t:"area"}]}])},
  {n:"Organisation",secs:[
   {t:"Lancement",f:[{k:"lan_date",l:"Lancement souhaité",t:"date",w:1},{k:"lan_nuit",l:"Prix par nuit envisagé (€)",t:"num",w:1},{k:"lan_min",l:"Séjour minimum (nuits)",t:"num",w:1},{k:"lan_plat",l:"Plateformes",t:"multi",o:["Airbnb","Booking","Abritel","Réservation directe"]},{k:"lan_blocage",l:"Dates bloquées par le propriétaire",t:"area"}]},
-  {t:"Ménage et linge",f:[{k:"men_qui",l:"Ménage assuré par",t:"chips",o:["Équipe ALBS","Femme de ménage du propriétaire","Prestataire externe"]},{k:"men_nom",l:"Personne / contact",t:"text",w:1},{k:"men_tarif",l:"Tarif ménage voyageur (€)",t:"num",w:1},{k:"men_proto",l:"Consignes ménage particulières",t:"area"},{k:"linge_note",l:"Précisions linge et literie",t:"area",ph:"Ex. : on passe par la blanchisserie, alèses sur tous les lits, 2 oreillers par personne…"},{k:"linge_stock",l:"Stock et rangement (linge, consommables…)",t:"text",ph:"Ex. : meubles fermés dans la buanderie"}]},
+  {t:"Ménage et linge",f:[{k:"men_qui",l:"Ménage assuré par",t:"chips",o:["Équipe ALBS","Femme de ménage du propriétaire","Prestataire externe"]},{k:"men_nom",l:"Personne / contact",t:"text",w:1},{k:"men_tarif",l:"Tarif ménage voyageur (€)",t:"num",w:1},{k:"men_proto",l:"Consignes ménage particulières",t:"area"},{k:"linge_note",l:"Précisions linge et literie",t:"area",ph:"Ex. : on passe par la blanchisserie, alèses sur tous les lits, 2 oreillers par personne…"}]},
   {t:"Options et packs",nonote:1,f:[{k:"packs",l:"Options souscrites",t:"multi",o:["Pack consommables","Pack shampoing / gel douche"]},{k:"packs_prix",t:"packsprix",show:v=>(v.packs||[]).length>0},{k:"packs_note",l:"Précisions",t:"text",ph:"Ex. : à partir du 1er décembre",show:v=>(v.packs||[]).length>0}]},
   {t:"Pour l'annonce (à l'attention de Marion)",h:"Ce que tu écris ici arrive dans la fiche info du logement, rubrique « Pour l'annonce », là où Marion le verra.",nonote:1,f:[{k:"an_marion",l:"À préciser dans l'annonce",t:"area",ph:"Ex. : le propriétaire veut que l'annonce précise : pas d'enterrement de vie de jeune fille, pas de soirée."}]},
   {t:"Règles de séjour",f:[{k:"r_animaux",l:"Animaux",t:"chips",o:["Acceptés","Refusés","Sur demande"],w:1},{k:"r_fumeur",l:"Fumeurs",t:"chips",o:["Non","Extérieur uniquement","Oui"],w:1},{k:"r_autres",l:"Autres règles du propriétaire",t:"area"}]}]}];
@@ -1860,7 +1860,6 @@ function pToFiche(v){const inv=pInventaire(v),buy=inv.flatMap(g=>g.items.filter(
    parking:[pj(v.park,v.park_det,sn("Parking")),true],
    poubelles:[pj(pl("Emplacement",v.pb_lieu),pl("Collecte",v.pb_jours),pl("Tri",v.pb_tri),v.pb_tri_note,sn("Poubelles et tri")),true],
    linge:[pj(pl("Linge",v.linge),v.linge_note,beds.length?"Couchages : "+beds.join(" ; "):"",...pPieces(v).filter(pc=>pc.type==="chambre").map(pc=>{const L=LITERIE.filter(l=>eqOn(v,pc.id+"|"+l)).map(l=>{const k=pc.id+"|"+l,n=eqCount(v,k);return l+(n?" ×"+n:"")+(eqNote(v,k)?" ("+eqNote(v,k)+")":"")});return L.length?pc.nom+" : "+L.join(", "):""})),true],
-   stock:[pj(v.linge_stock),true],
    packs:[pj(packsPrix(v).map(([n,p])=>n+" : "+p+" €").join("\n"),v.packs_note),true],
    consignes:[pj(pl("Ménage assuré par",v.men_qui),pl("Contact",v.men_nom),pl("Tarif ménage voyageur",v.men_tarif?v.men_tarif+" €":""),v.men_proto,sn("Ménage et linge")),true],
    tv:[pj(pl("TV",v.tv),v.tv_mode),true],
