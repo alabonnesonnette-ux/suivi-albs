@@ -1578,7 +1578,7 @@ const P_CHECK0=[
  ["Prépa annonce",[["e1","Traiter les photos","Manon"],["e2","Traiter les vidéos d'entrée","Manon"],["e4","Créer l'annonce","Marion"],["e5","Envoyer l'annonce pour relecture","Marion"],["e7","Connecter à Lodgify","Marion"],["e8","Demander la création du compte Stripe propriétaire","Marion"],["e9","Suivre la création du compte Stripe","Marion"]]],
  ["Mise en ligne et suivi",[["f1","Mettre l'annonce en ligne","Marion"],["f2","Déclaration en mairie à réception","Manon"],["f3","Recevoir les codes de connexion",""],["f4","Obtenir les 3 premiers commentaires",""],["f5","Attribuer dans Lodgify : ménage + équipe",""]]],
  ["Suivi lancement",[["g1","Vérifier que tout est en place",""]]]];
-let lanCfg={},lanEdit=false,P_CHECK=P_CHECK0,P_TASKS=[];
+let lanCfg={},lanEdit=null,P_CHECK=P_CHECK0,P_TASKS=[];
 function applyLanCfg(){const rm=lanCfg.retirees||{},lb=lanCfg.labels||{},aj=lanCfg.ajouts||{};
   P_CHECK=P_CHECK0.map(([sec,ts],i)=>[sec,ts.concat((aj[i]||[]).map(t=>[t.id,t.l,t.who||""])).filter(t=>!rm[t[0]]).map(t=>[t[0],lb[t[0]]||t[1],t[2]])]);
   P_TASKS=P_CHECK.flatMap(([,t])=>t)}
@@ -1588,27 +1588,22 @@ const P_DOCS=[["contrat","Contrat de gestion signé"],["id","Pièce d'identité"
 const P_BEDS=["—","Lit 90×190","Lit 140×190","Lit 140×200","Lit 160×200","Lit 180×200","Canapé convertible 140","Canapé convertible 160","Lits superposés","Lit d'appoint"];
 const P_ROOMS=[["salon","Salon"],["ch1","Chambre 1"],["ch2","Chambre 2"],["ch3","Chambre 3"],["ch4","Chambre 4"]];
 const P_EQUIP=[
- ["Cuisine · électroménager",["Réfrigérateur","Congélateur","Four","Micro-ondes","Plaques de cuisson","Hotte","Lave-vaisselle","Cafetière","Bouilloire","Grille-pain","Mixeur / blender","Presse-agrumes","Appareil à raclette","Appareil à fondue","Gaufrier"]],
- ["Cuisine · vaisselle",["Grandes assiettes","Petites assiettes (dessert)","Assiettes creuses","Bols","Tasses à café","Mugs","Verres à eau","Verres à vin","Flûtes à champagne","Carafe","Saladier","Plat à four","Plateau de service"]],
- ["Cuisine · couverts",["Fourchettes","Couteaux","Cuillères à soupe","Petites cuillères","Couteaux à steak","Couverts de service"]],
- ["Cuisine · ustensiles",["Casseroles","Poêles","Faitout / marmite","Couvercles","Ustensiles de cuisine (spatule, louche…)","Couteau de cuisine","Planche à découper","Passoire","Saladier à salade / essoreuse","Tire-bouchon","Ouvre-boîte","Décapsuleur","Éplucheur","Râpe","Ciseaux de cuisine","Fouet","Verre doseur","Dessous de plat","Maniques / gants de four","Torchons","Égouttoir","Poubelle de cuisine"]],
- ["Cuisine · produits de base",["Huile, sel, poivre","Sucre","Café / capsules","Thé / tisanes","Liquide vaisselle","Éponges","Pastilles lave-vaisselle","Sacs poubelle","Essuie-tout","Papier aluminium / film"]],
- ["Salle de bain",["Douche","Baignoire","Lavabo","Miroir","Sèche-cheveux","Serviettes de bain","Serviettes de toilette","Tapis de bain","Gel douche / shampoing","Savon pour les mains","Papier toilette","Brosse WC","Poubelle salle de bain","Porte-serviettes"]],
- ["Linge de lit",["Draps housses","Housses de couette","Taies d'oreiller","Couettes","Oreillers","Protège-matelas","Plaids / couvertures"]],
- ["Entretien",["Lave-linge","Sèche-linge","Étendoir","Fer à repasser","Table à repasser","Aspirateur","Balai","Serpillière et seau","Pelle et balayette","Produits ménagers","Lessive","Cintres"]],
- ["Chambres",["Penderie / armoire","Commode","Table de chevet","Lampe de chevet","Rideaux occultants","Miroir sur pied"]],
- ["Salon et repas",["Canapé","Table à manger","Chaises","Table basse","Télévision","Lampe","Rideaux"]],
- ["Confort",["Wifi","Netflix / streaming","Climatisation","Ventilateur","Chauffage d'appoint","Espace de travail","Jeux de société","Livres","Enceinte bluetooth"]],
- ["Famille",["Lit bébé","Chaise haute","Barrière de sécurité","Baignoire bébé","Jouets"]],
- ["Extérieur",["Balcon","Terrasse","Jardin","Mobilier de jardin","Parasol","Transats","Barbecue","Piscine","Jacuzzi"]],
+ ["Cuisine",["Réfrigérateur","Congélateur","Four","Micro-ondes","Plaques de cuisson","Hotte","Lave-vaisselle","Bouilloire","Grille-pain","Cafetière","Ustensiles de cuisine","Vaisselle complète","Verres à vin","Huile, sel, poivre"]],
+ ["Salle de bain",["Douche","Baignoire","Sèche-cheveux","Gel douche / shampoing","Serviettes","Papier toilette"]],
+ ["Linge & entretien",["Lave-linge","Sèche-linge","Étendoir","Fer à repasser","Table à repasser","Aspirateur","Produits ménagers","Cintres"]],
+ ["Chambres",["Draps fournis","Oreillers en double","Couvertures","Rideaux occultants","Penderie / armoire"]],
+ ["Confort",["Wifi","Télévision","Netflix / streaming","Climatisation","Ventilateur","Espace de travail","Jeux de société"]],
+ ["Famille",["Lit bébé","Chaise haute","Barrière de sécurité"]],
+ ["Extérieur",["Balcon","Terrasse","Jardin","Mobilier de jardin","Barbecue","Piscine","Jacuzzi"]],
  ["Sécurité",["Détecteur de fumée","Détecteur de CO","Extincteur","Trousse de secours","Couverture anti-feu"]],
  ["Accès & parking",["Parking gratuit sur place","Garage","Recharge véhicule électrique","Ascenseur","Arrivée autonome","Local vélos"]]];
+
 /* options quand l'équipement est présent */
-const P_EQOPT={"Cafetière":["eq_cafe","Type de cafetière",["Nespresso","Dolce Gusto","Senseo","Tassimo","Filtre","Italienne","À piston","Grains / expresso"]],"Plaques de cuisson":["eq_plaques","Type de plaques",["Induction","Vitrocéramique","Gaz","Électrique (fonte)"]],"Four":["eq_four","Type de four",["Encastré","Posable","Combiné micro-ondes"]],"Réfrigérateur":["eq_frigo","Type de réfrigérateur",["Avec congélateur","Sans congélateur","Américain","Top / petit frigo"]]};
+const P_EQOPT={"Cafetière":["eq_cafe","Type de cafetière",["Nespresso","Dolce Gusto","Senseo","Tassimo","Filtre","Italienne","Grains"]],"Plaques de cuisson":["eq_plaques","Type de plaques",["Induction","Vitrocéramique","Gaz","Électrique"]]};
 /* anciens noms (premières fiches) */
 const P_EQOLD={"Ustensiles de cuisine":"Cuisine · ustensiles","Vaisselle complète":"Cuisine · vaisselle","Serviettes":"Salle de bain","Draps fournis":"Linge de lit","Oreillers en double":"Linge de lit","Couvertures":"Linge de lit","Télévision":"Salon et repas"};
-const EQ_ICO_G={"Cuisine · électroménager":"🍳","Cuisine · vaisselle":"🍽️","Cuisine · couverts":"🍴","Cuisine · ustensiles":"🥄","Cuisine · produits de base":"🧂","Salle de bain":"🛁","Linge de lit":"🛏️","Entretien":"🧺","Chambres":"🛏️","Salon et repas":"🛋️","Confort":"✨","Famille":"🧸","Extérieur":"🌿","Sécurité":"🧯","Accès & parking":"🚗","Autres":"📦"};
-const EQ_ICO={"Réfrigérateur":"🧊","Congélateur":"❄️","Four":"🔥","Micro-ondes":"📟","Plaques de cuisson":"🍳","Lave-vaisselle":"🫧","Cafetière":"☕","Bouilloire":"🫖","Grille-pain":"🍞","Mixeur / blender":"🥤","Presse-agrumes":"🍋","Appareil à raclette":"🧀","Appareil à fondue":"🫕","Gaufrier":"🧇",
+const EQ_ICO_G={"Cuisine":"🍳","Linge & entretien":"🧺","Cuisine · électroménager":"🍳","Cuisine · vaisselle":"🍽️","Cuisine · couverts":"🍴","Cuisine · ustensiles":"🥄","Cuisine · produits de base":"🧂","Salle de bain":"🛁","Linge de lit":"🛏️","Entretien":"🧺","Chambres":"🛏️","Salon et repas":"🛋️","Confort":"✨","Famille":"🧸","Extérieur":"🌿","Sécurité":"🧯","Accès & parking":"🚗","Autres":"📦"};
+const EQ_ICO={"Ustensiles de cuisine":"🥄","Vaisselle complète":"🍽️","Serviettes":"🧖","Draps fournis":"🛏️","Oreillers en double":"🛏️","Couvertures":"🧣","Hotte":"💨","Table à repasser":"👔","Netflix / streaming":"🎬","Barrière de sécurité":"🚧","Mobilier de jardin":"🪑","Couverture anti-feu":"🔥","Réfrigérateur":"🧊","Congélateur":"❄️","Four":"🔥","Micro-ondes":"📟","Plaques de cuisson":"🍳","Lave-vaisselle":"🫧","Cafetière":"☕","Bouilloire":"🫖","Grille-pain":"🍞","Mixeur / blender":"🥤","Presse-agrumes":"🍋","Appareil à raclette":"🧀","Appareil à fondue":"🫕","Gaufrier":"🧇",
  "Grandes assiettes":"🍽️","Petites assiettes (dessert)":"🍰","Assiettes creuses":"🥣","Bols":"🥣","Tasses à café":"☕","Mugs":"☕","Verres à eau":"🥛","Verres à vin":"🍷","Flûtes à champagne":"🥂","Carafe":"🫗","Saladier":"🥗","Plat à four":"🥘","Plateau de service":"🍱",
  "Fourchettes":"🍴","Couteaux":"🔪","Cuillères à soupe":"🥄","Petites cuillères":"🥄","Couteaux à steak":"🔪","Couverts de service":"🍴","Casseroles":"🍲","Poêles":"🍳","Faitout / marmite":"🍲","Couteau de cuisine":"🔪","Planche à découper":"🪵","Tire-bouchon":"🍾","Décapsuleur":"🍺","Ciseaux de cuisine":"✂️","Torchons":"🧻","Poubelle de cuisine":"🗑️",
  "Huile, sel, poivre":"🧂","Sucre":"🍬","Café / capsules":"☕","Thé / tisanes":"🍵","Liquide vaisselle":"🧴","Éponges":"🧽","Sacs poubelle":"🗑️","Essuie-tout":"🧻",
@@ -1621,14 +1616,14 @@ const EQ_ICO={"Réfrigérateur":"🧊","Congélateur":"❄️","Four":"🔥","Mi
  "Détecteur de fumée":"🚨","Détecteur de CO":"🚨","Extincteur":"🧯","Trousse de secours":"⛑️","Parking gratuit sur place":"🅿️","Garage":"🚗","Recharge véhicule électrique":"🔌","Ascenseur":"🛗","Arrivée autonome":"🔑","Local vélos":"🚲"};
 const bedsList=v=>Object.entries(v.beds||{}).map(([k,b])=>{const L=[b,...((b&&b.x)||[])].filter(e=>e&&e.t&&e.t!=="—").map(e=>(e.n>1?e.n+" × ":"")+e.t);return L.length?(P_ROOMS.find(r=>r[0]===k)||[k,k])[1]+" : "+L.join(" + "):""}).filter(Boolean);
 const eqIco=(l,g)=>EQ_ICO[l]||EQ_ICO_G[g]||"•";
-const eqCount=(v,k)=>{const n=(v.eqn||{})[k];return n!=null?n:((v.eq||{})[k]===1?1:0)};
-const eqBuy=(v,k)=>{const b=(v.eqb||{})[k];return b!=null?!!b:(v.eq||{})[k]===2};
+const eqCount=(v,k)=>(v.eq||{})[k]===1?1:0;
+const eqBuy=(v,k)=>(v.eq||{})[k]===2;
 /* inventaire complet à partir de la fiche prospect */
 function pInventaire(v){const seen=new Set(),G=[];
   for(const [g,items] of P_EQUIP){const all=[...items,...((v.eqx||{})[g]||[])];const L=[];
     for(const l of all){seen.add(l);const n=eqCount(v,l),b=eqBuy(v,l);if(!n&&!b)continue;const o=P_EQOPT[l],opt=o&&v[o[0]]?v[o[0]]:"";L.push({l,n,buy:b,opt,ico:eqIco(l,g)})}
     if(L.length)G.push({g,ico:EQ_ICO_G[g]||"📦",items:L})}
-  const rest=[...new Set([...Object.keys(v.eqn||{}),...Object.keys(v.eqb||{}),...Object.keys(v.eq||{})])].filter(l=>!seen.has(l)&&(eqCount(v,l)||eqBuy(v,l)));
+  const rest=Object.keys(v.eq||{}).filter(l=>!seen.has(l)&&(eqCount(v,l)||eqBuy(v,l)));
   for(const l of rest){const g=P_EQOLD[l]||"Autres";let gr=G.find(x=>x.g===g);if(!gr){gr={g,ico:EQ_ICO_G[g]||"📦",items:[]};G.push(gr)}gr.items.push({l,n:eqCount(v,l),buy:eqBuy(v,l),opt:"",ico:eqIco(l,g)})}
   return G}
 const yn=["Oui","Non"];
@@ -1649,7 +1644,7 @@ const P_STEPS=[
   {t:"Poubelles et tri",f:[{k:"pb_lieu",l:"Emplacement",t:"text"},{k:"pb_jours",l:"Jours de collecte",t:"text",w:1},{k:"pb_tri",l:"Tri sélectif",t:"chips",o:["Oui","Non","Verre à déposer"],w:1},{k:"pb_tri_note",l:"Précisions sur le tri",t:"area",ph:"Couleur des bacs, où déposer le verre, jour des encombrants…",show:v=>!!v.pb_tri}]},
   {t:"Notes libres sur le logement",nonote:1,f:[{k:"log_notes",l:"Spécificités, remarques, ce que vous voulez noter",t:"area",ph:"Ex. : volet de la chambre fragile, voisin du dessous sensible au bruit…"}]},
   {t:"Photos de la visite",f:[{k:"ph",t:"docs",slots:[["photos","Photos de la 1re visite","plusieurs fichiers possibles"]]}]}]},
- {n:"Équipements",h:"Indiquez le nombre avec + et −. 🛒 = à acheter. Ajoutez ce qui manque en bas de chaque partie.",secs:P_EQUIP.map(([g,items])=>({t:g,f:[{k:"eq_"+g,t:"equip",items,g}]})).concat([{t:"Achats à prévoir",f:[{k:"eq_achats",l:"Achats à prévoir / budget",t:"area"}]}])},
+ {n:"Équipements",h:"Touchez une fois si c'est présent, deux fois si c'est à acheter. Ajoutez ce qui manque en bas de chaque partie.",secs:P_EQUIP.map(([g,items])=>({t:g,f:[{k:"eq_"+g,t:"equip",items,g}]})).concat([{t:"Achats à prévoir",f:[{k:"eq_achats",l:"Achats à prévoir / budget",t:"area"}]}])},
  {n:"Organisation",secs:[
   {t:"Lancement",f:[{k:"lan_date",l:"Lancement souhaité",t:"date",w:1},{k:"lan_nuit",l:"Prix par nuit envisagé (€)",t:"num",w:1},{k:"lan_min",l:"Séjour minimum (nuits)",t:"num",w:1},{k:"lan_plat",l:"Plateformes",t:"multi",o:["Airbnb","Booking","Abritel","Réservation directe"]},{k:"lan_blocage",l:"Dates bloquées par le propriétaire",t:"area"}]},
   {t:"Ménage et linge",f:[{k:"men_qui",l:"Ménage assuré par",t:"chips",o:["Équipe ALBS","Femme de ménage du propriétaire","Prestataire externe"]},{k:"men_nom",l:"Personne / contact",t:"text",w:1},{k:"men_tarif",l:"Tarif ménage voyageur (€)",t:"num",w:1},{k:"men_proto",l:"Consignes ménage particulières",t:"area"},{k:"linge",l:"Linge fourni par",t:"chips",o:["ALBS (location)","Propriétaire","Voyageurs"]},{k:"linge_stock",l:"Stock de linge / emplacement",t:"text"}]},
@@ -1695,7 +1690,7 @@ async function newProspect(){
   try{await ref.set(d);openProspect(ref.id,"fiche")}catch(e){toast(failMsg(e))}
 }
 function openProspect(id,tab){const p=prospects.find(x=>x.id===id)||{id,...(SB.store.get("prospects")?.get(id)||{})};
-  pNoteOpen=null;pSnOpen=new Set();lanEdit=false;prosOpen=id;prosCur=JSON.parse(JSON.stringify(p));prosCur.v=prosCur.v||{};prosCur.suivi=prosCur.suivi||{};prosTab=tab||"lancement";prosStep=0;prosAsk=null;prosDirty=false;
+  pNoteOpen=null;pSnOpen=new Set();lanEdit=null;prosOpen=id;prosCur=JSON.parse(JSON.stringify(p));prosCur.v=prosCur.v||{};prosCur.suivi=prosCur.suivi||{};prosTab=tab||"lancement";prosStep=0;prosAsk=null;prosDirty=false;
   openId=null;formState=null;logOpen=null;retLog=null;menOpen=null;auditOpen=null;$("#sheet").hidden=false;$("#sheet").scrollTop=0;renderProspect()}
 function prosTouch(){prosDirty=true;prosCur.majLe=nowIso();clearTimeout(prosT);prosT=setTimeout(prosFlush,700)}
 async function prosFlush(){clearTimeout(prosT);if(!prosCur||!prosDirty)return;if(prosSaving){prosT=setTimeout(prosFlush,400);return}
@@ -1712,10 +1707,10 @@ function pField(f){const v=prosCur.v,val=v[f.k],id="pf_"+f.k,w=f.w?"":` style="g
      return `<div class="field" style="grid-column:1/-1"><label>${esc(f.l)}</label><div style="display:grid;gap:8px">${P_ROOMS.map(([k,l])=>{const r=b[k]||{},x=r.x||[];return `<div style="display:grid;gap:4px"><div style="display:grid;grid-template-columns:90px minmax(0,1fr) 64px;gap:6px;align-items:center"><span style="font-size:13px">${l}</span>${sel(k,-1,"t",r.t)}${sel(k,-1,"n",r.n)}</div>
        ${x.map((e,i)=>`<div style="display:grid;grid-template-columns:90px minmax(0,1fr) 64px 28px;gap:6px;align-items:center"><span style="font-size:12px;color:var(--muted);text-align:right">+ autre lit</span>${sel(k,i,"t",e.t)}${sel(k,i,"n",e.n)}<button type="button" class="lnk" data-pbedrm="${k}|${i}" aria-label="Retirer ce lit">✕</button></div>`).join("")}
        ${r.t&&r.t!=="—"?`<button type="button" class="lnk" data-pbedadd="${k}" style="justify-self:start;margin-left:96px;font-size:13px">+ Ajouter un autre lit dans « ${l} »</button>`:""}</div>`}).join("")}</div></div>`}
-   case "equip":{const g=f.g,cx=(v.eqx||{})[g]||[],all=[...f.items,...cx];return `<div class="eqlist" style="grid-column:1/-1">${all.map(l=>{const n=eqCount(v,l),b=eqBuy(v,l),o=P_EQOPT[l],cu=cx.includes(l);return `<div class="eqrow${n?" on":""}${b?" buy":""}"><span class="eql"><span class="eqi" aria-hidden="true">${eqIco(l,g)}</span>${esc(l)}${cu?` <button type="button" class="lnk" data-peqx="${esc(g+"|"+l)}" aria-label="Retirer ${esc(l)}">✕</button>`:""}</span>
-      <span class="eqctl"><button type="button" data-peqm="${esc(l)}" aria-label="Un de moins : ${esc(l)}" ${n?"":"disabled"}>−</button><b>${n||"–"}</b><button type="button" data-peqp="${esc(l)}" aria-label="Un de plus : ${esc(l)}">+</button><button type="button" class="eqbuy" data-peqb="${esc(l)}" aria-pressed="${b}" aria-label="À acheter : ${esc(l)}">🛒</button></span></div>
-      ${o&&n?`<div class="chips eqopt">${o[2].map(x=>`<button type="button" class="chip" data-pchip="${o[0]}" data-pmulti="" data-pval="${esc(x)}" aria-pressed="${v[o[0]]===x}">${esc(x)}</button>`).join("")}</div>`:""}`}).join("")}
-      <div class="inline" style="margin-top:8px"><input type="text" data-peqnew="${esc(g)}" placeholder="Ajouter un équipement dans « ${esc(g)} »"><button class="btn" type="button" data-peqadd="${esc(g)}" style="flex:0 0 auto">Ajouter</button></div></div>`}
+   case "equip":{const g=f.g,eq=v.eq||{},cx=(v.eqx||{})[g]||[],all=[...f.items,...cx];const opts=all.filter(l=>P_EQOPT[l]&&eq[l]===1);
+      return `<div style="grid-column:1/-1"><div class="chips">${all.map(i=>{const st=eq[i]||0;return `<button type="button" class="chip peq" data-peq="${esc(i)}" data-s="${st}">${esc(i)}${st===2?" · à acheter":st===1?" ✓":""}</button>${cx.includes(i)?`<button type="button" class="lnk" data-peqx="${esc(g+"|"+i)}" aria-label="Retirer ${esc(i)}" style="margin-left:-4px">✕</button>`:""}`}).join("")}</div>
+      ${opts.map(l=>{const o=P_EQOPT[l];return `<div class="field" style="margin-top:8px"><label>${esc(o[1])}</label><div class="chips">${o[2].map(x=>`<button type="button" class="chip" data-pchip="${o[0]}" data-pmulti="" data-pval="${esc(x)}" aria-pressed="${v[o[0]]===x}">${esc(x)}</button>`).join("")}</div></div>`}).join("")}
+      <div class="inline" style="margin-top:8px"><input type="text" data-peqnew="${esc(g)}" placeholder="Ajouter un équipement"><button class="btn" type="button" data-peqadd="${esc(g)}" style="flex:0 0 auto">Ajouter</button></div></div>`}
    case "docs":{const slots=f.slots||P_DOCS,docs=v.docs||{};return `<div style="grid-column:1/-1">${slots.map(([k,l,sub])=>{const d=docs[k]||{},fs=(d.files||[]);return `<div class="check"><input type="checkbox" id="pd_${k}" data-pdoc="${k}" ${d.ok||fs.length?"checked":""}><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px"><label for="pd_${k}" class="t" style="font-weight:600">${esc(l)}${sub?`<span class="who">${esc(sub)}</span>`:""}</label>
       ${fs.length?`<div class="chips">${fs.map((x,i)=>`<span class="chip" style="display:inline-flex;gap:6px;align-items:center;max-width:100%"><a href="${esc(pubUrl(x.id))}" target="_blank" rel="noopener" style="color:inherit;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px">${/^image/.test(x.type)?"📷":"📄"} ${esc(x.name)}</a><button type="button" class="btn ghost" data-prmf="${k}|${i}" aria-label="Retirer ${esc(x.name)}" style="padding:0 4px">✕</button></span>`).join("")}</div>`:""}
       ${prosUp[k]?`<span class="hint">Envoi en cours…</span>`:`<label class="btn photo-btn" style="font-size:13px;padding:5px 12px">+ Fichier<input type="file" hidden multiple accept="image/*,application/pdf" data-pupl="${k}"></label>`}</div></div>`}).join("")}</div>`}}
@@ -1736,15 +1731,11 @@ function pLogBox(){const L=prosCur.logementId&&logements.find(x=>x.id===prosCur.
     ${dup?`<div class="band">Un logement « ${esc(dup.nom)} » existe déjà : sa fiche sera complétée au lieu d'en créer un deuxième.</div>`:""}
     <div><button class="btn pri" type="button" id="pCreate">${dup?"Compléter sa fiche":"Créer le logement"}</button></div></div>`}
 function pLancHtml(){const p=prosCur,g=pProg(p),c=p.suivi._custom||[];
-  const row=(id,l,st,custom)=>`<div class="check${st.done?" done":""}"><input type="checkbox" id="pt_${id}" data-ptask="${id}" ${st.done?"checked":""}><div style="flex:1;min-width:0"><label class="t" for="pt_${id}">${esc(l)}</label><span class="who">${st.done&&st.at?"Fait le "+fmt(st.at.slice(0,10))+(st.par?" · "+esc(st.par):""):""}${custom?` <button type="button" class="lnk" data-prmt="${id}">Retirer</button>`:""} <button type="button" class="lnk" data-pnoteopen="${id}">${pNoteOpen===id?"Fermer la note":st.note?"Modifier la note":"+ Note"}</button></span>${pNoteOpen===id?`<textarea id="pn_${id}" data-pnote="${id}" rows="2" placeholder="Ex. : c'est le propriétaire qui s'en occupe" style="margin-top:6px">${esc(st.note||"")}</textarea>${micBtn("pn_"+id)}`:st.note?`<div class="pnote">${esc(st.note)}</div>`:""}</div>
+  const row=(id,l,st,custom)=>`<div class="check${st.done?" done":""}"><input type="checkbox" id="pt_${id}" data-ptask="${id}" ${st.done?"checked":""}><div style="flex:1;min-width:0">${lanEdit===id?`<div class="inline" data-nomic><input type="text" id="lanLab" value="${esc(l)}" aria-label="Nouveau nom de la tâche"><button class="btn pri" type="button" data-lansave="${id}" style="flex:0 0 auto">OK</button></div>`:`<label class="t" for="pt_${id}">${esc(l)}</label>`}<span class="who">${st.done&&st.at?"Fait le "+fmt(st.at.slice(0,10))+(st.par?" · "+esc(st.par):""):""}${custom?` <button type="button" class="lnk" data-prmt="${id}">Retirer</button>`:` <button type="button" class="lnk" data-lanedit="${id}">✎ Renommer</button>`} <button type="button" class="lnk" data-pnoteopen="${id}">${pNoteOpen===id?"Fermer la note":st.note?"Modifier la note":"+ Note"}</button></span>${pNoteOpen===id?`<textarea id="pn_${id}" data-pnote="${id}" rows="2" placeholder="Ex. : c'est le propriétaire qui s'en occupe" style="margin-top:6px">${esc(st.note||"")}</textarea>${micBtn("pn_"+id)}`:st.note?`<div class="pnote">${esc(st.note)}</div>`:""}</div>
     <select data-pwho="${id}" aria-label="Responsable : ${esc(l)}" style="flex:none;width:auto;font-size:13px;padding:4px 6px"><option value="">—</option>${P_TEAM.map(n=>`<option ${st.who===n?"selected":""}>${n}</option>`).join("")}</select></div>`;
   return `<div class="box"><h3>Statut</h3><div class="chips">${P_STATUTS.map(([k,l])=>`<button type="button" class="chip" data-pstat="${k}" aria-pressed="${(p.statut||"prospect")===k}">${l}</button>`).join("")}</div>
     <div class="prog" style="margin:0"><span class="big">${g.pct} %</span><span class="hint">${g.ok} tâche${g.ok>1?"s":""} faite${g.ok>1?"s":""} sur ${g.tot}</span><div class="bar"><i style="width:${g.pct}%"></i></div></div></div>
-  <div class="inline" style="justify-content:flex-end"><button class="btn${lanEdit?" pri":""}" type="button" id="lanEditBtn">${lanEdit?"✓ Terminer la modification":"✎ Modifier les tâches"}</button></div>
-  ${lanEdit?`<div class="hint">Renommez, retirez ou ajoutez des tâches : les changements valent pour tous les lancements.${Object.keys(lanCfg.retirees||{}).length?` <button type="button" class="lnk" id="lanRestore">Rétablir les tâches retirées (${Object.keys(lanCfg.retirees).length})</button>`:""}</div>`:""}
-  ${P_CHECK.map(([sec,ts],si)=>lanEdit?`<div class="box"><h3>${esc(sec)}</h3><div>${ts.map(([id,l])=>`<div class="check" style="align-items:center"><input type="text" data-lanlab="${id}" value="${esc(l)}" aria-label="Nom de la tâche" style="flex:1"><button type="button" class="btn ghost" data-lanrm="${id}" aria-label="Retirer ${esc(l)}" style="flex:none;padding:4px 10px">✕</button></div>`).join("")}</div>
-    <div class="inline"><input type="text" id="lanNew${si}" placeholder="Nouvelle tâche dans « ${esc(sec)} »"><button class="btn" type="button" data-lanadd="${si}" style="flex:0 0 auto">Ajouter</button></div></div>`
-   :`<div class="box"><h3>${esc(sec)} · ${ts.filter(t=>pTask(p,t[0]).done).length}/${ts.length}</h3><div>${ts.map(([id,l])=>row(id,l,pTask(p,id),false)).join("")}</div></div>`).join("")}
+  ${P_CHECK.map(([sec,ts])=>`<div class="box"><h3>${esc(sec)} · ${ts.filter(t=>pTask(p,t[0]).done).length}/${ts.length}</h3><div>${ts.map(([id,l])=>row(id,l,pTask(p,id),false)).join("")}</div></div>`).join("")}
   <div class="box"><h3>Tâches en plus pour ce logement</h3><div>${c.map(x=>row(x.id,x.l,x,true)).join("")||`<div class="hint">Aucune.</div>`}</div><div class="inline"><input type="text" id="pNewT" placeholder="Ajouter une tâche"><button class="btn" type="button" id="pAddT" style="flex:0 0 auto">Ajouter</button></div></div>
   ${pLogBox()}
   <div class="box"><h3>Supprimer le prospect</h3>${prosAsk==="del"?`<div class="confirm">Supprimer « ${esc(pName(p))} » et sa check-list ? Le logement déjà créé dans Logements reste.<button class="btn pri" type="button" id="pDelYes">Oui, supprimer</button><button class="btn ghost" type="button" id="pDelNo">Annuler</button></div>`:`<div><button class="btn ghost" type="button" id="pDel" style="color:var(--crit)">Supprimer ce prospect</button></div>`}</div>`}
@@ -1755,11 +1746,9 @@ function renderProspect(){const s=$("#sheet"),sy=s.scrollTop,p=prosCur;
   ${prosTab==="fiche"?pFicheHtml():pLancHtml()}</div>`;s.scrollTop=sy;
   if($("#pAddT"))$("#pAddT").onclick=()=>{const l=$("#pNewT").value.trim();if(!l)return toast("Écrivez la tâche");(p.suivi._custom=p.suivi._custom||[]).push({id:"x"+Date.now().toString(36),l,who:me.prenom||"",done:false});prosTouch();renderProspect()};
   if($("#pDel"))$("#pDel").onclick=()=>{prosAsk="del";renderProspect()};
-  if($("#lanEditBtn"))$("#lanEditBtn").onclick=()=>{lanEdit=!lanEdit;renderProspect()};
-  if($("#lanRestore"))$("#lanRestore").onclick=()=>saveLan({retirees:{}},"Tâches rétablies");
-  s.querySelectorAll("[data-lanlab]").forEach(i=>i.onchange=()=>{const v=i.value.trim();if(!v)return toast("Le nom ne peut pas être vide");saveLan({labels:{...(lanCfg.labels||{}),[i.dataset.lanlab]:v}},"Tâche renommée")});
-  s.querySelectorAll("[data-lanrm]").forEach(b=>b.onclick=()=>saveLan({retirees:{...(lanCfg.retirees||{}),[b.dataset.lanrm]:true}},"Tâche retirée"));
-  s.querySelectorAll("[data-lanadd]").forEach(b=>b.onclick=()=>{const i=b.dataset.lanadd,inp=$("#lanNew"+i),l=inp.value.trim();if(!l)return toast("Écrivez la tâche");const aj={...(lanCfg.ajouts||{})};aj[i]=[...(aj[i]||[]),{id:"y"+Date.now().toString(36),l,who:""}];saveLan({ajouts:aj},"Tâche ajoutée")});
+  s.querySelectorAll("[data-lanedit]").forEach(b=>b.onclick=()=>{lanEdit=b.dataset.lanedit;renderProspect();const i=$("#lanLab");if(i){i.focus();i.select()}});
+  s.querySelectorAll("[data-lansave]").forEach(b=>b.onclick=()=>{const v=$("#lanLab").value.trim();if(!v)return toast("Le nom ne peut pas être vide");const id=b.dataset.lansave;lanEdit=false;saveLan({labels:{...(lanCfg.labels||{}),[id]:v}},"Tâche renommée")});
+  if($("#lanLab"))$("#lanLab").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();s.querySelector("[data-lansave]").click()}else if(e.key==="Escape"){lanEdit=false;renderProspect()}};
   if($("#pDelNo"))$("#pDelNo").onclick=()=>{prosAsk=null;renderProspect()};
   if($("#pDelYes"))$("#pDelYes").onclick=async()=>{clearTimeout(prosT);prosDirty=false;try{await db.doc("prospects/"+p.id).delete();toast("Prospect supprimé");prosCur=null;closeSheet()}catch(e){toast(failMsg(e))}};
   if($("#pCreate"))$("#pCreate").onclick=pCreateLog;
@@ -1810,21 +1799,19 @@ async function pCreateLog(){const nom=$("#pLNom").value.trim(),sel=$("#pLLieu").
     await pPushFiche(L,true);renderProspect()}catch(e){b.disabled=false;toast(failMsg(e))}}
 
 /* ---- événements du prospect ---- */
-document.addEventListener("click",e=>{const t=e.target.closest("[data-pros],[data-ptab],[data-pstep],[data-pchip],[data-peq],[data-pstat],[data-prmt],[data-prmf],[data-plog],[data-pnoteopen],[data-psnote],[data-peqp],[data-peqm],[data-peqb],[data-peqadd],[data-peqx],[data-pbedadd],[data-pbedrm]");if(!t)return;
+document.addEventListener("click",e=>{const t=e.target.closest("[data-pros],[data-ptab],[data-pstep],[data-pchip],[data-peq],[data-pstat],[data-prmt],[data-prmf],[data-plog],[data-pnoteopen],[data-psnote],[data-peqadd],[data-peqx],[data-pbedadd],[data-pbedrm]");if(!t)return;
   if(t.dataset.pros){openProspect(t.dataset.pros);return}
   if(!prosCur)return;const v=prosCur.v;
   if(t.dataset.plog){const nom=t.dataset.plog;prosFlush();prosOpen=null;prosCur=null;openLogSheet(nom);lsTab="fiche";renderLogSheet();return}
   if(t.dataset.ptab){prosTab=t.dataset.ptab;prosAsk=null;$("#sheet").scrollTop=0;renderProspect();return}
   if(t.dataset.pstep){prosStep=+t.dataset.pstep;prosTab="fiche";$("#sheet").scrollTop=0;renderProspect();return}
   if(t.dataset.pchip){const k=t.dataset.pchip,val=t.dataset.pval;if(t.dataset.pmulti){const a=new Set(v[k]||[]);a.has(val)?a.delete(val):a.add(val);v[k]=[...a]}else v[k]=v[k]===val?"":val;prosTouch();renderProspect();return}
-  if(t.dataset.peq){const k=t.dataset.peq;v.eq=v.eq||{};const n=((v.eq[k]||0)+1)%3;if(n)v.eq[k]=n;else delete v.eq[k];t.dataset.s=n;t.textContent=k+(n===2?" · à acheter":n===1?" ✓":"");prosTouch();return}
+  if(t.dataset.peq){const k=t.dataset.peq;v.eq=v.eq||{};const n=((v.eq[k]||0)+1)%3;if(n)v.eq[k]=n;else delete v.eq[k];t.dataset.s=n;t.textContent=k+(n===2?" · à acheter":n===1?" ✓":"");prosTouch();if(P_EQOPT[k])renderProspect();return}
   if(t.dataset.pbedadd){const k=t.dataset.pbedadd;v.beds=v.beds||{};const r=v.beds[k]=v.beds[k]||{};r.x=[...(r.x||[]),{t:"—",n:""}];prosTouch();renderProspect();return}
   if(t.dataset.pbedrm){const [k,i]=t.dataset.pbedrm.split("|");const r=(v.beds||{})[k];if(r&&r.x){r.x.splice(+i,1)}prosTouch();renderProspect();return}
   if(t.dataset.psnote){const k=t.dataset.psnote;pSnOpen.add(k);renderProspect();const ta=$("#pf_"+k);if(ta)ta.focus();return}
-  if(t.dataset.peqp||t.dataset.peqm){const k=t.dataset.peqp||t.dataset.peqm;const n=Math.max(0,eqCount(v,k)+(t.dataset.peqp?1:-1));v.eqn={...(v.eqn||{}),[k]:n};if(v.eq)delete v.eq[k];prosTouch();renderProspect();return}
-  if(t.dataset.peqb){const k=t.dataset.peqb;v.eqb={...(v.eqb||{}),[k]:!eqBuy(v,k)};if(v.eq&&v.eq[k]===2){delete v.eq[k]}prosTouch();renderProspect();return}
-  if(t.dataset.peqadd){const g=t.dataset.peqadd,inp=document.querySelector('[data-peqnew="'+CSS.escape(g)+'"]'),l=(inp&&inp.value||"").trim();if(!l)return toast("Écrivez l'équipement");v.eqx={...(v.eqx||{}),[g]:[...((v.eqx||{})[g]||[]),l]};v.eqn={...(v.eqn||{}),[l]:1};prosTouch();renderProspect();return}
-  if(t.dataset.peqx){const [g,l]=t.dataset.peqx.split("|");v.eqx={...(v.eqx||{}),[g]:((v.eqx||{})[g]||[]).filter(x=>x!==l)};if(v.eqn)delete v.eqn[l];if(v.eqb)delete v.eqb[l];prosTouch();renderProspect();return}
+  if(t.dataset.peqadd){const g=t.dataset.peqadd,inp=document.querySelector('[data-peqnew="'+CSS.escape(g)+'"]'),l=(inp&&inp.value||"").trim();if(!l)return toast("Écrivez l'équipement");v.eqx={...(v.eqx||{}),[g]:[...((v.eqx||{})[g]||[]),l]};v.eq={...(v.eq||{}),[l]:1};prosTouch();renderProspect();return}
+  if(t.dataset.peqx){const [g,l]=t.dataset.peqx.split("|");v.eqx={...(v.eqx||{}),[g]:((v.eqx||{})[g]||[]).filter(x=>x!==l)};if(v.eq)delete v.eq[l];prosTouch();renderProspect();return}
   if(t.dataset.pnoteopen){const id=t.dataset.pnoteopen;pNoteOpen=pNoteOpen===id?null:id;renderProspect();if(pNoteOpen){const ta=$("#pn_"+id);if(ta)ta.focus()}return}
   if(t.dataset.pstat){prosCur.statut=t.dataset.pstat;prosTouch();renderProspect();return}
   if(t.dataset.prmt){prosCur.suivi._custom=(prosCur.suivi._custom||[]).filter(x=>x.id!==t.dataset.prmt);prosTouch();renderProspect();return}
