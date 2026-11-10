@@ -1638,7 +1638,7 @@ const P_BEDS=["—","Lit 90×190","Lit 140×190","Lit 140×200","Lit 160×200","
 const P_ROOMS=[["salon","Salon"],["ch1","Chambre 1"],["ch2","Chambre 2"],["ch3","Chambre 3"],["ch4","Chambre 4"]];
 const P_EQUIP=[
  ["Cuisine · électroménager",["Réfrigérateur","Congélateur","Four","Micro-ondes","Plaques de cuisson","Hotte","Lave-vaisselle","Cafetière","Bouilloire","Grille-pain","Mixeur / blender","Appareil à raclette","Appareil à fondue"]],
- ["Cuisine · vaisselle",["Vaisselle complète","Grandes assiettes","Petites assiettes","Assiettes creuses","Bols","Tasses à café","Mugs","Verres à eau","Verres à vin","Flûtes à champagne","Carafe","Saladier","Plat à four"]],
+ ["Cuisine · vaisselle",["Grandes assiettes","Petites assiettes","Assiettes creuses","Bols","Tasses à café","Mugs","Verres à eau","Verres à vin","Flûtes à champagne","Carafe","Saladier","Plat à four"]],
  ["Cuisine · couverts",["Fourchettes","Couteaux","Cuillères à soupe","Petites cuillères","Couteaux à steak","Couverts de service"]],
  ["Cuisine · ustensiles",["Ustensiles de cuisine","Casseroles","Poêles","Faitout / marmite","Couvercles","Couteau de cuisine","Planche à découper","Passoire","Tire-bouchon","Ouvre-boîte","Décapsuleur","Éplucheur","Râpe","Ciseaux de cuisine","Dessous de plat","Maniques","Torchons","Égouttoir","Poubelle de cuisine"]],
  ["Cuisine · produits de base",["Huile, sel, poivre","Sucre","Café / capsules","Thé / tisanes","Liquide vaisselle","Éponges","Pastilles lave-vaisselle","Sacs poubelle","Essuie-tout","Papier aluminium / film"]],
@@ -1661,7 +1661,7 @@ const eqKey=(g,l)=>g.startsWith("P:")?g.slice(2)+"|"+l:g==="LingeInv"?"linge|"+l
 /* quantités : seulement vaisselle, couverts, linge du propriétaire et quelques objets */
 const EQ_CNT_G=new Set(["Cuisine · vaisselle","Cuisine · couverts","LingeInv"]),EQ_CNT_I=new Set(["Casseroles","Poêles","Oreillers","Traversin","Couvertures","Plaids","Oreillers en double","Serviettes","Serviettes de bain","Serviettes de toilette"]);
 const eqCountable=(g,l)=>EQ_CNT_G.has(g)||EQ_CNT_I.has(l);
-const P_EQOLD2={"Draps fournis":"Linge","Oreillers en double":"Linge","Couvertures":"Linge","Rideaux occultants":"Salon et repas","Penderie / armoire":"Salon et repas"};
+const P_EQOLD2={"Vaisselle complète":"Cuisine · vaisselle","Draps fournis":"Linge","Oreillers en double":"Linge","Couvertures":"Linge","Rideaux occultants":"Salon et repas","Penderie / armoire":"Salon et repas"};
 const LITERIE=["Lit double","Lit simple","Matelas","Alèse / protège-matelas","Oreillers","Traversin","Couette","Housse de couette","Draps housses","Taies d'oreiller","Plaid"];
 const pPieces=v=>Array.isArray(v.pieces)?v.pieces:Array.from({length:Math.max(1,Math.min(6,+v.cap_ch||1))},(_,i)=>({id:"c"+(i+1),nom:"Chambre "+(i+1),type:"chambre"}));
 /* options quand l'équipement est présent */
