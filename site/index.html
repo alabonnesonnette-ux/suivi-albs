@@ -1651,6 +1651,7 @@ const P_EQUIP=[
  ["Sécurité",["Détecteur de fumée","Détecteur de CO","Extincteur","Trousse de secours","Couverture anti-feu"]],
  ["Accès & parking",["Parking gratuit sur place","Garage","Recharge véhicule électrique","Ascenseur","Arrivée autonome","Local vélos"]]];
 /* pièces : chambres, salles de bain, autres */
+const BED_PER=["Alèse matelas","Alèse oreiller","Oreillers"],LINGE_BLANCH=["Draps housses","Housse de couette","Taies d'oreiller"];
 const BED_ITEMS=["Alèse matelas","Alèse oreiller","Oreillers","Traversin","Couette","Housse de couette","Draps housses","Taies d'oreiller","Plaid"];
 const PIECE_TPL={chambre:["Lit double","Lit simple","Matelas",...BED_ITEMS,"Table de chevet","Lampe de chevet","Penderie / armoire","Commode","Cintres","Rideaux occultants","Miroir","Bureau","Chaise","Télévision"],
  sdb:["Douche","Baignoire","Lavabo","WC","Miroir","Sèche-cheveux","Serviettes de bain","Tapis de bain","Porte-serviettes","Poubelle salle de bain"],autre:[]};
@@ -1700,7 +1701,7 @@ const eqNote=(v,k)=>((v.eqnote||{})[k]||"").trim();
 let pEqNoteOpen=new Set();
 /* sections d'équipement de la fiche prospect (catégories + pièces) */
 function eqSecs(v){const out=P_EQUIP.map(([g,items])=>({g,t:g,ico:EQ_ICO_G[g]||"📦",items:items.map(l=>({k:l,l}))}));
-  for(const pc of pPieces(v)){const g="P:"+pc.id,ty=PIECE_TYPES.find(x=>x[0]===pc.type)||PIECE_TYPES[2];let L=(PIECE_TPL[pc.type]||[]);if(pc.type==="chambre"){const B=["Lit double","Lit simple"].filter(b=>eqOn(v,pc.id+"|"+b));if(B.length>1){const rest=L.filter(x=>!BED_ITEMS.includes(x)&&!B.includes(x));L=[...B,...B.flatMap(b=>BED_ITEMS.map(x=>x+" – "+b.toLowerCase())),...rest]}}
+  for(const pc of pPieces(v)){const g="P:"+pc.id,ty=PIECE_TYPES.find(x=>x[0]===pc.type)||PIECE_TYPES[2];let L=(PIECE_TPL[pc.type]||[]);if(pc.type==="chambre"){if(v.linge==="Blanchisserie")L=L.filter(x=>!LINGE_BLANCH.includes(x));const B=["Lit double","Lit simple"].filter(b=>eqOn(v,pc.id+"|"+b));if(B.length>1){const rest=L.filter(x=>!BED_PER.includes(x)&&!B.includes(x));L=[...B,...B.flatMap(b=>BED_PER.map(x=>x+" – "+b.toLowerCase())),...rest]}}
     out.push({g,t:pc.nom||ty[1],ico:ty[2],piece:pc,items:L.map(l=>({k:pc.id+"|"+l,l}))})}
   const shown=new Set();out.forEach(sc=>{sc.items=sc.items.concat(((v.eqx||{})[sc.g]||[]).map(l=>({k:sc.piece?sc.piece.id+"|"+l:l,l,cu:1})));sc.items.forEach(x=>shown.add(x.k))});
   const old=Object.keys(v.eq||{}).filter(k=>v.eq[k]&&!shown.has(k)&&!k.includes("|")&&!EQ_DROP.has(k));for(const l of old){const sc=out.find(x=>x.g===(P_EQOLD2[l]||"Linge"))||out[0];sc.items.push({k:l,l})}
