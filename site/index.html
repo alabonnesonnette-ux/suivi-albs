@@ -293,6 +293,7 @@ textarea{min-height:76px;resize:vertical}
 .lb{position:fixed;inset:0;z-index:40;background:rgb(0 0 0/.88);display:grid;place-items:center;padding:16px}
 .lb img{max-width:100%;max-height:100%;border-radius:8px}
 .rub{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-top:1px solid var(--line)}
+.entcta{display:flex;gap:12px;align-items:center;text-align:left;width:100%;background:var(--gold);color:#fff;border:0;border-radius:14px;padding:14px 16px;cursor:pointer}.entcta .ico{font-size:30px}.entcta b{display:block;font-size:16px}.entcta small{display:block;opacity:.92;font-size:13px;margin-top:2px}
 .entslot{display:grid;grid-template-columns:26px 96px minmax(0,1fr);gap:10px;align-items:start;padding:10px 0;border-top:1px solid var(--line)}
 .entslot:first-of-type{border-top:0}.entslot.vide{grid-template-columns:26px 1fr;align-items:center;padding:6px 0}
 .entn{width:24px;height:24px;border-radius:999px;background:var(--gold);color:#fff;font-weight:700;font-size:12px;display:grid;place-items:center}
@@ -387,6 +388,10 @@ details.pers .list{margin-top:10px}
 .kbox.mnt{background:var(--mnt-bg);border-left:4px solid var(--mnt)} .kbox.men{background:var(--men-bg);border-left:4px solid var(--men)}
 .kbox .hint{color:var(--ink);opacity:.75}
 .confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:14px}
+.eqdet{display:flex;flex-direction:column;margin-top:10px;border-top:1px dashed var(--line)}
+.eqd{padding:6px 0;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.eqdh{display:flex;align-items:center;gap:8px}.eqdh .eql{flex:1;font-size:14px;font-weight:600;color:var(--ok)}.eqd.buy .eql{color:var(--warn)}
+.eqd textarea{min-height:40px}
 .eqlist{display:flex;flex-direction:column}
 .eqrow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--line)}
 .eqrow:first-child{border-top:0}.eqrow.on .eql{font-weight:600}
@@ -395,6 +400,7 @@ details.pers .list{margin-top:10px}
 .eqctl button{width:32px;height:32px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:17px;line-height:1;padding:0}
 .eqctl button:disabled{opacity:.35}.eqctl .eqbuy{font-size:14px;opacity:.45}.eqctl .eqbuy[aria-pressed="true"]{opacity:1;background:var(--warn-bg);border-color:var(--warn)}
 .eqopt{padding:2px 0 8px 32px}
+.ive{display:grid;grid-template-columns:minmax(0,1fr) 56px 100px 36px;gap:6px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}.ive .ivnote{grid-column:1/-1}.ive .btn{padding:4px}
 .inv{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .invc{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px}
 .invc .ic{font-size:20px;flex:none}.invc b{margin-left:auto;padding-left:6px;white-space:nowrap}.invc.buy{border-color:var(--warn);background:var(--warn-bg)}
@@ -492,7 +498,7 @@ const ICO={
  mlog:'<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>'};
 const ico=k=>ICO[k]?`<svg viewBox="0 0 24 24" aria-hidden="true">${ICO[k]}</svg>`:"";
 const TABS={equipe:[["prio","Priorités"],["dos","Dossiers"],["log","Logements"],["audit","Audit"],["lit","Litiges"],["fac","Facturation"],["pros","Prospects"]],menage:[["mm","Mes ménages"],["mlog","Logements"]]};
-const FICHE_TPL=[["adresse","Adresse",true],["boite","Code boîte à clés",true],["acces","Accès / entrée",true],["wifi","Wi-Fi (nom et mot de passe)",true],["tv","Télévision (fonctionnement)",true],["parking","Parking",true],["poubelles","Poubelles / tri",true],["linge","Linge et lits",true],["consignes","Consignes ménage",true],["equip","Équipements",true],["proprio","Propriétaire (contact)",false],["airbnb","Codes Airbnb et plateformes",false],["mairie","Mairie et taxe de séjour (extranet)",false],["annonce","Pour l'annonce (Marion)",false]];
+const FICHE_TPL=[["adresse","Adresse",true],["boite","Code boîte à clés",true],["acces","Accès / entrée",true],["wifi","Wi-Fi (nom et mot de passe)",true],["tv","Télévision (fonctionnement)",true],["parking","Parking",true],["poubelles","Poubelles / tri",true],["linge","Linge et lits",true],["stock","Stock et rangement",true],["consignes","Consignes ménage",true],["equip","Équipements",true],["proprio","Propriétaire (contact)",false],["airbnb","Codes Airbnb et plateformes",false],["mairie","Mairie et taxe de séjour (extranet)",false],["annonce","Pour l'annonce (Marion)",false]];
 let auditCfg={}, auditForm=false, audits=[], auditOpen=null, grEdit=false, audUp={};
 const GR0=[
  ["Entrée et accès",["Boîte à clés / serrure connectée fonctionne","Porte d'entrée, poignée et serrure","Éclairage de l'entrée","Détecteur de fumée présent et fonctionnel"]],
@@ -1227,7 +1233,7 @@ function techHtml(l,team){
       ${techUp.libre?`<span class="hint">Envoi en cours…</span>`:`<label class="btn photo-btn" style="align-self:flex-start">📷 Choisir la photo<input type="file" hidden multiple accept="image/*,application/pdf" id="techLibre"></label>`}
       <span class="hint">Elle se range dans « Autres photos techniques », avec sa description.</span></div>`:""}
     ${team&&!prospectOf(l)?`<span class="hint">Aucun dossier prospect relié à ce logement : ajoutez les photos directement.</span>`:""}</div>`}
-const RUB_ICO={adresse:"📍",boite:"🔐",acces:"🚪",wifi:"📶",parking:"🅿️",poubelles:"♻️",linge:"🛏️",consignes:"🧹",equip:"🍽️",proprio:"👤",video:"🎬",tv:"📺",p_tech:"🔧",p_cap:"🏠",p_regles:"📋",airbnb:"🔑",mairie:"🏛️",p_lancement:"🚀",annonce:"📝",p_notes:"🗒️"};
+const RUB_ICO={adresse:"📍",boite:"🔐",acces:"🚪",wifi:"📶",parking:"🅿️",poubelles:"♻️",linge:"🛏️",stock:"📦",consignes:"🧹",equip:"🍽️",proprio:"👤",video:"🎬",tv:"📺",p_tech:"🔧",p_cap:"🏠",p_regles:"📋",airbnb:"🔑",mairie:"🏛️",p_lancement:"🚀",annonce:"📝",p_notes:"🗒️"};
 function rubIco(x){if(RUB_ICO[x.k])return RUB_ICO[x.k];const l=norm(x.label);return /wifi|internet/.test(l)?"📶":/tele|tv/.test(l)?"📺":/airbnb|booking|code/.test(l)?"🔑":/mairie|taxe/.test(l)?"🏛️":/chauff|electri|eau|compteur|techn/.test(l)?"🔧":/poubel|tri/.test(l)?"♻️":/menage|linge/.test(l)?"🧹":/note/.test(l)?"🗒️":/parking|garage/.test(l)?"🅿️":"📌"}
 function rubVal(t){return String(t).split(/\n/).map(li=>{const m=li.match(/^([^:]{2,40}) : (.+)$/);return `<div class="rv">${m?`<span class="rk">${esc(m[1])}</span> ${esc(m[2])}`:esc(li)}</div>`}).join("").replace(/(https?:\/\/[^\s<"]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')}
 function rubRow(x,team){return editKey===x.k?rubForm(x):`<div class="rub"><div class="rub-h"><span class="rub-l"><span class="rub-i" aria-hidden="true">${rubIco(x)}</span>${esc(x.label)}${daysSince(x.r.modifLe)<=7&&(x.hist.length||!x.t)?`<span class="new">Nouveau</span>`:""}${team&&!x.vis?`<span class="priv">Équipe seulement</span>`:""}</span>${team?`<button class="lnk" type="button" data-editrub="${esc(x.k)}">Modifier</button>`:""}</div>
@@ -1247,25 +1253,64 @@ function proprioHtml(l,team,row){
     ${avoir.length?`<div class="pavoir"><b>💡 À savoir sur le propriétaire</b>${avoir.map(x=>`<div>${esc(x)}</div>`).join("")}</div>`:""}
     ${nom||lines.length||avoir.length?`<span class="hint">Repris du dossier prospect.</span>`:""}
     ${row&&(!p||(row.val&&!(v.prop_nom&&row.val.includes(v.prop_nom))))?rubRow(row,team):""}</div>`}
-function invHtml(l){const I=l.inventaire,G=(I&&I.groupes)||[];if(!G.length)return"";
-  return `<div class="box"><h3>Équipements et inventaire</h3>${I.maj?`<div class="hint">Repris de la fiche prospect le ${fmtAt(I.maj)}${I.par?" · "+esc(I.par):""}</div>`:""}
-  ${G.map(g=>`<div class="invg">${g.ico} ${esc(g.g)}</div><div class="inv">${g.items.map(x=>`<div class="invc${x.buy?" buy":""}"><span class="ic" aria-hidden="true">${x.ico}</span><span>${esc(x.l)}${x.opt?`<br><small>${esc(x.opt)}</small>`:""}${x.buy?`<br><small>🛒 à acheter</small>`:""}</span><b>${x.n?(x.n>1?"×"+x.n:"✓"):""}</b></div>`).join("")}</div>`).join("")}</div>`}
+let invEdit=null;
+function invHtml(l,team){const I=l.inventaire||{},G=I.groupes||[];if(!G.length&&!invEdit)return"";
+  if(invEdit&&invEdit.id===l.id){const D=invEdit.G;
+    return `<div class="box" data-nomic><h3>Équipements et inventaire · modification</h3><div class="hint">Modifiez tout ce que vous voulez puis enregistrez.</div>
+    ${D.map((g,gi)=>`<div class="invg"><input type="text" data-ivg="${gi}" value="${esc(g.g)}" aria-label="Nom de la rubrique" style="font-weight:700"></div>
+      ${g.items.map((x,ii)=>`<div class="ive"><input type="text" data-iv="${gi}|${ii}|l" value="${esc(x.l)}" aria-label="Équipement"><input type="number" min="0" inputmode="numeric" data-iv="${gi}|${ii}|n" value="${x.n||""}" placeholder="Nb" aria-label="Nombre"><select data-iv="${gi}|${ii}|buy" aria-label="État"><option value="">Présent</option><option value="1" ${x.buy?"selected":""}>À acheter</option></select><button type="button" class="btn ghost" data-ivrm="${gi}|${ii}" aria-label="Retirer ${esc(x.l)}">✕</button><input type="text" data-iv="${gi}|${ii}|note" value="${esc(x.note||"")}" placeholder="Note" aria-label="Note" class="ivnote"></div>`).join("")}
+      <button type="button" class="lnk" data-ivadd="${gi}">+ Ajouter un équipement</button>`).join("")}
+    <div style="margin-top:10px"><button type="button" class="lnk" id="ivAddG">+ Ajouter une rubrique</button></div>
+    <div class="field" style="margin-top:10px"><label for="ivAchats">Achats à prévoir</label><textarea id="ivAchats" rows="2">${esc(invEdit.achats||"")}</textarea></div>
+    <div class="inline" style="margin-top:10px"><button class="btn pri" type="button" id="ivSave">Enregistrer</button><button class="btn ghost" type="button" id="ivCancel">Annuler</button></div></div>`}
+  return `<div class="box"><div class="rub-h"><h3 style="margin:0">Équipements et inventaire</h3>${team?`<button class="lnk" type="button" id="ivEdit">Modifier</button>`:""}</div>
+  ${I.maj||I.modifLe?`<div class="hint">${I.modifLe?"Modifié le "+fmtAt(I.modifLe):"Repris de la fiche prospect le "+fmtAt(I.maj)}${I.par?" · "+esc(I.par):""}</div>`:""}
+  ${G.map(g=>`<div class="invg">${g.ico||"📦"} ${esc(g.g)}</div><div class="inv">${g.items.map(x=>`<div class="invc${x.buy?" buy":""}"><span class="ic" aria-hidden="true">${x.ico||"•"}</span><span>${esc(x.l)}${x.opt?`<br><small>${esc(x.opt)}</small>`:""}${x.note?`<br><small>📝 ${esc(x.note)}</small>`:""}${x.buy?`<br><small>🛒 à acheter</small>`:""}</span><b>${x.n?"×"+x.n:x.buy?"":"✓"}</b></div>`).join("")}</div>`).join("")}
+  ${I.achats?`<div class="invg">🛒 Achats à prévoir</div><div style="white-space:pre-wrap">${esc(I.achats)}</div>`:""}
+  <div class="inline" style="margin-top:12px"><button class="btn" type="button" id="ivPdf">⬇ Inventaire (PDF)</button></div></div>`}
+function bindInv(l){const s=$("#sheet");
+  if($("#ivEdit"))$("#ivEdit").onclick=()=>{const I=l.inventaire||{};invEdit={id:l.id,G:JSON.parse(JSON.stringify(I.groupes||[])),achats:I.achats||""};renderLogSheet()};
+  if($("#ivPdf"))$("#ivPdf").onclick=()=>invPdf(l);
+  if(!invEdit||invEdit.id!==l.id)return;const D=invEdit.G;
+  const grab=()=>{s.querySelectorAll("[data-iv]").forEach(i=>{const [gi,ii,f]=i.dataset.iv.split("|"),x=D[+gi].items[+ii];if(f==="n")x.n=i.value?+i.value:0;else if(f==="buy")x.buy=!!i.value;else x[f]=i.value});s.querySelectorAll("[data-ivg]").forEach(i=>{D[+i.dataset.ivg].g=i.value});invEdit.achats=$("#ivAchats").value};
+  s.querySelectorAll("[data-ivrm]").forEach(b=>b.onclick=()=>{grab();const [gi,ii]=b.dataset.ivrm.split("|");D[+gi].items.splice(+ii,1);renderLogSheet()});
+  s.querySelectorAll("[data-ivadd]").forEach(b=>b.onclick=()=>{grab();const g=D[+b.dataset.ivadd];g.items.push({l:"",n:0,buy:false,note:"",ico:EQ_ICO_G[g.g]||g.ico||"•"});renderLogSheet();const L=s.querySelectorAll(`[data-iv^="${b.dataset.ivadd}|"][data-iv$="|l"]`);if(L.length)L[L.length-1].focus()});
+  $("#ivAddG").onclick=()=>{grab();D.push({g:"Nouvelle rubrique",ico:"📦",items:[]});renderLogSheet()};
+  $("#ivCancel").onclick=()=>{invEdit=null;renderLogSheet()};
+  $("#ivSave").onclick=async()=>{grab();D.forEach(g=>{g.items=g.items.filter(x=>(x.l||"").trim());g.items.forEach(x=>{x.l=x.l.trim();x.ico=EQ_ICO[x.l]||x.ico||EQ_ICO_G[g.g]||"•"})});
+    try{await db.doc("logements/"+l.id).update({inventaire:{groupes:D.filter(g=>g.items.length),achats:invEdit.achats.trim(),manuel:true,modifLe:nowIso(),par:who()}});invEdit=null;toast("Inventaire enregistré");renderLogSheet()}catch(e){toast(failMsg(e))}}}
+async function invPdf(l){const I=l.inventaire||{},G=I.groupes||[];if(!G.length)return toast("L'inventaire est vide");toast("Préparation de l'inventaire…");
+  try{await loadJsPdf()}catch(e){return toast("Le PDF n'a pas pu se préparer : vérifiez la connexion")}
+  const doc=new window.jspdf.jsPDF({unit:"mm",format:"a4"});const W=210,H=297,M=16,CW=W-2*M,GOLD=[168,147,49],DARK=[42,38,20],MUT=[110,102,74],CREAM=[243,237,224];let y=0;
+  const bg=()=>{doc.setFillColor(...CREAM);doc.rect(0,0,W,H,"F")};const need=h=>{if(y+h>H-20){doc.addPage();bg();y=M}};
+  bg();doc.setFillColor(...GOLD);doc.rect(0,0,W,38,"F");let lgW=0;try{const lg=await albsLogo();let w=40,h=lg.h*w/lg.w;if(h>18){h=18;w=lg.w*h/lg.h}lgW=pdfLogo(doc,lg,W-M-w-4,(38-h-4)/2,w,h).w}catch(e){}
+  doc.setTextColor(255,255,255);doc.setFont("helvetica","normal");doc.setFontSize(9);doc.setCharSpace(1.1);doc.text("INVENTAIRE DU LOGEMENT",M,15);doc.setCharSpace(0);doc.setFont("times","bold");doc.setFontSize(22);doc.text(pdfTxt(l.nom),M,27);y=48;
+  for(const g of G){need(16);doc.setTextColor(...GOLD);doc.setFont("helvetica","bold");doc.setFontSize(10.5);doc.setCharSpace(.8);doc.text(pdfTxt(g.g.toUpperCase()),M,y+4);doc.setCharSpace(0);y+=7;
+    for(const x of g.items){doc.setFont("helvetica","normal");doc.setFontSize(10);const nl=x.note?doc.splitTextToSize(pdfTxt(x.note),CW-60):[];const h=7+nl.length*4.3;need(h);
+      doc.setFillColor(255,255,255);doc.setDrawColor(221,211,188);doc.setLineWidth(.25);doc.roundedRect(M,y,CW,h,1.5,1.5,"FD");
+      doc.setTextColor(...DARK);doc.setFontSize(10.5);doc.text(pdfTxt(x.l+(x.opt?" ("+x.opt+")":"")),M+4,y+4.8);
+      doc.setFont("helvetica","bold");doc.text(x.n?"x"+x.n:(x.buy?"":"oui"),W-M-38,y+4.8,{align:"right"});
+      if(x.buy){doc.setFillColor(252,231,205);doc.roundedRect(W-M-32,y+1.3,28,4.8,1.5,1.5,"F");doc.setTextColor(150,90,20);doc.setFontSize(8);doc.text("A ACHETER",W-M-18,y+4.6,{align:"center"})}
+      if(nl.length){doc.setFont("helvetica","italic");doc.setFontSize(9);doc.setTextColor(...MUT);doc.text(nl,M+8,y+9)}y+=h+1.5}y+=3}
+  if(I.achats){need(20);doc.setTextColor(...GOLD);doc.setFont("helvetica","bold");doc.setFontSize(10.5);doc.text("ACHATS A PREVOIR",M,y+4);y+=8;doc.setTextColor(...DARK);doc.setFont("helvetica","normal");doc.setFontSize(10);const ls=doc.splitTextToSize(pdfTxt(I.achats),CW);need(ls.length*4.6);doc.text(ls,M,y+3);y+=ls.length*4.6+4}
+  const np=doc.getNumberOfPages();for(let i=1;i<=np;i++){doc.setPage(i);doc.setDrawColor(...GOLD);doc.setLineWidth(.4);doc.line(M,H-16,W-M,H-16);doc.setTextColor(...MUT);doc.setFont("helvetica","normal");doc.setFontSize(8);doc.text("À La Bonne Sonnette · inventaire du "+new Date().toLocaleDateString("fr-FR"),M,H-10);if(np>1)doc.text(i+"/"+np,W-M,H-10,{align:"right"})}
+  await pdfDeliver(doc.output("blob"),"Inventaire "+l.nom.replace(/œ/g,"oe").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9 '._-]/g,"").trim()+".pdf")}
 function ficheHtml(l,team){
   const AS=Object.entries(l.aSavoir||{}).filter(([,a])=>!a.supprime).map(([id,a])=>({id,...a})).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
-  const all=ficheRows(l).filter(x=>team||(x.vis&&x.val)),prow=all.find(x=>x.k==="proprio"),rows=all.filter(x=>x.k!=="proprio");
+  const hasInv=!!((l.inventaire||{}).groupes||[]).length;const all=ficheRows(l).filter(x=>!(hasInv&&x.k==="equip")).filter(x=>team||(x.vis&&x.val)),prow=all.find(x=>x.k==="proprio"),rows=all.filter(x=>x.k!=="proprio");
   return `${proprioHtml(l,team,prow)}
   <div class="box"><h3>Fiche du logement</h3><div>
     ${rows.map(x=>rubRow(x,team)).join("")||`<div class="hint">Aucune information partagée pour ce logement.</div>`}
     ${team?(addRub?rubForm(null):`<div style="padding-top:10px"><button class="btn" type="button" id="rubNew">+ Ajouter une rubrique</button></div>`):""}
   </div></div>
-  ${invHtml(l)}
+  ${invHtml(l,team)}
   <div class="box"><h3>À savoir · nouveautés</h3>
     <div class="inline"><textarea id="asTxt" placeholder="Ex. : nouvelle cafetière, le code a changé, il manque des verres…" style="min-height:52px"></textarea><button class="btn pri" type="button" id="asAdd" style="flex:0 0 auto;align-self:flex-end">Ajouter</button></div>
     <div>${AS.map(a=>`<div class="note"><span class="who">${fmtAt(a.at)} · ${esc(a.par||"")} ${daysSince(a.at)<=7?`<span class="new">Nouveau</span>`:""}</span><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><p style="flex:1">${esc(a.texte)}</p>${team?`<button class="btn ghost" type="button" data-delas="${esc(a.id)}" aria-label="Retirer" style="padding:2px 8px">✕</button>`:""}</div></div>`).join("")||`<div class="hint">Rien de nouveau pour l'instant.</div>`}</div></div>
   ${techHtml(l,team)}`;
 }
 function bindFiche(l,team){
-  const s=$("#sheet");
+  const s=$("#sheet");bindInv(l);
   const tUp=(k,files)=>db.doc("logements/"+l.id).update({techPhotos:{[k]:Object.fromEntries(files.map((f,i)=>["t"+Date.now().toString(36)+i,f]))}});
   s.querySelectorAll("[data-techup]").forEach(inp=>inp.onchange=async e=>{const k=inp.dataset.techup,files=[...e.target.files];e.target.value="";if(!files.length)return;techUp[k]=true;renderLogSheet();let bad=0;const out=[];
     for(const f of files){try{if(f.type==="application/pdf"){const r=await assets.upload(f,{type:"application/pdf"});out.push({a:r.id,type:"application/pdf",name:f.name,at:nowIso(),par:who()})}else out.push({a:await uploadOne(f),type:"image",name:f.name,at:nowIso(),par:who()})}catch(err){bad++}}
@@ -1591,22 +1636,31 @@ const P_DOCS=[["contrat","Contrat de gestion signé"],["id","Pièce d'identité"
 const P_BEDS=["—","Lit 90×190","Lit 140×190","Lit 140×200","Lit 160×200","Lit 180×200","Canapé convertible 140","Canapé convertible 160","Lits superposés","Lit d'appoint"];
 const P_ROOMS=[["salon","Salon"],["ch1","Chambre 1"],["ch2","Chambre 2"],["ch3","Chambre 3"],["ch4","Chambre 4"]];
 const P_EQUIP=[
- ["Cuisine",["Réfrigérateur","Congélateur","Four","Micro-ondes","Plaques de cuisson","Hotte","Lave-vaisselle","Bouilloire","Grille-pain","Cafetière","Ustensiles de cuisine","Vaisselle complète","Verres à vin","Huile, sel, poivre"]],
- ["Salle de bain",["Douche","Baignoire","Sèche-cheveux","Gel douche / shampoing","Serviettes","Papier toilette"]],
- ["Linge & entretien",["Lave-linge","Sèche-linge","Étendoir","Fer à repasser","Table à repasser","Aspirateur","Produits ménagers","Cintres"]],
- ["Chambres",["Draps fournis","Oreillers en double","Couvertures","Rideaux occultants","Penderie / armoire"]],
- ["Confort",["Wifi","Télévision","Netflix / streaming","Climatisation","Ventilateur","Espace de travail","Jeux de société"]],
- ["Famille",["Lit bébé","Chaise haute","Barrière de sécurité"]],
- ["Extérieur",["Balcon","Terrasse","Jardin","Mobilier de jardin","Barbecue","Piscine","Jacuzzi"]],
+ ["Cuisine · électroménager",["Réfrigérateur","Congélateur","Four","Micro-ondes","Plaques de cuisson","Hotte","Lave-vaisselle","Cafetière","Bouilloire","Grille-pain","Mixeur / blender","Appareil à raclette","Appareil à fondue"]],
+ ["Cuisine · vaisselle",["Vaisselle complète","Grandes assiettes","Petites assiettes","Assiettes creuses","Bols","Tasses à café","Mugs","Verres à eau","Verres à vin","Flûtes à champagne","Carafe","Saladier","Plat à four"]],
+ ["Cuisine · couverts",["Fourchettes","Couteaux","Cuillères à soupe","Petites cuillères","Couteaux à steak","Couverts de service"]],
+ ["Cuisine · ustensiles",["Ustensiles de cuisine","Casseroles","Poêles","Faitout / marmite","Couvercles","Couteau de cuisine","Planche à découper","Passoire","Tire-bouchon","Ouvre-boîte","Décapsuleur","Éplucheur","Râpe","Ciseaux de cuisine","Dessous de plat","Maniques","Torchons","Égouttoir","Poubelle de cuisine"]],
+ ["Cuisine · produits de base",["Huile, sel, poivre","Sucre","Café / capsules","Thé / tisanes","Liquide vaisselle","Éponges","Pastilles lave-vaisselle","Sacs poubelle","Essuie-tout","Papier aluminium / film"]],
+ ["Salle de bain",["Douche","Baignoire","Lavabo","WC","Miroir","Sèche-cheveux","Serviettes","Serviettes de bain","Serviettes de toilette","Tapis de bain","Gel douche / shampoing","Savon pour les mains","Papier toilette","Brosse WC","Poubelle salle de bain"]],
+ ["Linge & entretien",["Lave-linge","Sèche-linge","Étendoir","Fer à repasser","Table à repasser","Aspirateur","Balai","Serpillière et seau","Pelle et balayette","Produits ménagers","Lessive","Cintres"]],
+ ["Salon et repas",["Canapé","Canapé convertible","Table à manger","Chaises","Table basse","Télévision","Lampe","Rideaux"]],
+ ["Confort",["Wifi","Netflix / streaming","Climatisation","Ventilateur","Chauffage d'appoint","Espace de travail","Jeux de société","Livres","Enceinte bluetooth"]],
+ ["Famille",["Lit bébé","Chaise haute","Barrière de sécurité","Baignoire bébé","Jouets"]],
+ ["Extérieur",["Balcon","Terrasse","Jardin","Mobilier de jardin","Parasol","Barbecue","Piscine","Jacuzzi"]],
  ["Sécurité",["Détecteur de fumée","Détecteur de CO","Extincteur","Trousse de secours","Couverture anti-feu"]],
  ["Accès & parking",["Parking gratuit sur place","Garage","Recharge véhicule électrique","Ascenseur","Arrivée autonome","Local vélos"]]];
-
+/* pièces : chambres, salles de bain, autres */
+const PIECE_TPL={chambre:["Lit double","Lit simple","Matelas","Alèse / protège-matelas","Oreillers","Traversin","Couette","Housse de couette","Draps housses","Taies d'oreiller","Plaid","Table de chevet","Lampe de chevet","Penderie / armoire","Commode","Cintres","Rideaux occultants","Miroir","Bureau","Chaise","Télévision"],
+ sdb:["Douche","Baignoire","Lavabo","WC","Miroir","Sèche-cheveux","Serviettes de bain","Tapis de bain","Porte-serviettes","Poubelle salle de bain"],autre:[]};
+const PIECE_TYPES=[["chambre","Chambre","🛏️"],["sdb","Salle de bain","🛁"],["autre","Autre pièce","🚪"]];
+const LITERIE=["Lit double","Lit simple","Matelas","Alèse / protège-matelas","Oreillers","Traversin","Couette","Housse de couette","Draps housses","Taies d'oreiller","Plaid"];
+const pPieces=v=>Array.isArray(v.pieces)?v.pieces:Array.from({length:Math.max(1,Math.min(6,+v.cap_ch||1))},(_,i)=>({id:"c"+(i+1),nom:"Chambre "+(i+1),type:"chambre"}));
 /* options quand l'équipement est présent */
 const P_EQOPT={"Cafetière":["eq_cafe","Type de cafetière",["Nespresso","Dolce Gusto","Senseo","Tassimo","Filtre","Italienne","Grains"]],"Plaques de cuisson":["eq_plaques","Type de plaques",["Induction","Vitrocéramique","Gaz","Électrique"]]};
 /* anciens noms (premières fiches) */
 const P_EQOLD={"Ustensiles de cuisine":"Cuisine · ustensiles","Vaisselle complète":"Cuisine · vaisselle","Serviettes":"Salle de bain","Draps fournis":"Linge de lit","Oreillers en double":"Linge de lit","Couvertures":"Linge de lit","Télévision":"Salon et repas"};
 const EQ_ICO_G={"Cuisine":"🍳","Linge & entretien":"🧺","Cuisine · électroménager":"🍳","Cuisine · vaisselle":"🍽️","Cuisine · couverts":"🍴","Cuisine · ustensiles":"🥄","Cuisine · produits de base":"🧂","Salle de bain":"🛁","Linge de lit":"🛏️","Entretien":"🧺","Chambres":"🛏️","Salon et repas":"🛋️","Confort":"✨","Famille":"🧸","Extérieur":"🌿","Sécurité":"🧯","Accès & parking":"🚗","Autres":"📦"};
-const EQ_ICO={"Ustensiles de cuisine":"🥄","Vaisselle complète":"🍽️","Serviettes":"🧖","Draps fournis":"🛏️","Oreillers en double":"🛏️","Couvertures":"🧣","Hotte":"💨","Table à repasser":"👔","Netflix / streaming":"🎬","Barrière de sécurité":"🚧","Mobilier de jardin":"🪑","Couverture anti-feu":"🔥","Réfrigérateur":"🧊","Congélateur":"❄️","Four":"🔥","Micro-ondes":"📟","Plaques de cuisson":"🍳","Lave-vaisselle":"🫧","Cafetière":"☕","Bouilloire":"🫖","Grille-pain":"🍞","Mixeur / blender":"🥤","Presse-agrumes":"🍋","Appareil à raclette":"🧀","Appareil à fondue":"🫕","Gaufrier":"🧇",
+const EQ_ICO={"Lit double":"🛏️","Lit simple":"🛏️","Matelas":"🛏️","Alèse / protège-matelas":"🛏️","Traversin":"🛏️","Couette":"🛏️","Housse de couette":"🛏️","Plaid":"🧣","Table de chevet":"🪑","Commode":"🗄️","Bureau":"💻","Chaise":"🪑","Lavabo":"🚰","WC":"🚽","Tapis de bain":"🧶","Porte-serviettes":"🧖","Canapé convertible":"🛋️","Table basse":"🪑","Rideaux":"🪟","Petites assiettes":"🍰","Couvercles":"🍲","Passoire":"🥣","Maniques":"🧤","Égouttoir":"🍽️","Brosse WC":"🚽","Pelle et balayette":"🧹","Chauffage d'appoint":"🔥","Mobilier de jardin":"🪑","Ustensiles de cuisine":"🥄","Vaisselle complète":"🍽️","Serviettes":"🧖","Draps fournis":"🛏️","Oreillers en double":"🛏️","Couvertures":"🧣","Hotte":"💨","Table à repasser":"👔","Netflix / streaming":"🎬","Barrière de sécurité":"🚧","Mobilier de jardin":"🪑","Couverture anti-feu":"🔥","Réfrigérateur":"🧊","Congélateur":"❄️","Four":"🔥","Micro-ondes":"📟","Plaques de cuisson":"🍳","Lave-vaisselle":"🫧","Cafetière":"☕","Bouilloire":"🫖","Grille-pain":"🍞","Mixeur / blender":"🥤","Presse-agrumes":"🍋","Appareil à raclette":"🧀","Appareil à fondue":"🫕","Gaufrier":"🧇",
  "Grandes assiettes":"🍽️","Petites assiettes (dessert)":"🍰","Assiettes creuses":"🥣","Bols":"🥣","Tasses à café":"☕","Mugs":"☕","Verres à eau":"🥛","Verres à vin":"🍷","Flûtes à champagne":"🥂","Carafe":"🫗","Saladier":"🥗","Plat à four":"🥘","Plateau de service":"🍱",
  "Fourchettes":"🍴","Couteaux":"🔪","Cuillères à soupe":"🥄","Petites cuillères":"🥄","Couteaux à steak":"🔪","Couverts de service":"🍴","Casseroles":"🍲","Poêles":"🍳","Faitout / marmite":"🍲","Couteau de cuisine":"🔪","Planche à découper":"🪵","Tire-bouchon":"🍾","Décapsuleur":"🍺","Ciseaux de cuisine":"✂️","Torchons":"🧻","Poubelle de cuisine":"🗑️",
  "Huile, sel, poivre":"🧂","Sucre":"🍬","Café / capsules":"☕","Thé / tisanes":"🍵","Liquide vaisselle":"🧴","Éponges":"🧽","Sacs poubelle":"🗑️","Essuie-tout":"🧻",
@@ -1619,15 +1673,22 @@ const EQ_ICO={"Ustensiles de cuisine":"🥄","Vaisselle complète":"🍽️","Se
  "Détecteur de fumée":"🚨","Détecteur de CO":"🚨","Extincteur":"🧯","Trousse de secours":"⛑️","Parking gratuit sur place":"🅿️","Garage":"🚗","Recharge véhicule électrique":"🔌","Ascenseur":"🛗","Arrivée autonome":"🔑","Local vélos":"🚲"};
 const bedsList=v=>Object.entries(v.beds||{}).map(([k,b])=>{const L=[b,...((b&&b.x)||[])].filter(e=>e&&e.t&&e.t!=="—").map(e=>(e.n>1?e.n+" × ":"")+e.t);return L.length?(P_ROOMS.find(r=>r[0]===k)||[k,k])[1]+" : "+L.join(" + "):""}).filter(Boolean);
 const eqIco=(l,g)=>EQ_ICO[l]||EQ_ICO_G[g]||"•";
-const eqCount=(v,k)=>(v.eq||{})[k]===1?1:0;
+const eqOn=(v,k)=>(v.eq||{})[k]||0;
+const eqCount=(v,k)=>eqOn(v,k)?(+((v.eqn||{})[k])||0):0;
 const eqBuy=(v,k)=>(v.eq||{})[k]===2;
+const eqNote=(v,k)=>((v.eqnote||{})[k]||"").trim();
+let pEqNoteOpen=new Set();
+/* sections d'équipement de la fiche prospect (catégories + pièces) */
+function eqSecs(v){const out=P_EQUIP.map(([g,items])=>({g,t:g,ico:EQ_ICO_G[g]||"📦",items:items.map(l=>({k:l,l}))}));
+  for(const pc of pPieces(v)){const g="P:"+pc.id,ty=PIECE_TYPES.find(x=>x[0]===pc.type)||PIECE_TYPES[2];out.push({g,t:pc.nom||ty[1],ico:ty[2],piece:pc,items:(PIECE_TPL[pc.type]||[]).map(l=>({k:pc.id+"|"+l,l}))})}
+  const shown=new Set();out.forEach(sc=>{sc.items=sc.items.concat(((v.eqx||{})[sc.g]||[]).map(l=>({k:sc.piece?sc.piece.id+"|"+l:l,l,cu:1})));sc.items.forEach(x=>shown.add(x.k))});
+  const old=Object.keys(v.eq||{}).filter(k=>v.eq[k]&&!shown.has(k)&&!k.includes("|"));if(old.length)out.push({g:"Autres",t:"Autres (anciennes cases)",ico:"📦",items:old.map(l=>({k:l,l}))});
+  const pids=new Set(pPieces(v).map(x=>x.id));out.forEach(sc=>sc.items=sc.items.filter(x=>!x.k.includes("|")||pids.has(x.k.split("|")[0])));
+  return out}
 /* inventaire complet à partir de la fiche prospect */
-function pInventaire(v){const seen=new Set(),G=[];
-  for(const [g,items] of P_EQUIP){const all=[...items,...((v.eqx||{})[g]||[])];const L=[];
-    for(const l of all){seen.add(l);const n=eqCount(v,l),b=eqBuy(v,l);if(!n&&!b)continue;const o=P_EQOPT[l],opt=o&&v[o[0]]?v[o[0]]:"";L.push({l,n,buy:b,opt,ico:eqIco(l,g)})}
-    if(L.length)G.push({g,ico:EQ_ICO_G[g]||"📦",items:L})}
-  const rest=Object.keys(v.eq||{}).filter(l=>!seen.has(l)&&(eqCount(v,l)||eqBuy(v,l)));
-  for(const l of rest){const g=P_EQOLD[l]||"Autres";let gr=G.find(x=>x.g===g);if(!gr){gr={g,ico:EQ_ICO_G[g]||"📦",items:[]};G.push(gr)}gr.items.push({l,n:eqCount(v,l),buy:eqBuy(v,l),opt:"",ico:eqIco(l,g)})}
+function pInventaire(v){const G=[];
+  for(const sc of eqSecs(v)){const L=[];for(const x of sc.items){const st=eqOn(v,x.k);if(!st)continue;const o=P_EQOPT[x.l],opt=o&&v[o[0]]?v[o[0]]:"";L.push({l:x.l,n:eqCount(v,x.k),buy:st===2,opt,note:eqNote(v,x.k),ico:eqIco(x.l,sc.g)})}
+    if(L.length)G.push({g:sc.t,ico:sc.ico,items:L})}
   return G}
 const yn=["Oui","Non"];
 const P_STEPS=[
@@ -1647,10 +1708,10 @@ const P_STEPS=[
   {t:"Poubelles et tri",f:[{k:"pb_lieu",l:"Emplacement",t:"text"},{k:"pb_jours",l:"Jours de collecte",t:"text",w:1},{k:"pb_tri",l:"Tri sélectif",t:"chips",o:["Oui","Non","Verre à déposer"],w:1},{k:"pb_tri_note",l:"Précisions sur le tri",t:"area",ph:"Couleur des bacs, où déposer le verre, jour des encombrants…",show:v=>!!v.pb_tri}]},
   {t:"Notes libres sur le logement",nonote:1,f:[{k:"log_notes",l:"Spécificités, remarques, ce que vous voulez noter",t:"area",ph:"Ex. : volet de la chambre fragile, voisin du dessous sensible au bruit…"}]},
   {t:"Photos de la visite",f:[{k:"ph",t:"docs",slots:[["photos","Photos de la 1re visite","plusieurs fichiers possibles"]]}]}]},
- {n:"Équipements",h:"Touchez une fois si c'est présent, deux fois si c'est à acheter. Ajoutez ce qui manque en bas de chaque partie.",secs:P_EQUIP.map(([g,items])=>({t:g,f:[{k:"eq_"+g,t:"equip",items,g}]})).concat([{t:"Achats à prévoir",f:[{k:"eq_achats",l:"Achats à prévoir / budget",t:"area"}]}])},
+ {n:"Équipements",h:"Touchez une fois : présent (vert), deux fois : à acheter (orange). Sur ce qui est coché, indiquez le nombre et ajoutez une note si besoin.",secs:[],dyn:v=>eqSecs(v).map(sc=>({t:sc.t,ico:sc.ico,piece:sc.piece,f:[{k:"eq_"+sc.g,t:"equip",sc}]})).concat([{t:"Pièces",nonote:1,h:"Ajoutez une chambre, une salle de bain ou une autre pièce : elle aura sa propre liste.",f:[{k:"pieces",t:"pieces"}]},{t:"Achats à prévoir",f:[{k:"eq_achats",l:"Achats à prévoir / budget",t:"area"}]}])},
  {n:"Organisation",secs:[
   {t:"Lancement",f:[{k:"lan_date",l:"Lancement souhaité",t:"date",w:1},{k:"lan_nuit",l:"Prix par nuit envisagé (€)",t:"num",w:1},{k:"lan_min",l:"Séjour minimum (nuits)",t:"num",w:1},{k:"lan_plat",l:"Plateformes",t:"multi",o:["Airbnb","Booking","Abritel","Réservation directe"]},{k:"lan_blocage",l:"Dates bloquées par le propriétaire",t:"area"}]},
-  {t:"Ménage et linge",f:[{k:"men_qui",l:"Ménage assuré par",t:"chips",o:["Équipe ALBS","Femme de ménage du propriétaire","Prestataire externe"]},{k:"men_nom",l:"Personne / contact",t:"text",w:1},{k:"men_tarif",l:"Tarif ménage voyageur (€)",t:"num",w:1},{k:"men_proto",l:"Consignes ménage particulières",t:"area"},{k:"linge",l:"Linge fourni par",t:"chips",o:["ALBS (location)","Propriétaire","Voyageurs"]},{k:"linge_stock",l:"Stock de linge / emplacement",t:"text"}]},
+  {t:"Ménage et linge",f:[{k:"men_qui",l:"Ménage assuré par",t:"chips",o:["Équipe ALBS","Femme de ménage du propriétaire","Prestataire externe"]},{k:"men_nom",l:"Personne / contact",t:"text",w:1},{k:"men_tarif",l:"Tarif ménage voyageur (€)",t:"num",w:1},{k:"men_proto",l:"Consignes ménage particulières",t:"area"},{k:"linge",l:"Linge fourni par",t:"chips",o:["Blanchisserie","ALBS (location)","Propriétaire","Voyageurs"]},{k:"linge_note",l:"Précisions linge et literie",t:"area",ph:"Ex. : on passe par la blanchisserie, alèses sur tous les lits, 2 oreillers par personne…"},{k:"linge_stock",l:"Stock et rangement (linge, consommables…)",t:"text",ph:"Ex. : meubles fermés dans la buanderie"}]},
   {t:"Pour l'annonce (à l'attention de Marion)",h:"Ce que tu écris ici arrive dans la fiche info du logement, rubrique « Pour l'annonce », là où Marion le verra.",nonote:1,f:[{k:"an_marion",l:"À préciser dans l'annonce",t:"area",ph:"Ex. : le propriétaire veut que l'annonce précise : pas d'enterrement de vie de jeune fille, pas de soirée."}]},
   {t:"Règles de séjour",f:[{k:"r_animaux",l:"Animaux",t:"chips",o:["Acceptés","Refusés","Sur demande"],w:1},{k:"r_fumeur",l:"Fumeurs",t:"chips",o:["Non","Extérieur uniquement","Oui"],w:1},{k:"r_autres",l:"Autres règles du propriétaire",t:"area"}]}]}];
 
@@ -1690,7 +1751,7 @@ async function newProspect(){
   try{await ref.set(d);openProspect(ref.id,"fiche")}catch(e){toast(failMsg(e))}
 }
 function openProspect(id,tab){const p=prospects.find(x=>x.id===id)||{id,...(SB.store.get("prospects")?.get(id)||{})};
-  pNoteOpen=null;pSnOpen=new Set();lanEdit=null;prosOpen=id;prosCur=JSON.parse(JSON.stringify(p));prosCur.v=prosCur.v||{};prosCur.suivi=prosCur.suivi||{};prosTab=tab||"lancement";prosStep=0;prosAsk=null;prosDirty=false;
+  pNoteOpen=null;pSnOpen=new Set();pEqNoteOpen=new Set();lanEdit=null;prosOpen=id;prosCur=JSON.parse(JSON.stringify(p));prosCur.v=prosCur.v||{};prosCur.suivi=prosCur.suivi||{};prosTab=tab||"lancement";prosStep=0;prosAsk=null;prosDirty=false;
   openId=null;formState=null;logOpen=null;retLog=null;menOpen=null;auditOpen=null;$("#sheet").hidden=false;$("#sheet").scrollTop=0;renderProspect()}
 function prosTouch(){prosDirty=true;prosCur.majLe=nowIso();clearTimeout(prosT);prosT=setTimeout(prosFlush,700)}
 async function prosFlush(){clearTimeout(prosT);if(!prosCur||!prosDirty)return;if(prosSaving){prosT=setTimeout(prosFlush,400);return}
@@ -1707,10 +1768,14 @@ function pField(f){const v=prosCur.v,val=v[f.k],id="pf_"+f.k,w=f.w?"":` style="g
      return `<div class="field" style="grid-column:1/-1"><label>${esc(f.l)}</label><div style="display:grid;gap:8px">${P_ROOMS.map(([k,l])=>{const r=b[k]||{},x=r.x||[];return `<div style="display:grid;gap:4px"><div style="display:grid;grid-template-columns:90px minmax(0,1fr) 64px;gap:6px;align-items:center"><span style="font-size:13px">${l}</span>${sel(k,-1,"t",r.t)}${sel(k,-1,"n",r.n)}</div>
        ${x.map((e,i)=>`<div style="display:grid;grid-template-columns:90px minmax(0,1fr) 64px 28px;gap:6px;align-items:center"><span style="font-size:12px;color:var(--muted);text-align:right">+ autre lit</span>${sel(k,i,"t",e.t)}${sel(k,i,"n",e.n)}<button type="button" class="lnk" data-pbedrm="${k}|${i}" aria-label="Retirer ce lit">✕</button></div>`).join("")}
        ${r.t&&r.t!=="—"?`<button type="button" class="lnk" data-pbedadd="${k}" style="justify-self:start;margin-left:96px;font-size:13px">+ Ajouter un autre lit dans « ${l} »</button>`:""}</div>`}).join("")}</div></div>`}
-   case "equip":{const g=f.g,eq=v.eq||{},cx=(v.eqx||{})[g]||[],all=[...f.items,...cx];const opts=all.filter(l=>P_EQOPT[l]&&eq[l]===1);
-      return `<div style="grid-column:1/-1"><div class="chips">${all.map(i=>{const st=eq[i]||0;return `<button type="button" class="chip peq" data-peq="${esc(i)}" data-s="${st}">${esc(i)}${st===2?" · à acheter":st===1?" ✓":""}</button>${cx.includes(i)?`<button type="button" class="lnk" data-peqx="${esc(g+"|"+i)}" aria-label="Retirer ${esc(i)}" style="margin-left:-4px">✕</button>`:""}`}).join("")}</div>
-      ${opts.map(l=>{const o=P_EQOPT[l];return `<div class="field" style="margin-top:8px"><label>${esc(o[1])}</label><div class="chips">${o[2].map(x=>`<button type="button" class="chip" data-pchip="${o[0]}" data-pmulti="" data-pval="${esc(x)}" aria-pressed="${v[o[0]]===x}">${esc(x)}</button>`).join("")}</div></div>`}).join("")}
+   case "equip":{const sc=f.sc,g=sc.g,sel=sc.items.filter(x=>eqOn(v,x.k));const opts=sel.filter(x=>P_EQOPT[x.l]&&eqOn(v,x.k)===1);
+      return `<div style="grid-column:1/-1"><div class="chips">${sc.items.map(x=>{const st=eqOn(v,x.k);return `<button type="button" class="chip peq" data-peq="${esc(x.k)}" data-s="${st}">${esc(x.l)}${st===2?" · à acheter":st===1?" ✓":""}</button>${x.cu?`<button type="button" class="lnk" data-peqx="${esc(g+"|"+x.l)}" aria-label="Retirer ${esc(x.l)}" style="margin-left:-4px">✕</button>`:""}`}).join("")}</div>
+      ${sel.length?`<div class="eqdet">${sel.map(x=>{const n=eqCount(v,x.k),nt=eqNote(v,x.k),op=pEqNoteOpen.has(x.k)||nt;return `<div class="eqd${eqOn(v,x.k)===2?" buy":""}"><div class="eqdh"><span class="eql">${esc(x.l)}</span><span class="eqctl"><button type="button" data-peqn="${esc(x.k)}" data-d="-1" aria-label="Un de moins : ${esc(x.l)}" ${n?"":"disabled"}>−</button><b>${n||"–"}</b><button type="button" data-peqn="${esc(x.k)}" data-d="1" aria-label="Un de plus : ${esc(x.l)}">+</button></span>${op?"":`<button type="button" class="lnk" data-peqnote="${esc(x.k)}">+ note</button>`}</div>
+        ${op?`<textarea id="eqn_${esc(x.k).replace(/[^A-Za-z0-9]/g,"_")}" data-eqnote="${esc(x.k)}" rows="1" placeholder="Note : ${esc(x.l)}…">${esc(nt)}</textarea>`:""}</div>`}).join("")}</div>`:""}
+      ${opts.map(x=>{const o=P_EQOPT[x.l];return `<div class="field" style="margin-top:8px"><label>${esc(o[1])}</label><div class="chips">${o[2].map(y=>`<button type="button" class="chip" data-pchip="${o[0]}" data-pmulti="" data-pval="${esc(y)}" aria-pressed="${v[o[0]]===y}">${esc(y)}</button>`).join("")}</div></div>`}).join("")}
       <div class="inline" style="margin-top:8px"><input type="text" data-peqnew="${esc(g)}" placeholder="Ajouter un équipement"><button class="btn" type="button" data-peqadd="${esc(g)}" style="flex:0 0 auto">Ajouter</button></div></div>`}
+   case "pieces":{const pcs=pPieces(v);return `<div style="grid-column:1/-1;display:flex;flex-direction:column;gap:8px">${pcs.map(pc=>`<div class="inline"><span style="flex:none">${(PIECE_TYPES.find(x=>x[0]===pc.type)||PIECE_TYPES[2])[2]}</span><input type="text" data-ppiecename="${pc.id}" value="${esc(pc.nom)}" aria-label="Nom de la pièce"><button type="button" class="btn ghost" data-ppiecerm="${pc.id}" style="flex:0 0 auto">Retirer</button></div>`).join("")}
+      <div class="chips">${PIECE_TYPES.map(([t,lab,ic])=>`<button type="button" class="chip" data-ppieceadd="${t}">+ ${ic} ${lab}</button>`).join("")}</div></div>`}
    case "docs":{const slots=f.slots||P_DOCS,docs=v.docs||{};return `<div style="grid-column:1/-1">${slots.map(([k,l,sub])=>{const d=docs[k]||{},fs=(d.files||[]);return `<div class="check"><input type="checkbox" id="pd_${k}" data-pdoc="${k}" ${d.ok||fs.length?"checked":""}><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px"><label for="pd_${k}" class="t" style="font-weight:600">${esc(l)}${sub?`<span class="who">${esc(sub)}</span>`:""}</label>
       ${fs.length?`<div class="chips">${fs.map((x,i)=>`<span class="chip" style="display:inline-flex;gap:6px;align-items:center;max-width:100%"><a href="${esc(pubUrl(x.id))}" target="_blank" rel="noopener" style="color:inherit;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px">${/^image/.test(x.type)?"📷":"📄"} ${esc(x.name)}</a><button type="button" class="btn ghost" data-prmf="${k}|${i}" aria-label="Retirer ${esc(x.name)}" style="padding:0 4px">✕</button></span>`).join("")}</div>`:""}
       ${prosUp[k]?`<span class="hint">Envoi en cours…</span>`:`<label class="btn photo-btn" style="font-size:13px;padding:5px 12px">+ Fichier<input type="file" hidden multiple accept="image/*,application/pdf" data-pupl="${k}"></label>`}</div></div>`}).join("")}</div>`}}
@@ -1718,7 +1783,7 @@ function pField(f){const v=prosCur.v,val=v[f.k],id="pf_"+f.k,w=f.w?"":` style="g
 function pFicheHtml(){const S=P_STEPS[prosStep],v=prosCur.v;
   return `<div class="chips" role="group" aria-label="Étapes de la fiche">${P_STEPS.map((x,i)=>`<button type="button" class="chip" data-pstep="${i}" aria-pressed="${i===prosStep}">${i+1}. ${x.n}</button>`).join("")}</div>
   ${S.h?`<div class="hint">${esc(S.h)}</div>`:""}
-  ${S.secs.map(sec=>{const nk=snKey(sec.t),nOpen=!sec.nonote&&(v[nk]||pSnOpen.has(nk));return `<div class="box"><h3>${esc(sec.t)}</h3>${sec.h?`<div class="hint">${esc(sec.h)}</div>`:""}<div class="grid2">${sec.f.filter(f=>!f.show||f.show(v)).map(pField).join("")}</div>
+  ${(S.dyn?S.dyn(v):S.secs).map(sec=>{const nk=snKey(sec.t),nOpen=!sec.nonote&&(v[nk]||pSnOpen.has(nk));return `<div class="box"><h3>${sec.ico?sec.ico+" ":""}${esc(sec.t)}${sec.piece?` <button type="button" class="lnk" data-ppiecerm="${sec.piece.id}" style="margin-left:auto;font-size:12px;text-transform:none;letter-spacing:0">Retirer la pièce</button>`:""}</h3>${sec.h?`<div class="hint">${esc(sec.h)}</div>`:""}<div class="grid2">${sec.f.filter(f=>!f.show||f.show(v)).map(pField).join("")}</div>
     ${sec.nonote?"":nOpen?`<div class="field" style="margin-top:8px"><label for="pf_${nk}">Note libre · ${esc(sec.t)}</label><textarea id="pf_${nk}" data-pk="${nk}" rows="2" placeholder="Ce que vous voulez noter">${esc(v[nk]||"")}</textarea></div>`:`<button type="button" class="lnk" data-psnote="${nk}" style="margin-top:6px">+ Ajouter une note</button>`}</div>`}).join("")}
   <div class="inline">${prosStep>0?`<button class="btn" type="button" data-pstep="${prosStep-1}">← ${P_STEPS[prosStep-1].n}</button>`:""}${prosStep<P_STEPS.length-1?`<button class="btn pri" type="button" data-pstep="${prosStep+1}">${P_STEPS[prosStep+1].n} →</button>`:`<button class="btn pri" type="button" data-ptab="lancement">Terminer</button>`}</div>
   ${pLogBox()}`}
@@ -1761,7 +1826,7 @@ const pj=(...a)=>a.filter(x=>x!=null&&String(x).trim()!=="").join("\n");
 const pl=(lab,x)=>{if(x==null)return"";if(Array.isArray(x))x=x.join(", ");x=String(x).trim();return x?lab+" : "+x:""};
 function pToFiche(v){const inv=pInventaire(v),buy=inv.flatMap(g=>g.items.filter(x=>x.buy).map(x=>x.l));
   const beds=bedsList(v);
-  const sn=t=>v[snKey(t)]||"";const mapped=["Rendez-vous","Identité","Accord avec la conciergerie","Accès et clés","Parking","Poubelles et tri","Ménage et linge","Technique","Le bien"];const notes=P_STEPS.flatMap(S=>S.secs).filter(x=>!x.nonote&&!mapped.includes(x.t)&&sn(x.t)).map(x=>x.t+" : "+sn(x.t));
+  const sn=t=>v[snKey(t)]||"";const mapped=["Rendez-vous","Identité","Accord avec la conciergerie","Accès et clés","Parking","Poubelles et tri","Ménage et linge","Technique","Le bien"];const notes=P_STEPS.flatMap(S=>S.dyn?S.dyn(v):S.secs).filter(x=>!x.nonote&&!mapped.includes(x.t)&&sn(x.t)).map(x=>x.t+" : "+sn(x.t));
   return {
    adresse:[pj([v.log_adr,[v.log_cp,v.log_ville].filter(Boolean).join(" ")].filter(Boolean).join(", "),v.log_cpl),true],
    boite:[v.acc_mode==="Boîte à clés"?pj(v.acc_bal_code,pl("Emplacement",v.acc_bal_lieu)):v.acc_mode==="Serrure connectée"?pj("Serrure connectée",v.acc_serrure):"",true],
@@ -1769,9 +1834,9 @@ function pToFiche(v){const inv=pInventaire(v),buy=inv.flatMap(g=>g.items.filter(
    wifi:[pj(pl("Réseau",v.wifi_nom),pl("Mot de passe",v.wifi_code)),true],
    parking:[pj(v.park,v.park_det,sn("Parking")),true],
    poubelles:[pj(pl("Emplacement",v.pb_lieu),pl("Collecte",v.pb_jours),pl("Tri",v.pb_tri),v.pb_tri_note,sn("Poubelles et tri")),true],
-   linge:[pj(pl("Linge fourni par",v.linge),pl("Stock",v.linge_stock),beds.length?"Couchages : "+beds.join(" ; "):""),true],
+   linge:[pj(pl("Linge",v.linge),v.linge_note,beds.length?"Couchages : "+beds.join(" ; "):"",...pPieces(v).filter(pc=>pc.type==="chambre").map(pc=>{const L=LITERIE.filter(l=>eqOn(v,pc.id+"|"+l)).map(l=>{const k=pc.id+"|"+l,n=eqCount(v,k);return l+(n?" ×"+n:"")+(eqNote(v,k)?" ("+eqNote(v,k)+")":"")});return L.length?pc.nom+" : "+L.join(", "):""})),true],
+   stock:[pj(v.linge_stock),true],
    consignes:[pj(pl("Ménage assuré par",v.men_qui),pl("Contact",v.men_nom),pl("Tarif ménage voyageur",v.men_tarif?v.men_tarif+" €":""),v.men_proto,sn("Ménage et linge")),true],
-   equip:[pj(...inv.map(g=>g.g+" : "+g.items.filter(x=>x.n).map(x=>x.l+(x.n>1?" ×"+x.n:"")+(x.opt?" ("+x.opt+")":"")).join(", ")).filter(x=>!/: $/.test(x)),buy.length?"À acheter : "+buy.join(", "):"",pl("Achats à prévoir",v.eq_achats)),true],
    tv:[pj(pl("TV",v.tv),v.tv_mode),true],
    p_tech:["Technique",pj(pl("Chauffage",v.chauf),v.chauf_part,pl("Tableau électrique",v.elec_lieu),pl("Eau",v.eau_lieu),pl("Machine à laver",v.lv_lieu),pl("Box internet",v.box_lieu),pl("Ravitailleuse",v.ravit_lieu),sn("Technique")),true],
    p_cap:["Capacité",pj([v.log_type,v.log_m2?v.log_m2+" m²":""].filter(Boolean).join(" · "),pl("Voyageurs max",v.cap_voy),pl("Chambres",v.cap_ch),pl("Salles de bain",v.cap_sdb),sn("Le bien")),true],
@@ -1787,9 +1852,11 @@ async function pPushFiche(L,isNew){if(!L)return toast("Logement introuvable");co
     const o=old[k]||{};if((o.valeur||"")===val&&!o.supprime)continue;
     const u={valeur:val,modifLe:now,par:who()};if(custom){u.label=label;u.ordre=Date.now()+(i++);u.supprime=false}
     if(o.menage==null)u.menage=vis;if(o.valeur&&!o.supprime)u.hist={["h"+Date.now().toString(36)+i]:{valeur:o.valeur,le:now}};patch[k]=u;n++}
-  const inv=pInventaire(prosCur.v),invOld=JSON.stringify((L.inventaire||{}).groupes||[]),invNew=JSON.stringify(inv);
+  const I0=L.inventaire||{};let inv=pInventaire(prosCur.v);
+  if(I0.manuel){const G=JSON.parse(JSON.stringify(I0.groupes||[]));for(const g of inv){let gg=G.find(x=>x.g===g.g);if(!gg){G.push(g);continue}for(const it of g.items)if(!gg.items.some(x=>norm(x.l)===norm(it.l)))gg.items.push(it)}inv=G}
+  const achats=prosCur.v.eq_achats||"",invOld=JSON.stringify([I0.groupes||[],I0.achats||""]),invNew=JSON.stringify([inv,achats]);
   if(!n&&invOld===invNew){toast("La fiche est déjà à jour");return}
-  const upd={fiche:patch};if(invOld!==invNew){upd.inventaire={groupes:inv,maj:now,par:who()};if(!n)n=1}
+  const upd={fiche:patch};if(invOld!==invNew){upd.inventaire={groupes:inv,achats,maj:now,par:who()};if(!n)n=1}
   try{await db.doc("logements/"+L.id).update(upd);toast(isNew?"Logement créé · fiche remplie ("+n+" rubriques)":n+" rubrique"+(n>1?"s":"")+" mise"+(n>1?"s":"")+" à jour")}catch(e){toast(failMsg(e))}}
 async function pCreateLog(){const nom=$("#pLNom").value.trim(),sel=$("#pLLieu").value,lieu=canonLieu(sel==="__new"?$("#pLLieuNew").value:sel);if(!nom)return toast("Indiquez le nom du logement");if(!lieu)return toast("Choisissez le secteur");
   const b=$("#pCreate");b.disabled=true;
@@ -1798,25 +1865,31 @@ async function pCreateLog(){const nom=$("#pLNom").value.trim(),sel=$("#pLLieu").
     await pPushFiche(L,true);renderProspect()}catch(e){b.disabled=false;toast(failMsg(e))}}
 
 /* ---- événements du prospect ---- */
-document.addEventListener("click",e=>{const t=e.target.closest("[data-pros],[data-ptab],[data-pstep],[data-pchip],[data-peq],[data-pstat],[data-prmt],[data-prmf],[data-plog],[data-pnoteopen],[data-psnote],[data-peqadd],[data-peqx],[data-pbedadd],[data-pbedrm]");if(!t)return;
+document.addEventListener("click",e=>{const t=e.target.closest("[data-pros],[data-ptab],[data-pstep],[data-pchip],[data-peq],[data-pstat],[data-prmt],[data-prmf],[data-plog],[data-pnoteopen],[data-psnote],[data-peqadd],[data-peqx],[data-peqn],[data-peqnote],[data-ppieceadd],[data-ppiecerm],[data-pbedadd],[data-pbedrm]");if(!t)return;
   if(t.dataset.pros){openProspect(t.dataset.pros);return}
   if(!prosCur)return;const v=prosCur.v;
   if(t.dataset.plog){const nom=t.dataset.plog;prosFlush();prosOpen=null;prosCur=null;openLogSheet(nom);lsTab="fiche";renderLogSheet();return}
   if(t.dataset.ptab){prosTab=t.dataset.ptab;prosAsk=null;$("#sheet").scrollTop=0;renderProspect();return}
   if(t.dataset.pstep){prosStep=+t.dataset.pstep;prosTab="fiche";$("#sheet").scrollTop=0;renderProspect();return}
   if(t.dataset.pchip){const k=t.dataset.pchip,val=t.dataset.pval;if(t.dataset.pmulti){const a=new Set(v[k]||[]);a.has(val)?a.delete(val):a.add(val);v[k]=[...a]}else v[k]=v[k]===val?"":val;prosTouch();renderProspect();return}
-  if(t.dataset.peq){const k=t.dataset.peq;v.eq=v.eq||{};const n=((v.eq[k]||0)+1)%3;if(n)v.eq[k]=n;else delete v.eq[k];t.dataset.s=n;t.textContent=k+(n===2?" · à acheter":n===1?" ✓":"");prosTouch();if(P_EQOPT[k])renderProspect();return}
+  if(t.dataset.peq){const k=t.dataset.peq;v.eq=v.eq||{};const n=((v.eq[k]||0)+1)%3;if(n)v.eq[k]=n;else delete v.eq[k];t.dataset.s=n;t.textContent=k+(n===2?" · à acheter":n===1?" ✓":"");prosTouch();renderProspect();return}
   if(t.dataset.pbedadd){const k=t.dataset.pbedadd;v.beds=v.beds||{};const r=v.beds[k]=v.beds[k]||{};r.x=[...(r.x||[]),{t:"—",n:""}];prosTouch();renderProspect();return}
   if(t.dataset.pbedrm){const [k,i]=t.dataset.pbedrm.split("|");const r=(v.beds||{})[k];if(r&&r.x){r.x.splice(+i,1)}prosTouch();renderProspect();return}
   if(t.dataset.psnote){const k=t.dataset.psnote;pSnOpen.add(k);renderProspect();const ta=$("#pf_"+k);if(ta)ta.focus();return}
-  if(t.dataset.peqadd){const g=t.dataset.peqadd,inp=document.querySelector('[data-peqnew="'+CSS.escape(g)+'"]'),l=(inp&&inp.value||"").trim();if(!l)return toast("Écrivez l'équipement");v.eqx={...(v.eqx||{}),[g]:[...((v.eqx||{})[g]||[]),l]};v.eq={...(v.eq||{}),[l]:1};prosTouch();renderProspect();return}
-  if(t.dataset.peqx){const [g,l]=t.dataset.peqx.split("|");v.eqx={...(v.eqx||{}),[g]:((v.eqx||{})[g]||[]).filter(x=>x!==l)};if(v.eq)delete v.eq[l];prosTouch();renderProspect();return}
+  if(t.dataset.peqadd){const g=t.dataset.peqadd,inp=document.querySelector('[data-peqnew="'+CSS.escape(g)+'"]'),l=(inp&&inp.value||"").trim();if(!l)return toast("Écrivez l'équipement");v.eqx={...(v.eqx||{}),[g]:[...((v.eqx||{})[g]||[]),l]};v.eq={...(v.eq||{}),[g.startsWith("P:")?g.slice(2)+"|"+l:l]:1};prosTouch();renderProspect();return}
+  if(t.dataset.peqn){const k=t.dataset.peqn;v.eqn={...(v.eqn||{}),[k]:Math.max(0,(+((v.eqn||{})[k])||0)+(+t.dataset.d))};prosTouch();renderProspect();return}
+  if(t.dataset.peqnote){const k=t.dataset.peqnote;pEqNoteOpen.add(k);renderProspect();const ta=document.querySelector('[data-eqnote="'+CSS.escape(k)+'"]');if(ta)ta.focus();return}
+  if(t.dataset.ppieceadd){const ty=t.dataset.ppieceadd,pcs=[...pPieces(v)],lab=(PIECE_TYPES.find(x=>x[0]===ty)||PIECE_TYPES[2])[1],n=pcs.filter(x=>x.type===ty).length+1;pcs.push({id:"p"+Date.now().toString(36),nom:ty==="autre"?"Nouvelle pièce":lab+" "+n,type:ty});v.pieces=pcs;prosTouch();renderProspect();return}
+  if(t.dataset.ppiecerm){const id=t.dataset.ppiecerm;v.pieces=pPieces(v).filter(x=>x.id!==id);prosTouch();renderProspect();return}
+  if(t.dataset.peqx){const i=t.dataset.peqx.lastIndexOf("|"),g=t.dataset.peqx.slice(0,i),l=t.dataset.peqx.slice(i+1);v.eqx={...(v.eqx||{}),[g]:((v.eqx||{})[g]||[]).filter(x=>x!==l)};if(v.eq)delete v.eq[g.startsWith("P:")?g.slice(2)+"|"+l:l];prosTouch();renderProspect();return}
   if(t.dataset.pnoteopen){const id=t.dataset.pnoteopen;pNoteOpen=pNoteOpen===id?null:id;renderProspect();if(pNoteOpen){const ta=$("#pn_"+id);if(ta)ta.focus()}return}
   if(t.dataset.pstat){prosCur.statut=t.dataset.pstat;prosTouch();renderProspect();return}
   if(t.dataset.prmt){prosCur.suivi._custom=(prosCur.suivi._custom||[]).filter(x=>x.id!==t.dataset.prmt);prosTouch();renderProspect();return}
   if(t.dataset.prmf){const [k,i]=t.dataset.prmf.split("|");const d=(v.docs||{})[k];if(!d)return;const [f]=d.files.splice(+i,1);prosTouch();renderProspect();if(f&&assets)assets.delete(f.id).catch(()=>{});return}
 });
 document.addEventListener("input",e=>{const t=e.target;if(!prosCur||!t.closest("#sheet"))return;const v=prosCur.v;
+  if(t.dataset.eqnote!=null){v.eqnote={...(v.eqnote||{}),[t.dataset.eqnote]:t.value};prosTouch();return}
+  if(t.dataset.ppiecename){const id=t.dataset.ppiecename;v.pieces=pPieces(v).map(x=>x.id===id?{...x,nom:t.value}:x);prosTouch();return}
   if(t.dataset.pnote){const id=t.dataset.pnote,p=prosCur;const st=id.startsWith("x")?(p.suivi._custom||[]).find(x=>x.id===id):(p.suivi[id]=pTask(p,id));if(st){st.note=t.value;prosTouch()}return}
   if(t.dataset.pk){v[t.dataset.pk]=t.value;prosTouch();const c=document.querySelector(`[data-pcount="${t.dataset.pk}"]`);if(c)c.textContent=t.value.length+"/50";if(t.dataset.pk==="log_nom"){const h=document.querySelector(".sheethead h2");if(h)h.textContent=pName(prosCur)}}
   else if(t.dataset.pbed){v.beds=v.beds||{};const r0=v.beds[t.dataset.pbed]=v.beds[t.dataset.pbed]||{},i=+(t.dataset.pidx||-1),r=i>=0?((r0.x=r0.x||[])[i]=r0.x[i]||{}):r0;const was=r0.t;r[t.dataset.ppart]=t.dataset.ppart==="n"?(t.value?+t.value:""):t.value;prosTouch();if(i<0&&t.dataset.ppart==="t"&&(!was||was==="—")!==(!r0.t||r0.t==="—"))renderProspect()}});
@@ -1837,7 +1910,8 @@ function loadJsPdf(){if(window.jspdf)return Promise.resolve();if(jsPdfP)return j
 const pdfTxt=x=>String(x??"").replace(/[→➔]/g,"->").replace(/★/g,"*").replace(/[✓✔]/g,"oui").replace(/[^\x09\x0A\x0D\x20-\x7E -ÿŒœŠšŸŽžƒˆ˜–—‘’‚“”„†‡•…‰‹›€™]/g,"").trim();
 function pdfVal(f,v){
   if(f.t==="beds")return bedsList(v).join(" ; ");
-  if(f.t==="equip"){const all=[...f.items,...((v.eqx||{})[f.g]||[])],on=all.filter(i=>eqCount(v,i)).map(i=>eqCount(v,i)>1?i+" ×"+eqCount(v,i):i),buy=all.filter(i=>eqBuy(v,i));return [on.join(", "),buy.length?"À acheter : "+buy.join(", "):""].filter(Boolean).join("\n")}
+  if(f.t==="equip"){const sel=f.sc.items.filter(x=>eqOn(v,x.k)),lab=x=>x.l+(eqCount(v,x.k)?" ×"+eqCount(v,x.k):"")+(eqNote(v,x.k)?" ("+eqNote(v,x.k)+")":"");return [sel.filter(x=>eqOn(v,x.k)===1).map(lab).join(", "),sel.some(x=>eqOn(v,x.k)===2)?"À acheter : "+sel.filter(x=>eqOn(v,x.k)===2).map(lab).join(", "):""].filter(Boolean).join("\n")}
+  if(f.t==="pieces")return pPieces(v).map(x=>x.nom).join(", ");
   if(f.t==="docs")return "";if(f.t==="date")return v[f.k]?fmt(v[f.k]):"";const x=v[f.k];return Array.isArray(x)?x.join(", "):(x??"")}
 function prospectOf(l){return prospects.find(p=>p.logementId===l.id)||prospects.find(p=>norm(pV(p).log_nom)===norm(l.nom))||null}
 function fichePdfPages(doc,l,first,lg){
@@ -1864,7 +1938,7 @@ function fichePdfPages(doc,l,first,lg){
   // 2. fiche prospect
   const p=prospectOf(l);
   if(p){const v=pV(p);
-    for(const S of P_STEPS){const blocks=S.secs.map(sec=>[sec.t,sec.f.filter(f=>f.t!=="docs"&&(!f.show||f.show(v))).map(f=>[f.l||sec.t,pdfVal(f,v)]).filter(([,x])=>String(x).trim())]).filter(([,r])=>r.length);
+    for(const S of P_STEPS){const blocks=(S.dyn?S.dyn(v):S.secs).map(sec=>[sec.t,sec.f.filter(f=>f.t!=="docs"&&(!f.show||f.show(v))).map(f=>[f.l||sec.t,pdfVal(f,v)]).filter(([,x])=>String(x).trim())]).filter(([,r])=>r.length);
       if(!blocks.length)continue;y+=2;h2("Fiche RDV · "+(S.n==="Annonce"?"Annonce Airbnb":S.n));
       blocks.forEach(([t,r])=>{need(9);doc.setFont("helvetica","bold");doc.setFontSize(8.5);doc.setTextColor(110,110,110);doc.text(pdfTxt(t).toUpperCase(),M,y);doc.setTextColor(30,30,30);y+=4.6;r.forEach(([k,x])=>kv(k,x))})}
     y+=2;h2("Documents du propriétaire");const docs=v.docs||{};
@@ -1940,7 +2014,7 @@ function renderEntree(l,head,s,sy){
       <textarea id="ent_txt" rows="12" placeholder="19 avenue Clemenceau, Mulhouse&#10;Boîte à clés en haut à gauche : 454383002&#10;Ascenseur de droite, 3e étage, tout au fond à gauche&#10;&#10;WIFI&#10;NOM : Freebox-6B001A&#10;MOT DE PASSE : …&#10;&#10;VIDEO ENTREE&#10;https://youtu.be/…">${esc(d.texte||"")}</textarea>
       <div class="inline" style="margin-top:6px"><button class="btn ghost" type="button" id="entPre">Reprendre les infos de la fiche</button></div></div>
       <div class="box"><h3>📷 Rubrique photos</h3><div class="hint">Jusqu'à ${ENT_MAX} photos, dans l'ordre du parcours. Sous chaque photo, écrivez ou dictez l'explication.</div>${P.map(slot).join("")}</div>
-      <div class="inline" style="margin-top:12px"><button class="btn pri" type="button" id="entSave">Enregistrer</button><button class="btn ghost" type="button" id="entCancel">Annuler</button></div>`;
+      <div class="inline" style="margin-top:12px"><button class="btn pri" type="button" id="entSave">Enregistrer</button><button class="btn pri" type="button" id="entSavePdf">Enregistrer et créer le PDF voyageur</button><button class="btn ghost" type="button" id="entCancel">Annuler</button></div>`;
     s.scrollTop=sy;
     const grab=()=>{d.texte=$("#ent_txt").value;s.querySelectorAll("[data-entcap]").forEach(t=>{const p=d.photos[+t.dataset.entcap];if(p)p.txt=t.value})};
     s.addEventListener("input",ev=>{if(ev.target.id==="ent_txt"||ev.target.dataset.entcap!=null)grab()});
@@ -1951,13 +2025,15 @@ function renderEntree(l,head,s,sy){
       try{const id=await uploadOne(f);if(d.photos[i])d.photos[i]={...d.photos[i],a:id};else d.photos.push({a:id,txt:""})}catch(err){toast(failMsg(err))}delete entUp[i];renderLogSheet();const t=$("#ent_cap_"+Math.min(i,d.photos.length-1));if(t)t.focus()});
     s.querySelectorAll("[data-entrm]").forEach(b=>b.onclick=()=>{grab();d.photos.splice(+b.dataset.entrm,1);renderLogSheet()});
     $("#entCancel").onclick=()=>{micStop();entEdit=false;entDraft=null;renderLogSheet()};
-    $("#entSave").onclick=async()=>{grab();micStop();$("#entSave").disabled=true;
-      try{await db.doc("logements/"+l.id).update({entree:{texte:d.texte||"",ph:[],photos:d.photos.filter(x=>x&&x.a).map(x=>({a:x.a,txt:(x.txt||"").trim()})),maj:nowIso(),par:who()}});entEdit=false;entDraft=null;toast("Infos d'entrée enregistrées");renderLogSheet()}catch(err){$("#entSave").disabled=false;toast(failMsg(err))}};
+    const save=async pdf=>{grab();micStop();$("#entSave").disabled=true;$("#entSavePdf").disabled=true;const E={texte:d.texte||"",ph:[],photos:d.photos.filter(x=>x&&x.a).map(x=>({a:x.a,txt:(x.txt||"").trim()})),maj:nowIso(),par:who()};
+      try{await db.doc("logements/"+l.id).update({entree:E});l.entree={...(l.entree||{}),...E};entEdit=false;entDraft=null;toast("Infos d'entrée enregistrées");renderLogSheet();if(pdf)entreePdf(l)}catch(err){$("#entSave").disabled=false;$("#entSavePdf").disabled=false;toast(failMsg(err))}};
+    $("#entSave").onclick=()=>save(false);$("#entSavePdf").onclick=()=>save(true);
     return}
   const ph=entPhotos(e),empty=entEmpty(e)&&!ph.length,T=e.trad||{},segs=entTrOpen?entSegs(e):[];
   s.innerHTML=head+(empty?`<div class="empty">Les infos d'entrée ne sont pas encore notées pour ce logement.<br>Notez-les en un seul bloc et ajoutez des photos commentées : la fiche PDF se met en forme et se traduit toute seule.</div>
       <div class="inline" style="margin-top:10px"><button class="btn pri" type="button" id="entEditBtn">Noter les infos d'entrée</button></div>`
-    :`<div class="inline"><button class="btn pri" type="button" id="entPdf">⬇ Fiche d'entrée PDF · FR / EN / DE</button><button class="btn" type="button" id="entEditBtn">Modifier</button><button class="btn ghost" type="button" id="entTr">🌍 ${entTrOpen?"Masquer les traductions":"Voir / corriger les traductions"}</button></div>
+    :`<button type="button" id="entPdf" class="entcta"><span class="ico" aria-hidden="true">📄</span><span><b>Créer la fiche d'entrée pour le voyageur</b><small>PDF avec les étapes et toutes les photos commentées, en français, anglais et allemand. À envoyer au voyageur ou au technicien.</small></span></button>
+      <div class="inline" style="margin-top:8px"><button class="btn" type="button" id="entEditBtn">Modifier</button><button class="btn ghost" type="button" id="entTr">🌍 ${entTrOpen?"Masquer les traductions":"Voir / corriger les traductions"}</button></div>
       ${e.maj?`<div class="hint" style="margin:6px 0 10px">Mise à jour le ${fmtAt(e.maj)}${e.par?" · "+esc(e.par):""}</div>`:""}
       ${entTrOpen?`<div class="box"><h3>🌍 Traductions</h3><div class="hint">Elles se font automatiquement au moment du PDF. Vous pouvez les corriger ici.</div>
         ${segs.length?segs.map(fr=>{const k=trKey(fr),t=T[k]||{};return `<div class="trrow"><div class="trfr">🇫🇷 ${esc(fr)}</div><label>🇬🇧<textarea data-trk="${k}" data-trl="en" data-trfr="${esc(fr)}" rows="2">${esc(t.en||"")}</textarea></label><label>🇩🇪<textarea data-trk="${k}" data-trl="de" data-trfr="${esc(fr)}" rows="2">${esc(t.de||"")}</textarea></label></div>`}).join("")
