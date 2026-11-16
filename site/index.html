@@ -293,6 +293,10 @@ textarea{min-height:76px;resize:vertical}
 .lb{position:fixed;inset:0;z-index:40;background:rgb(0 0 0/.88);display:grid;place-items:center;padding:16px}
 .lb img{max-width:100%;max-height:100%;border-radius:8px}
 .rub{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-top:1px solid var(--line)}
+.msgr{color:#D32F2F;font-weight:600}
+.msgv{white-space:normal;line-height:1.5;font-size:14px}
+.msged{min-height:200px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);line-height:1.5;font-size:14px;outline:none}.msged:focus{border-color:var(--brand)}
+.msgbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
 .entcta{display:flex;gap:12px;align-items:center;text-align:left;width:100%;background:var(--gold);color:#fff;border:0;border-radius:14px;padding:14px 16px;cursor:pointer}.entcta .ico{font-size:30px}.entcta b{display:block;font-size:16px}.entcta small{display:block;opacity:.92;font-size:13px;margin-top:2px}
 .drawov{position:fixed;inset:0;z-index:200;background:rgba(20,18,10,.94);display:flex;flex-direction:column;gap:10px;padding:12px 12px max(12px,env(safe-area-inset-bottom))}
 .drawbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center}.drawbar .seg{flex:none}
@@ -1150,12 +1154,13 @@ function renderLogSheet(){
   const team=mode==="equipe", tab=!l?"suivi":(team?lsTab:"fiche");
   const head=`<div class="wrap"><div class="sheethead"><h2>${esc(l?.nom||nom)}</h2><button class="btn ghost" type="button" data-close>Fermer</button></div>
   <div class="hint">${l?esc((l.lieu||"Sans secteur")+(l.ancien?" · ancien logement":"")):"Nom trouvé dans d'anciens dossiers"}${team?" · "+mine.length+" dossier"+(mine.length>1?"s":"")+" au total":""}</div>
-  ${team&&l?`<div class="seg3">${[["suivi","Suivi"],["fiche","Fiche"],["entree","Entrée"],["menages","Ménages"]].map(([k,t])=>`<button type="button" data-lstab="${k}" aria-pressed="${tab===k}">${t}</button>`).join("")}</div>`:""}`;
+  ${team&&l?`<div class="seg3">${[["suivi","Suivi"],["fiche","Fiche"],["entree","Entrée"],["msg","MSG auto"],["menages","Ménages"]].map(([k,t])=>`<button type="button" data-lstab="${k}" aria-pressed="${tab===k}">${t}</button>`).join("")}</div>`:""}`;
   if(tab==="fiche"){s.innerHTML=head+(team?`<div class="inline"><button class="btn" type="button" id="lsPdf">⬇ Fiche complète (PDF)</button></div>`:"")+ficheHtml(l,team)+`</div>`;s.scrollTop=sy;
     if($("#lsPdf"))$("#lsPdf").onclick=()=>downloadFiches([l],"Fiche "+l.nom.replace(/œ/g,"oe").replace(/Œ/g,"Oe").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9 '._-]/g,"").trim()+" "+today()+".pdf");
     if($("#rubVal")&&keep.rubVal!=null){$("#rubVal").value=keep.rubVal;if($("#rubLab")&&keep.rubLab!=null)$("#rubLab").value=keep.rubLab;if(keep.rubVis!=null)$("#rubVis").checked=keep.rubVis}
     if($("#asTxt"))$("#asTxt").value=keep.asTxt;bindFiche(l,team);return}
   if(tab==="entree"){renderEntree(l,head,s,sy);return}
+  if(tab==="msg"){renderMsgs(l,head,s,sy);return}
   if(tab==="menages"){const ms=menages.filter(x=>norm(x.logement)===norm(l.nom));const g=new Map();for(const x of [...ms].sort((a,b)=>b.date.localeCompare(a.date))){const k=x.date.slice(0,7);if(!g.has(k))g.set(k,[]);g.get(k).push(x)}
     const RQ=Object.entries(l.remarquesMenage||{}).map(([id,r])=>({id,...r})).filter(r=>!r.supprime).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
     const rqBox=`<div class="box"><h3>Remarques ménage</h3>${rqForm?`<div class="field"><label for="rqTxt">Nouvelle remarque</label><textarea id="rqTxt" rows="4" placeholder="Ex. : bien détartrer la douche, le linge de lit se range dans l'armoire du couloir…"></textarea>${micBtn("rqTxt")}</div>${assets?`<div class="field"><span class="lbl">Photos</span><label class="btn photo-btn" style="align-self:flex-start">📷 Ajouter une ou plusieurs photos<input type="file" id="rqPh" accept="image/*" multiple hidden></label><span class="hint" id="rqPhN"></span></div>`:""}<div class="inline"><button class="btn pri" type="button" id="rqSave">Enregistrer</button><button class="btn ghost" type="button" id="rqCancel">Annuler</button></div>`:`<button class="btn" type="button" id="rqAdd">+ Ajouter une remarque</button>`}
@@ -1677,6 +1682,85 @@ const P_EQOLD2={"Vaisselle complète":"Cuisine · vaisselle","Draps fournis":"Li
 /* prix des packs : consommables 20 € au-delà de 4 couchages, sinon 15 € ; shampoing / gel douche 5 € */
 const pCouchages=v=>{if(+v.cap_voy)return +v.cap_voy;let n=0;for(const b of Object.values(v.beds||{}))for(const e of [b,...((b&&b.x)||[])]){if(!e||!e.t||e.t==="—")continue;n+=(+e.n||1)*(/90|80|simple|bébé|1 place/i.test(e.t)?1:2)}return n};
 const packsPrix=v=>{const P=v.packs||[],c=pCouchages(v),L=[];if(P.includes("Pack consommables"))L.push(["Pack consommables",c>4?20:15,c?(c>4?"plus de 4 couchages":"4 couchages ou moins")+" ("+c+")":"couchages non renseignés : 15 € par défaut"]);if(P.includes("Pack shampoing / gel douche"))L.push(["Pack shampoing / gel douche",5,""]);return L};
+
+/* ---- onglet MSG auto : messages automatiques par logement ([r]…[/r] = en rouge, à adapter) ---- */
+const MSG_MODELS=[
+ {t:"1er message",x:`Bonjour [GUEST:FIRST_NAME],
+Je vous remercie pour votre réservation :)
+Si vous avez des questions sur le logement ou les alentours, n'hésitez surtout pas à me contacter sur la plateforme ou par téléphone. Le matin de votre arrivée je vous enverrai tous les détails nécessaires pour entrer dans le logement.
+
+À très bientôt :)`},
+ {t:"Contact Franck",x:`📱 Voici notre numéro de téléphone de contact :
+- international : 0033756848422
+- France : 0756848422
+Il pourra être utilisé avant, pendant, et même après votre séjour, en cas de question ou de besoin.
+Nous restons disponibles tous les jours de 9h à 22h, par téléphone ou message. N’hésitez pas à nous solliciter, on est là pour vous faciliter la vie 😊`},
+ {t:"Veille d'arrivée",x:`Bonjour,
+J'espère que vous allez bien :)
+Votre arrivée approche.
+Vous pouvez arriver à tout moment à partir de [r]16h[/r].
+Pour rappel, voici l'adresse : [r]13 rue de Genève, Saint-Louis[/r]
+Repère GPS : [r]https://maps.app.goo.gl/U9ozNAeKHrmZdKwU9[/r]
+Voici une vidéo qui vous détaille comment entrer dans les lieux :
+[r]https://youtu.be/yTS_KLhZgkM?is=3JtJRY9mKFaM2KZV[/r]
+[r]Une fois arrivés à l’adresse, vous pouvez stationner votre véhicule sur la place tout à gauche, en face du bâtiment.
+Il faudra baisser l’arceau situé sur la place de parking.[/r]
+Vous pourrez récupérer les clés, qui se trouvent dans une boîte à clés [r]fixée sur la boîte aux lettres, devant l’entrée du bâtiment[/r].
+Le code pour l’ouvrir est [r]2525[/r].
+Une fois les clés récupérées, vous pouvez entrer dans l’immeuble, et monter au [r]3ème et dernier étage[/r].
+Nous mettons à disposition [r]une grande et moyenne serviette par personne ainsi que du linge de lit et un kit de démarrage avec thé, café, papier toilette pour votre première nuit[/r].
+Une connexion Wi-Fi est disponible gratuitement pendant votre séjour.
+Voici les codes de connexion :
+NOM : [r]Livebox-B9F8[/r]
+MOT DE PASSE : [r]vhkzGSPnDZ4Jc3XF5h[/r]
+Si vous avez besoin d'assistance, n'hésitez pas à me contacter, je suis là pour ça :)
+Connaissez-vous déjà votre heure d'arrivée ?`},
+ {t:"Départ",x:`Bonjour,
+J'espère que vous avez bien profité de votre séjour :)
+Quelques petits rappels pour votre départ.
+Nous vous demandons de quitter le logement au plus tard à [r]11h00[/r] pour que nous puissions le préparer pour les prochains voyageurs :)
+Faites-moi signe si vous avez la moindre question.
+Merci de ne pas oublier de sortir les poubelles [r](les bennes se trouvent à côté du bâtiment)[/r] et de faire votre vaisselle.
+Veuillez vérifier que les chauffages sont au minimum et que toutes les fenêtres sont fermées. Après avoir refermé la porte d'entrée, vous pourrez remettre les clés dans la boîte à clés.
+[r]Merci de remettre l’arceau sur la place de parking.[/r]
+Si vous avez eu des problèmes pendant votre séjour, veuillez nous le faire savoir avant de nous laisser votre évaluation, car nous apprécions vos commentaires.
+Cela nous aide à grandir en tant qu’hôtes. Merci pour votre séjour, je vous souhaite de bien profiter de vos derniers moments !
+Pouvez-vous m'envoyer un message lorsque vous aurez quitté les lieux ?`}];
+let msgEdit=null;
+const msgPlain=x=>String(x||"").replace(/\[\/?r\]/g,"");
+const msgHtml=x=>esc(String(x||"")).replace(/\[r\]([\s\S]*?)\[\/r\]/g,'<span class="msgr">$1</span>').replace(/\n/g,"<br>");
+/* contenu éditable -> texte avec [r]…[/r] */
+function msgSerialize(el){let out="";const red=n=>{const c=(n.style&&n.style.color||"")+" "+(n.getAttribute&&n.getAttribute("color")||"");return (n.classList&&n.classList.contains("msgr"))||/rgb\(\s*2\d\d,\s*\d{1,2},\s*\d{1,2}\s*\)|red|#e53935|#d32f2f|#f00/i.test(c)};
+  const walk=(n,inRed)=>{for(const c of n.childNodes){if(c.nodeType===3){out+=inRed?"[r]"+c.nodeValue+"[/r]":c.nodeValue;continue}if(c.nodeType!==1)continue;const tag=c.tagName;
+    if(tag==="BR"){out+="\n";continue}const blk=/^(DIV|P)$/.test(tag);if(blk&&out&&!out.endsWith("\n"))out+="\n";walk(c,inRed||red(c));if(blk&&!out.endsWith("\n"))out+="\n"}};
+  walk(el,false);return out.replace(/\[\/r\]\[r\]/g,"").replace(/ /g," ").replace(/\n+$/,"")}
+function renderMsgs(l,head,s,sy){const M=(l.messages&&Array.isArray(l.messages.list))?l.messages.list:null;
+  if(!M){s.innerHTML=head+`<div class="empty">Aucun message automatique noté pour ce logement.</div><div class="inline" style="margin-top:10px"><button class="btn pri" type="button" id="msgInit">Partir des modèles ALBS</button></div><div class="hint" style="margin-top:8px">Les 4 messages (1er message, contact Franck, veille d'arrivée, départ) seront ajoutés. Ce qui est en <span class="msgr">rouge</span> est à adapter au logement.</div></div>`;s.scrollTop=sy;
+    $("#msgInit").onclick=async()=>{try{await db.doc("logements/"+l.id).update({messages:{list:MSG_MODELS.map((m,i)=>({id:"m"+(i+1),t:m.t,x:m.x})),maj:nowIso(),par:who()}});toast("Modèles ajoutés : adaptez ce qui est en rouge")}catch(e){toast(failMsg(e))}};return}
+  s.innerHTML=head+`<div class="hint" style="margin-bottom:8px">Ce qui est en <span class="msgr">rouge</span> est propre au logement. « Copier » copie le texte prêt à coller sur Airbnb / Booking.</div>
+  ${M.map((m,i)=>msgEdit===m.id?`<div class="box"><input type="text" id="msgT" value="${esc(m.t)}" aria-label="Titre du message" style="font-weight:700;margin-bottom:8px">
+      <div class="msgbar"><button type="button" class="btn" id="msgRed">🔴 Mettre en rouge</button><button type="button" class="btn" id="msgBlack">⚫ Remettre en noir</button></div>
+      <div id="msgEd" class="msged" contenteditable="true" spellcheck="true">${msgHtml(m.x)}</div>
+      <div class="inline" style="margin-top:8px"><button class="btn pri" type="button" id="msgSave">Enregistrer</button><button class="btn ghost" type="button" id="msgCancel">Annuler</button><button type="button" class="lnk" id="msgDel" style="color:var(--bad);margin-left:auto">Supprimer ce message</button></div></div>`
+    :`<div class="box"><div class="boxhead"><h3>✉️ ${esc(m.t)}</h3><span><button class="lnk" type="button" data-msgcopy="${i}">Copier</button> · <button class="lnk" type="button" data-msgedit="${esc(m.id)}">Modifier</button></span></div><div class="msgv">${msgHtml(m.x)}</div></div>`).join("")}
+  <div class="inline" style="margin-top:8px"><button class="btn" type="button" id="msgAdd">+ Ajouter un message</button></div>
+  ${l.messages.maj?`<div class="hint" style="margin-top:6px">Mis à jour le ${fmtAt(l.messages.maj)}${l.messages.par?" · "+esc(l.messages.par):""}</div>`:""}</div>`;s.scrollTop=sy;
+  const save=async(list,msg)=>{try{await db.doc("logements/"+l.id).update({messages:{list,maj:nowIso(),par:who()}});toast(msg)}catch(e){toast(failMsg(e))}};
+  s.querySelectorAll("[data-msgcopy]").forEach(b=>b.onclick=async()=>{const t=msgPlain(M[+b.dataset.msgcopy].x);try{await navigator.clipboard.writeText(t);toast("Message copié")}catch(e){const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("Message copié")}catch(_){toast("La copie n'a pas marché")}ta.remove()}});
+  s.querySelectorAll("[data-msgedit]").forEach(b=>b.onclick=()=>{msgEdit=b.dataset.msgedit;renderLogSheet();$("#msgEd")?.focus()});
+  $("#msgAdd").onclick=async()=>{const id="m"+Date.now().toString(36);msgEdit=id;await save([...M,{id,t:"Nouveau message",x:""}],"Message ajouté")};
+  if($("#msgEd")){const ed=$("#msgEd");const wrapSel=red=>{const sel=window.getSelection();if(!sel.rangeCount||sel.isCollapsed)return toast("Sélectionnez d'abord le texte");const r=sel.getRangeAt(0);if(!ed.contains(r.commonAncestorContainer))return;
+      const frag=r.extractContents();frag.querySelectorAll&&frag.querySelectorAll(".msgr").forEach(x=>x.replaceWith(...x.childNodes));let node=frag;if(red){const sp=document.createElement("span");sp.className="msgr";sp.appendChild(frag);node=sp}
+      else{let p=r.startContainer.nodeType===1?r.startContainer:r.startContainer.parentElement;const outer=p&&p.closest(".msgr");if(outer&&ed.contains(outer)){r.setStartAfter(outer);r.collapse(true)}}
+      r.insertNode(node);sel.removeAllRanges()};
+    $("#msgRed").onmousedown=e=>e.preventDefault();$("#msgBlack").onmousedown=e=>e.preventDefault();
+    $("#msgRed").onclick=()=>wrapSel(true);$("#msgBlack").onclick=()=>wrapSel(false);
+    ed.addEventListener("paste",e=>{e.preventDefault();const t=(e.clipboardData||window.clipboardData).getData("text/plain");document.execCommand("insertText",false,t)});
+    $("#msgCancel").onclick=()=>{msgEdit=null;renderLogSheet()};
+    $("#msgSave").onclick=async()=>{const x=msgSerialize(ed),t=$("#msgT").value.trim()||"Message";msgEdit=null;await save(M.map(m=>m.id===msgEditId?{...m,t,x}:m),"Message enregistré")};
+    let armed=false;$("#msgDel").onclick=async()=>{if(!armed){armed=true;$("#msgDel").textContent="Confirmer la suppression";return}msgEdit=null;await save(M.filter(m=>m.id!==msgEditId),"Message supprimé")};
+    const msgEditId=msgEdit}}
+
 /* dessiner sur une photo (entourer, flèches à main levée) */
 function drawOnPhoto(id){return new Promise(async res=>{
   const ov=document.createElement("div");ov.className="drawov";ov.setAttribute("role","dialog");ov.setAttribute("aria-label","Dessiner sur la photo");
@@ -2017,7 +2101,7 @@ function pdfVal(f,v){
   if(f.t==="docs")return "";if(f.t==="date")return v[f.k]?fmt(v[f.k]):"";const x=v[f.k];return Array.isArray(x)?x.join(", "):(x??"")}
 function prospectOf(l){return prospects.find(p=>p.logementId===l.id)||prospects.find(p=>norm(pV(p).log_nom)===norm(l.nom))||null}
 function fichePdfPages(doc,l,first,lg){
-  const W=210,M=16,CW=W-2*M,BR=[156,91,69];let y=0;
+  const W=210,M=16,CW=W-2*M,BR=[168,147,49];let y=0;
   const page=()=>{doc.addPage();y=M};
   const need=h=>{if(y+h>297-M)page()};
   if(!first)doc.addPage();y=M;
@@ -2031,10 +2115,28 @@ function fichePdfPages(doc,l,first,lg){
     doc.setFont("helvetica","bold");doc.text(kl,M,y);doc.setFont("helvetica","normal");doc.text(vl,M+54,y);
     if(note){doc.setFontSize(7.5);doc.setTextColor(120,120,120);doc.text(pdfTxt(note),M+54,y+vl.length*4.4);doc.setTextColor(30,30,30)}y+=h};
   const para=t=>{t=pdfTxt(t);if(!t)return;doc.setFont("helvetica","normal");doc.setFontSize(9.5);const ls=doc.splitTextToSize(t,CW);need(ls.length*4.4+2);doc.text(ls,M,y);y+=ls.length*4.4+2};
-  // 1. fiche info
-  const rows=ficheRows(l).filter(x=>x.val);
+  // 1. fiche info : cartes avec logo
+  const GOLD=[168,147,49],INK=[42,38,20];
+  const rows=ficheRows(l).filter(x=>x.val&&!(((l.inventaire||{}).groupes||[]).length&&x.k==="equip"));
   h2("Fiche info");
-  if(rows.length)rows.forEach(x=>kv(x.label,x.val,(x.r.modifLe?"Modifié le "+fmtAt(x.r.modifLe)+(x.r.par?" · "+x.r.par:""):"")+(x.vis?"":" · équipe seulement")));else para("Aucune information renseignée.");
+  const card=(ico,lab,val,note)=>{doc.setFont("helvetica","normal");doc.setFontSize(9.5);const lines=String(pdfTxt(val)).split("\n").filter(Boolean).map(li=>{const m=li.match(/^([^:]{2,40}) : (.+)$/);return m?{k:m[1],v:m[2]}:{v:li}});
+    const wr=lines.map(o=>{const pre=o.k?o.k+" : ":"";doc.setFont("helvetica","bold");const pw=o.k?doc.getTextWidth(pre):0;doc.setFont("helvetica","normal");const vl=doc.splitTextToSize(o.v,CW-18-pw);return {...o,pre,pw,vl}});
+    const h=9+wr.reduce((a,o)=>a+o.vl.length*4.4,0)+(note?3.5:0)+2;need(h+2);
+    doc.setFillColor(255,255,255);doc.setDrawColor(226,216,192);doc.setLineWidth(.25);doc.roundedRect(M,y-4,CW,h,2,2,"FD");
+    doc.setFillColor(243,237,224);doc.circle(M+6,y+1.2,4.2,"F");const im=emojiPng(ico);if(im)try{doc.addImage(im,"PNG",M+3,y-1.8,6,6)}catch(e){}
+    doc.setFont("helvetica","bold");doc.setFontSize(8.5);doc.setTextColor(...GOLD);doc.setCharSpace(.5);doc.text(pdfTxt(lab).toUpperCase(),M+13,y+2);doc.setCharSpace(0);
+    let yy=y+7;wr.forEach(o=>{doc.setFontSize(9.5);if(o.k){doc.setFont("helvetica","bold");doc.setTextColor(...INK);doc.text(o.pre,M+13,yy)}doc.setFont("helvetica","normal");doc.setTextColor(40,40,40);doc.text(o.vl,M+13+o.pw,yy);yy+=o.vl.length*4.4});
+    if(note){doc.setFontSize(7);doc.setTextColor(140,140,140);doc.text(pdfTxt(note),M+13,yy);}
+    doc.setTextColor(30,30,30);y+=h+2};
+  if(rows.length)rows.forEach(x=>card(rubIco(x),x.label,x.val,x.vis?"":"Équipe seulement"));else para("Aucune information renseignée.");
+  const IG=((l.inventaire||{}).groupes)||[];
+  if(IG.length){y+=2;h2("Équipements et inventaire");const cols=3,cw=(CW-(cols-1)*3)/cols;
+    IG.forEach(g=>{need(16);const gi=emojiPng(g.ico||"📦");if(gi)try{doc.addImage(gi,"PNG",M,y-3.6,4.5,4.5)}catch(e){}doc.setFont("helvetica","bold");doc.setFontSize(9);doc.setTextColor(...GOLD);doc.text(pdfTxt(g.g).toUpperCase(),M+6,y);doc.setTextColor(30,30,30);y+=3;
+      g.items.forEach((x,i)=>{const c=i%cols;if(c===0){need(10)}const xx=M+c*(cw+3);doc.setFillColor(...(x.buy?[252,236,214]:[255,255,255]));doc.setDrawColor(226,216,192);doc.roundedRect(xx,y,cw,8,1.5,1.5,"FD");
+        const im=emojiPng(x.ico||"•");if(im)try{doc.addImage(im,"PNG",xx+1.5,y+1.3,5.4,5.4)}catch(e){}doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(40,40,40);
+        const q=x.n?"x"+x.n:(x.buy?"à acheter":"");doc.text(doc.splitTextToSize(pdfTxt(x.l+(x.opt?" ("+x.opt+")":"")),cw-(q?17:9))[0],xx+8,y+5.2);if(q){doc.setFont("helvetica","bold");doc.text(pdfTxt(q),xx+cw-2,y+5.2,{align:"right"})}
+        if(c===cols-1||i===g.items.length-1)y+=10});y+=5});
+    if((l.inventaire||{}).achats)kv("Achats à prévoir",l.inventaire.achats)}
   const AS=Object.values(l.aSavoir||{}).filter(a=>!a.supprime).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
   if(AS.length){y+=2;h2("À savoir · nouveautés");AS.forEach(a=>kv(fmtAt(a.at)+(a.par?" · "+a.par:""),a.texte))}
   // 2. fiche prospect
@@ -2196,6 +2298,8 @@ async function entreePdf(l){
   const name="Fiche d'entree "+l.nom.replace(/œ/g,"oe").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9 '._-]/g,"").trim()+".pdf";
   if(bad)toast("Certaines traductions manquent (connexion ?) : le PDF est quand même prêt");
   await pdfDeliver(doc.output("blob"),name)}
+let EMO={};
+function emojiPng(ch){if(EMO[ch])return EMO[ch];try{const c=document.createElement("canvas");c.width=c.height=96;const x=c.getContext("2d");x.textAlign="center";x.textBaseline="middle";x.font='72px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';x.fillText(ch,48,54);EMO[ch]=c.toDataURL("image/png")}catch(e){EMO[ch]=null}return EMO[ch]}
 async function downloadFiches(list,name){toast("Préparation du PDF…");
   try{await loadJsPdf()}catch(e){return toast("Le PDF n'a pas pu se préparer : vérifiez la connexion")}
   const doc=new window.jspdf.jsPDF({unit:"mm",format:"a4"});
