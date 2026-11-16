@@ -1748,7 +1748,7 @@ function renderMsgs(l,head,s,sy){const M=(l.messages&&Array.isArray(l.messages.l
   const save=async(list,msg)=>{try{await db.doc("logements/"+l.id).update({messages:{list,maj:nowIso(),par:who()}});toast(msg)}catch(e){toast(failMsg(e))}};
   s.querySelectorAll("[data-msgcopy]").forEach(b=>b.onclick=async()=>{const t=msgPlain(M[+b.dataset.msgcopy].x);try{await navigator.clipboard.writeText(t);toast("Message copié")}catch(e){const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("Message copié")}catch(_){toast("La copie n'a pas marché")}ta.remove()}});
   s.querySelectorAll("[data-msgedit]").forEach(b=>b.onclick=()=>{msgEdit=b.dataset.msgedit;renderLogSheet();$("#msgEd")?.focus()});
-  $("#msgAdd").onclick=async()=>{const id="m"+Date.now().toString(36);msgEdit=id;await save([...M,{id,t:"Nouveau message",x:""}],"Message ajouté")};
+  $("#msgAdd").onclick=async()=>{const id="m"+Date.now().toString(36);msgEdit=id;await save([...M,{id,t:"Nouveau message",x:""}],"Message ajouté");setTimeout(renderLogSheet,400)};
   if($("#msgEd")){const ed=$("#msgEd");const wrapSel=red=>{const sel=window.getSelection();if(!sel.rangeCount||sel.isCollapsed)return toast("Sélectionnez d'abord le texte");const r=sel.getRangeAt(0);if(!ed.contains(r.commonAncestorContainer))return;
       const frag=r.extractContents();frag.querySelectorAll&&frag.querySelectorAll(".msgr").forEach(x=>x.replaceWith(...x.childNodes));let node=frag;if(red){const sp=document.createElement("span");sp.className="msgr";sp.appendChild(frag);node=sp}
       else{let p=r.startContainer.nodeType===1?r.startContainer:r.startContainer.parentElement;const outer=p&&p.closest(".msgr");if(outer&&ed.contains(outer)){r.setStartAfter(outer);r.collapse(true)}}
@@ -2398,10 +2398,10 @@ async function startApp(user){
   $("#auth").hidden=true;$("#auth").innerHTML="";
   if(booted){render();return}booted=true;
   db=sbDb;assets=sbAssets;downloads=sbDownloads;view=TABS[mode][0][0];sbRealtime();
-  const busy=()=>auditForm||editKey||addRub;
+  const busy=()=>auditForm||editKey||addRub||msgEdit||invEdit||(()=>{const ae=document.activeElement;return !!(ae&&ae.closest&&ae.closest("#sheet")&&(/INPUT|TEXTAREA|SELECT/.test(ae.tagName)||ae.isContentEditable))})();
   db.collection("logements").onSnapshot(s=>{logements=s.docs.map(d=>({id:d.id,...d.data()}));render();if(auditOpen){}else if(logOpen&&!busy())renderLogSheet();else if(menOpen&&!degForm)renderMenage()},()=>{});
   db.doc("config/menage").onSnapshot(s=>{const d=s.exists?s.data():{};cfgM={protocole:d.protocole||[],equipe:d.equipe||[]};render()},()=>{});
-  db.collection("menages").onSnapshot(s=>{menages=s.docs.map(d=>({id:d.id,...d.data()}));render();if(menOpen&&!degForm)renderMenage();else if(logOpen&&lsTab==="menages")renderLogSheet();else if(openId)renderDetail()},()=>{});
+  db.collection("menages").onSnapshot(s=>{menages=s.docs.map(d=>({id:d.id,...d.data()}));render();if(menOpen&&!degForm)renderMenage();else if(logOpen&&lsTab==="menages"&&!busy())renderLogSheet();else if(openId)renderDetail()},()=>{});
   db.doc("config/audit").onSnapshot(s=>{auditCfg=s.exists?s.data():{};render();if(logOpen&&!busy())renderLogSheet()},()=>{});
   if(me.role==="equipe"){
     db.doc("config/sauvegarde").onSnapshot(s=>{sauvegarde=s.exists?s.data():{};render()},()=>{});
