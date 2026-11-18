@@ -375,6 +375,7 @@ details.pers .list{margin-top:10px}
 .alab{flex:1;min-width:0;font-size:15px}
 .alab .who{display:block}
 .okko{display:flex;gap:6px;flex:none}
+.synb{border-top:1px solid var(--line);padding:8px 0}.synb:first-of-type{border-top:0}.synb h4{margin:0 0 4px;font-size:14px}.synb ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px}
 .okko button{width:44px;height:40px;border:1.5px solid var(--line);background:var(--surface);border-radius:10px;font-size:20px;font-weight:700;line-height:1;color:var(--muted);cursor:pointer;padding:0}
 .okko .nab{width:52px;font-size:12px}
 .okko .okb[aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:#fff}
@@ -1406,6 +1407,32 @@ async function syncPoint(a,k,patch={},addPh=[],rmPh=null){
   }catch(e){toast(failMsg(e));return null}finally{ptBusy[key]=null;done()}}
 const ptHas=(a,k)=>!!(audSt(a,k).suiviId||ptIds[a.id+"|"+k]);
 async function syncAll(a){const n1=await syncK(a,"mnt",true),n2=await syncK(a,"men",true);const p=[];if(n1)p.push(n1+" maintenance"+(n1>1?"s":""));if(n2)p.push(n2+" point"+(n2>1?"s":"")+" ménage");toast(p.length?"Suivis mis à jour : "+p.join(" · "):"Aucun point marqué maintenance ou ménage")}
+/* synthèse : maintenance / ménage / autres points importants */
+function audSynth(a){const imp=audItems(a).filter(it=>{const x=audSt(a,it.k);return x.controle&&((x.rep==="non"&&!x.maint&&!x.menage)||(x.rep==="na"&&x.note)||(x.rep==="oui"&&x.note))});
+  const notes=(a.grille||[]).filter(g=>(a.secNotes||{})[g.id]).map(g=>({t:g.titre,n:a.secNotes[g.id]}));return {mnt:kItems(a,"mnt"),men:kItems(a,"men"),imp,notes}}
+function synthHtml(a){const S=audSynth(a),li=it=>{const x=audSt(a,it.k);return `<li><b>${esc(it.label)}</b> <span class="hint">(${esc(it.sec)})</span>${x.note?`<br>${esc(x.note)}`:""}</li>`};
+  const blk=(t,arr,extra="")=>`<div class="synb"><h4>${t} · ${arr.length}</h4>${arr.length?`<ul>${arr.map(li).join("")}</ul>`:`<span class="hint">Rien à signaler.</span>`}${extra}</div>`;
+  return `<div class="box"><h3>Synthèse</h3><div class="hint" style="margin-bottom:8px">Tous les points regroupés, à éditer en PDF (une page par partie).</div>
+    ${blk("🔧 Maintenance",S.mnt)}${blk("🧽 Ménage",S.men)}${blk("⭐ Autres points importants",S.imp,S.notes.length||a.remarque?`<ul>${S.notes.map(n=>`<li><b>Note · ${esc(n.t)}</b><br>${esc(n.n)}</li>`).join("")}${a.remarque?`<li><b>Remarque générale</b><br>${esc(a.remarque)}</li>`:""}</ul>`:"")}
+    ${downloads?`<div class="inline" style="margin-top:8px"><button class="btn pri" type="button" data-apdf="synth">📄 Synthèse en PDF</button></div>`:""}</div>`}
+async function synthPdf(a){const S=audSynth(a);await loadJsPdf();const doc=new window.jspdf.jsPDF({unit:"mm",format:"a4"});const W=210,H=297,M=16,CW=W-2*M,GOLD=[168,147,49],INK=[42,38,20],MUT=[110,102,74];
+  let lg=null;try{lg=await albsLogo()}catch(e){}
+  const page=(first,titre,col,ico)=>{if(!first)doc.addPage();doc.setFillColor(243,237,224);doc.rect(0,0,W,H,"F");doc.setFillColor(...col);doc.rect(0,0,W,34,"F");
+    if(lg)try{let w=38,h=lg.h*w/lg.w;if(h>16){h=16;w=lg.w*h/lg.h}pdfLogo(doc,lg,W-M-w-4,(34-h-4)/2,w,h)}catch(e){}
+    const im=emojiPng(ico);if(im)try{doc.addImage(im,"PNG",M,9,12,12)}catch(e){}doc.setTextColor(255,255,255);doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.setCharSpace(.4);doc.text(doc.splitTextToSize(pdfTxt("SYNTHÈSE D'AUDIT · "+a.logement.toUpperCase()+" · "+fmtLong(a.date)),W-2*M-16-50)[0],M+16,13);doc.setCharSpace(0);
+    doc.setFont("times","bold");doc.setFontSize(20);doc.text(pdfTxt(titre),M+16,24);return 44};
+  const items=(y,arr,col)=>{if(!arr.length){doc.setFont("helvetica","italic");doc.setFontSize(11);doc.setTextColor(...MUT);doc.text("Rien à signaler.",M,y+4);return}
+    arr.forEach((o,i)=>{doc.setFont("helvetica","bold");doc.setFontSize(11);const tl=doc.splitTextToSize(pdfTxt(o.t),CW-14);doc.setFont("helvetica","normal");doc.setFontSize(9.8);const nl=o.n?doc.splitTextToSize(pdfTxt(o.n),CW-14):[];const sub=o.s?1:0;
+      const h=6+tl.length*5+sub*4.4+nl.length*4.4+2;if(y+h>H-18){doc.addPage();doc.setFillColor(243,237,224);doc.rect(0,0,W,H,"F");y=M}
+      doc.setFillColor(255,255,255);doc.setDrawColor(226,216,192);doc.setLineWidth(.25);doc.roundedRect(M,y,CW,h,2,2,"FD");doc.setFillColor(...col);doc.circle(M+5.5,y+6,2.8,"F");doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(8);doc.text(String(i+1),M+5.5,y+7,{align:"center"});
+      doc.setTextColor(...INK);doc.setFontSize(11);doc.text(tl,M+11,y+7);let yy=y+7+tl.length*5;if(o.s){doc.setFont("helvetica","normal");doc.setFontSize(8.8);doc.setTextColor(...MUT);doc.text(pdfTxt(o.s),M+11,yy-0.6);yy+=4.4}
+      if(nl.length){doc.setFont("helvetica","normal");doc.setFontSize(9.8);doc.setTextColor(60,60,60);doc.text(nl,M+11,yy)}y+=h+3})};
+  const map=(arr,K)=>arr.map(it=>{const x=audSt(a,it.k),d=K?x[KINDS[K].due]:null;return {t:it.label,s:it.sec+(d?" · à faire avant le "+fmt(d):""),n:x.note||""}});
+  let y=page(true,"Maintenance",[45,106,159],"🔧");items(y,map(S.mnt,"mnt"),[45,106,159]);
+  y=page(false,"Ménage",[123,79,166],"🧽");items(y,map(S.men,"men"),[123,79,166]);
+  y=page(false,"Autres points importants",GOLD,"⭐");items(y,[...map(S.imp),...S.notes.map(n=>({t:"Note · "+n.t,n:n.n})),...(a.remarque?[{t:"Remarque générale",n:a.remarque}]:[])],GOLD);
+  const n=doc.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(8);doc.setTextColor(...MUT);doc.text(pdfTxt("À La Bonne Sonnette · synthèse d'audit · page "+i+"/"+n),W-M,H-8,{align:"right"})}
+  await pdfDeliver(doc.output("blob"),"Synthese audit "+a.logement.replace(/œ/g,"oe").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9 '._-]/g,"").trim()+" "+a.date+".pdf")}
 function menageText(a){const F=kItems(a,"men"),L=["Récap ménage · "+a.logement,"Audit du "+fmtLong(a.date),""];if(!F.length)L.push("Aucun point ménage à reprendre. Merci !");else{L.push("Points à reprendre :");for(const it of F){const x=audSt(a,it.k);L.push("- "+it.label+(x.note?" : "+x.note:"")+(x.dueMen?" (avant le "+fmt(x.dueMen)+")":""))}}L.push("","À La Bonne Sonnette");return L.join("\n")}
 function openAudit(id){const r=logOpen||retLog;openId=null;formState=null;logOpen=null;menOpen=null;retLog=r;auditOpen=id;$("#sheet").hidden=false;$("#sheet").scrollTop=0;renderAudit()}
 const audUpd=(a,obj,msg)=>enqueue(()=>db.doc("audits/"+a.id).update(obj)).then(()=>{if(msg)toast(msg)},e=>toast(failMsg(e)));
@@ -1439,6 +1466,7 @@ function renderAudit(){
     <div class="field" style="margin-top:8px"><label for="asn_${esc(g.id)}">Note libre · ${esc(g.titre)}</label><textarea id="asn_${esc(g.id)}" data-asecnote="${esc(g.id)}" rows="2" placeholder="Ce que vous voulez noter sur cette partie">${esc((a.secNotes||{})[g.id]||"")}</textarea></div></div>`}).join("")}
   <div class="box"><h3>Nouvelle rubrique</h3><div class="inline"><input type="text" id="aSecNew" placeholder="Ex. : Jardin et piscine"><button class="btn" type="button" id="aSecAdd" style="flex:0 0 auto">Ajouter</button></div><span class="hint">Les points et rubriques ajoutés pendant un audit ne valent que pour cet audit. Pour changer la grille de tous les audits : onglet Audits → « Modifier la grille ».</span></div>
   <div class="box"><h3>Notes libres / remarque générale</h3><textarea id="aRem" rows="5" placeholder="Impression générale, points à surveiller, à transmettre au propriétaire… Vous pouvez aussi dicter.">${esc(a.remarque||"")}</textarea>${micBtn("aRem")}</div>
+  ${synthHtml(a)}
   <div class="box"><h3>Finaliser</h3><div class="inline" id="aEndZone">
     ${done?`<button class="btn" type="button" id="aReopen">Rouvrir l'audit</button>`:`<button class="btn pri" type="button" id="aEnd">Terminer l'audit</button>`}
     ${downloads?`<div class="pdfzone"><span class="lbl">Télécharger en PDF</span><div class="inline">
@@ -1478,7 +1506,7 @@ function renderAudit(){
   if($("#aEnd"))$("#aEnd").onclick=()=>{const rest=st.tot-st.c;$("#aEndZone").innerHTML=`<div class="confirm">${rest?rest+" point"+(rest>1?"s":"")+" non contrôlé"+(rest>1?"s":"")+". ":""}Terminer l'audit ?<button class="btn pri" type="button" id="aEndYes">Oui, terminer</button><button class="btn ghost" type="button" id="aEndNo">Annuler</button></div>`;
     $("#aEndYes").onclick=async()=>{await audUpd(a,{statut:"termine",finLe:nowIso()},"Audit terminé");if(kItemsG(a,"mnt").length||kItemsG(a,"men").length){try{await syncAll(a)}catch(e){toast(failMsg(e))}}};$("#aEndNo").onclick=renderAudit};
   if($("#aReopen"))$("#aReopen").onclick=()=>audUpd(a,{statut:"en_cours",finLe:null},"Audit rouvert");
-  s.querySelectorAll("[data-apdf]").forEach(b=>b.onclick=async()=>{const k=b.dataset.apdf||null,lab=b.textContent;b.disabled=true;b.textContent="Préparation du PDF…";try{await auditPdf(a,k)}catch(e){if(!(e&&e.code==="declined"))toast("Le PDF n'a pas pu être créé, réessayez")}b.disabled=false;b.textContent=lab});
+  s.querySelectorAll("[data-apdf]").forEach(b=>b.onclick=async()=>{const k=b.dataset.apdf||null,lab=b.textContent;b.disabled=true;b.textContent="Préparation du PDF…";try{if(k==="synth")await synthPdf(a);else await auditPdf(a,k)}catch(e){if(!(e&&e.code==="declined"))toast("Le PDF n'a pas pu être créé, réessayez")}b.disabled=false;b.textContent=lab});
   $("#aCopy").onclick=()=>{const t=auditText(a);const show=()=>{$("#aCopyZone").innerHTML=`<textarea class="copybox" readonly></textarea><span class="hint">Sélectionnez et copiez le texte.</span>`;const ta=$("#aCopyZone textarea");ta.value=t;ta.focus();ta.select()};
     try{navigator.clipboard.writeText(t).then(()=>toast("Résumé copié, prêt à coller"),show)}catch(e){show()}};
   s.querySelectorAll("[data-akflag]").forEach(b=>b.onclick=async()=>{const [K,k]=b.dataset.akflag.split("|"),f=KINDS[K].flag,x=audSt(a,k),pt={[f]:!x[f]};await audUpd(a,{items:{[k]:pt}},x[f]?"Retiré : "+KINDS[K].cat.toLowerCase():"Dossier créé en "+KINDS[K].cat.toLowerCase());syncPoint(a,k,pt)});
