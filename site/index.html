@@ -498,7 +498,7 @@ const STEPS={
 let mode="equipe", moi="";
 let db=null, view=mode==="menage"?"mm":"prio", fLog=null, fType="ouverts", fCat="", fQ="", fSec="", pF="tous", fAtt="";
 let menages=[], cfgM={protocole:[],equipe:[]}, assets=null, downloads=null;
-let sqOpen=null, sqAutre=null, stepEdit=false, entEdit=false, entDraft=null, entUp={}, rqForm=false, rqDel=null, menBack=null, lsTab="suivi", editKey=null, addRub=false, histOpen=null, menOpen=null, degForm=false, uploading={}, recapMois=null, startForm=false;
+let fdmEdit=null, sqOpen=null, sqAutre=null, stepEdit=false, entEdit=false, entDraft=null, entUp={}, rqForm=false, rqDel=null, menBack=null, lsTab="suivi", editKey=null, addRub=false, histOpen=null, menOpen=null, degForm=false, uploading={}, recapMois=null, startForm=false;
 const ICO={
  prio:'<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>',
  dos:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
@@ -1145,7 +1145,7 @@ function renderForm(){
 }
 
 /* ---------- logement sheet ---------- */
-function openLogSheet(nom){rqForm=false;rqDel=null;entEdit=false;entDraft=null;auditForm=false;auditOpen=null;editKey=null;addRub=false;histOpen=null;lsTab=mode==="menage"?"fiche":"suivi";menOpen=null;logOpen=nom;retLog=null;openId=null;formState=null;$("#sheet").hidden=false;renderLogSheet()}
+function openLogSheet(nom){fdmEdit=null;rqForm=false;rqDel=null;entEdit=false;entDraft=null;auditForm=false;auditOpen=null;editKey=null;addRub=false;histOpen=null;lsTab=mode==="menage"?"fiche":"suivi";menOpen=null;logOpen=nom;retLog=null;openId=null;formState=null;$("#sheet").hidden=false;renderLogSheet()}
 function renderLogSheet(){
   const nom=logOpen, l=logements.find(x=>norm(x.nom)===norm(nom)), s=$("#sheet"), sy=s.scrollTop;
   const mine=dossiers.filter(d=>norm(d.logement)===norm(nom));
@@ -1173,8 +1173,9 @@ function renderLogSheet(){
       ${mInf.length?`<div class="sec-title"><span>Infos ménage</span><span>${mInf.length}</span></div><div class="list">${mInf.map(card).join("")}</div>`:""}
       ${mCl.length?`<details class="pers"><summary>Remarques ménage closes · ${mCl.length}</summary>${byMonth(mCl)}</details>`:""}
       <div class="inline" style="margin-top:10px"><button class="btn" type="button" id="lsNewMen">+ Signaler une remarque ménage</button></div>`;
-    s.innerHTML=head+rqBox.replace('<div class="sec-title"><span>Ménages réalisés</span></div>','')+relBox+'<div class="sec-title" style="margin-top:24px"><span>Ménages réalisés</span></div>'+(ms.length?[...g.entries()].map(([k,a])=>`<div class="sec-title"><span>${MOIS[+k.slice(5)-1]} ${k.slice(0,4)}</span><span>${a.filter(x=>x.statut==="valide").length} validé${a.length>1?"s":""}</span></div><div class="list">${a.map(menCard).join("")}</div>`).join(""):`<div class="empty">Aucun ménage enregistré pour ce logement.</div>`)+`</div>`;s.scrollTop=sy;
+    s.innerHTML=head+rqBox.replace('<div class="sec-title"><span>Ménages réalisés</span></div>','')+fdmBoxHtml(l)+relBox+'<div class="sec-title" style="margin-top:24px"><span>Ménages réalisés</span></div>'+(ms.length?[...g.entries()].map(([k,a])=>`<div class="sec-title"><span>${MOIS[+k.slice(5)-1]} ${k.slice(0,4)}</span><span>${a.filter(x=>x.statut==="valide").length} validé${a.length>1?"s":""}</span></div><div class="list">${a.map(menCard).join("")}</div>`).join(""):`<div class="empty">Aucun ménage enregistré pour ce logement.</div>`)+`</div>`;s.scrollTop=sy;
     if($("#rqAdd"))$("#rqAdd").onclick=()=>{rqForm=true;renderLogSheet();$("#rqTxt")?.focus()};
+    fdmBoxBind(l);
     $("#lsNewMen").onclick=()=>{fLog=l.nom;const r=logOpen;openForm(null,"suivi",{categorie:"Ménage"});fLog=null;retLog=r};
     if($("#rqCancel"))$("#rqCancel").onclick=()=>{rqForm=false;renderLogSheet()};
     if($("#rqPh"))$("#rqPh").onchange=e=>{const n=e.target.files.length;$("#rqPhN").textContent=n?n+" photo"+(n>1?"s":"")+" sélectionnée"+(n>1?"s":""):""};
@@ -1849,6 +1850,27 @@ async function clesPdf(p){const v=pV(p);const fd=x=>x?String(x).slice(0,10).spli
   [["Le propriétaire","« Lu et approuvé », signature"],["La conciergerie","Signature et cachet"]].forEach(([t,sub],i)=>{const x=M+i*(CW/2+4);doc.setDrawColor(221,211,188);doc.setFillColor(255,255,255);doc.roundedRect(x,y,CW/2-4,38,2.5,2.5,"FD");doc.setFont("helvetica","bold");doc.setFontSize(10);doc.setTextColor(...DARK);doc.text(pdfTxt(t),x+5,y+7);doc.setFont("helvetica","italic");doc.setFontSize(8.5);doc.setTextColor(...MUT);doc.text(pdfTxt(sub),x+5,y+12)});
   doc.setDrawColor(...GOLD);doc.setLineWidth(.4);doc.line(M,H-16,W-M,H-16);doc.setTextColor(...MUT);doc.setFont("helvetica","normal");doc.setFontSize(8);doc.text(pdfTxt("À La Bonne Sonnette · conciergerie · fiche de remise des clés"),M,H-10);
   await pdfDeliver(doc.output("blob"),"Remise des cles "+lg.replace(/œ/g,"oe").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9 '._-]/g,"").trim()+".pdf")}
+/* ---- entreprise de ménage dans l'onglet Ménages d'un logement ---- */
+const FDM_FIELDS=[["fdm_ent","Nom de l'entreprise",1],["fdm_gerant","Nom et prénom",1],["fdm_adr","Adresse du siège",0],["fdm_cp","Code postal",1],["fdm_ville","Ville",1],["fdm_siret","Numéro de SIRET",1],["fdm_statut","Statut (Micro-entreprise / Société)",1],["fdm_tel","Téléphone",1],["fdm_mail","E-mail",1],["fdm_debut","Début du contrat pour ce logement",1,"date"],["fdm_lieu","Contrat fait à",1]];
+function fdmBoxHtml(l){const E=l.menageEnt||{},has=E.fdm_ent||E.fdm_gerant;
+  if(fdmEdit){const D=fdmEdit,L=Object.entries(prestCfg.list||{}).sort((a,b)=>(a[1].fdm_ent||a[1].fdm_gerant||"").localeCompare(b[1].fdm_ent||b[1].fdm_gerant||""));
+    return `<div class="box"><h3>🧹 Entreprise de ménage</h3>${L.length?`<div class="field"><label for="fdmLPick">Choisir une personne déjà enregistrée</label><select id="fdmLPick" data-nomic><option value="">— Nouvelle personne / garder la fiche ci-dessous —</option>${L.map(([k,x])=>`<option value="${esc(k)}"${prestKey(D)===k?" selected":""}>${esc([x.fdm_ent,x.fdm_gerant].filter(Boolean).join(" · "))}</option>`).join("")}</select></div>`:""}
+      <div class="grid2">${FDM_FIELDS.map(([k,lab,w,t])=>`<div class="field"${w?"":` style="grid-column:1/-1"`}><label for="fdmL_${k}">${esc(lab)}</label><input type="${t||"text"}" id="fdmL_${k}" data-fdml="${k}" value="${esc(D[k]||"")}"${k==="fdm_lieu"?' placeholder="Mulhouse"':""}></div>`).join("")}</div>
+      <div class="inline" style="margin-top:8px"><button class="btn pri" type="button" id="fdmLSave">Enregistrer</button><button class="btn ghost" type="button" id="fdmLCancel">Annuler</button></div></div>`}
+  return `<div class="box"><div class="boxhead"><h3>🧹 Entreprise de ménage</h3><button class="lnk" type="button" id="fdmLEdit">${has?"Modifier":"Renseigner"}</button></div>
+    ${has?`<div class="hint" style="color:var(--ink);line-height:1.6">${FDM_FIELDS.filter(([k])=>E[k]).map(([k,lab])=>`<b>${esc(lab)} :</b> ${esc(k==="fdm_debut"?String(E[k]).split("-").reverse().join("/"):E[k])}`).join("<br>")}</div>
+      <div class="inline" style="margin-top:10px"><button class="btn pri" type="button" id="fdmLPdf">📄 Éditer le contrat de ménage (PDF)</button></div>`:`<div class="hint">Aucune entreprise de ménage renseignée. Remplissez sa fiche (SIRET, adresse…) pour pouvoir éditer le contrat de ménage de ce logement. Une personne déjà enregistrée se choisit dans une liste.</div>`}</div>`}
+function fdmBoxBind(l){
+  if($("#fdmLEdit"))$("#fdmLEdit").onclick=()=>{fdmEdit={...(l.menageEnt||{})};renderLogSheet()};
+  if($("#fdmLPdf"))$("#fdmLPdf").onclick=()=>fdmContratPdf(fdmLogP(l));
+  if(!fdmEdit)return;
+  document.querySelectorAll("[data-fdml]").forEach(i=>i.oninput=()=>{fdmEdit[i.dataset.fdml]=i.value});
+  if($("#fdmLPick"))$("#fdmLPick").onchange=e=>{const x=(prestCfg.list||{})[e.target.value];if(!x)return;PREST_KEYS.forEach(k=>{fdmEdit[k]=x[k]||""});renderLogSheet();toast("Infos de « "+(x.fdm_ent||x.fdm_gerant)+" » reprises")};
+  $("#fdmLCancel").onclick=()=>{fdmEdit=null;renderLogSheet()};
+  $("#fdmLSave").onclick=async()=>{const D=fdmEdit;if(!D.fdm_ent&&!D.fdm_gerant)return toast("Indiquez au moins le nom de l'entreprise ou de la personne");const out={};[...PREST_KEYS,"fdm_debut","fdm_lieu"].forEach(k=>{out[k]=(D[k]||"").trim()});fdmEdit=null;
+    try{await db.doc("logements/"+l.id).update({menageEnt:{...out,maj:nowIso(),par:who()}});await prestSync({v:out},l.nom);toast("Entreprise de ménage enregistrée")}catch(e){toast(failMsg(e))}}}
+function fdmLogP(l){const pr=prospects.find(p=>p.logementId===l.id),pv=pr?pV(pr):{},E=l.menageEnt||{};const adr=((l.fiche||{}).adresse||{}).valeur||"";
+  return {logementId:l.id,v:{...pv,...E,log_nom:l.nom,...(pv.log_adr?{}:{log_adr:adr.split("\n")[0],log_cp:"",log_ville:""})}}}
 /* ---- contrat de prestation de ménage (un par logement) ---- */
 const ALBS_SOC={nom:"A LA BONNE SONNETTE",capital:"1 000 €",siege:"20, rue du 8 février, 68740 BLODELSHEIM",rep:"Mme Marion SION, Présidente",siret:"91332925600014",adr:"4 rue Poincaré",cpv:"68100 MULHOUSE",mail:"alabonnesonnette@gmail.com",gerante:"Manon HEYDORFF, gérante de la société A LA BONNE SONNETTE"};
 async function fdmContratPdf(p){const v=pV(p);const fd=x=>x?String(x).slice(0,10).split("-").reverse().join("/"):"…………………";toast("Préparation du contrat…");try{await loadJsPdf()}catch(e){return toast("Le PDF n'a pas pu se préparer : vérifiez la connexion")}
@@ -2071,7 +2093,7 @@ async function prosFlush(){clearTimeout(prosT);if(!prosCur||!prosDirty)return;if
 /* ---- entreprises de ménage : fiche gardée pour tous les logements (config/prestataires) ---- */
 let prestCfg={};const PREST_KEYS=["fdm_ent","fdm_gerant","fdm_adr","fdm_cp","fdm_ville","fdm_siret","fdm_statut","fdm_tel","fdm_mail"];
 const prestKey=v=>{const n=norm(v.fdm_ent||v.fdm_gerant||"");return n?n.replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,""):""};
-async function prestSync(p){if(!p)return;const v=pV(p),k=prestKey(v);if(!k)return;const old=(prestCfg.list||{})[k]||{},lg=pName(p);
+async function prestSync(p,lgName){if(!p)return;const v=pV(p),k=prestKey(v);if(!k)return;const old=(prestCfg.list||{})[k]||{},lg=lgName||pName(p);
   const rec={...old};let ch=false;PREST_KEYS.forEach(f=>{const x=v[f]||"";if(x&&x!==old[f]){rec[f]=x;ch=true}});const L=old.logements||[];if(!L.includes(lg)){rec.logements=[...L,lg];ch=true}
   if(!ch)return;prestCfg={...prestCfg,list:{...(prestCfg.list||{}),[k]:{...rec,maj:nowIso()}}};try{await db.doc("config/prestataires").set({list:prestCfg.list,at:nowIso()})}catch(e){}}
 
@@ -2185,8 +2207,10 @@ async function pPushFiche(L,isNew){if(!L)return toast("Logement introuvable");co
   const I0=L.inventaire||{};let inv=pInventaire(prosCur.v);
   if(I0.manuel){const G=JSON.parse(JSON.stringify(I0.groupes||[]));for(const g of inv){let gg=G.find(x=>x.g===g.g);if(!gg){G.push(g);continue}for(const it of g.items)if(!gg.items.some(x=>norm(x.l)===norm(it.l)))gg.items.push(it)}inv=G}
   const achats=prosCur.v.eq_achats||"",invOld=JSON.stringify([I0.groupes||[],I0.achats||""]),invNew=JSON.stringify([inv,achats]);
-  if(!n&&invOld===invNew){toast("La fiche est déjà à jour");return}
+  let fdmU=null;{const pv=prosCur.v;if(pv.fdm_ent||pv.fdm_gerant){const me0=L.menageEnt||{},me1={};[...PREST_KEYS,"fdm_debut","fdm_lieu"].forEach(k=>{if(pv[k])me1[k]=pv[k]});if([...PREST_KEYS,"fdm_debut","fdm_lieu"].some(k=>me1[k]&&me1[k]!==(me0[k]||"")))fdmU={...me0,...me1,maj:now,par:who()}}}
+  if(!n&&invOld===invNew&&!fdmU){toast("La fiche est déjà à jour");return}
   const upd={fiche:patch};if(invOld!==invNew){upd.inventaire={groupes:inv,achats,maj:now,par:who()};if(!n)n=1}
+  if(fdmU){upd.menageEnt=fdmU;if(!n)n=1}
   pSyncPacks(prosCur);
   try{await db.doc("logements/"+L.id).update(upd);toast(isNew?"Logement créé · fiche remplie ("+n+" rubriques)":n+" rubrique"+(n>1?"s":"")+" mise"+(n>1?"s":"")+" à jour")}catch(e){toast(failMsg(e))}}
 async function pCreateLog(){const nom=$("#pLNom").value.trim(),sel=$("#pLLieu").value,lieu=canonLieu(sel==="__new"?$("#pLLieuNew").value:sel);if(!nom)return toast("Indiquez le nom du logement");if(!lieu)return toast("Choisissez le secteur");
@@ -2556,7 +2580,7 @@ async function startApp(user){
   $("#auth").hidden=true;$("#auth").innerHTML="";
   if(booted){render();return}booted=true;
   db=sbDb;assets=sbAssets;downloads=sbDownloads;view=TABS[mode][0][0];sbRealtime();
-  const busy=()=>auditForm||editKey||addRub||msgEdit||invEdit||(()=>{const ae=document.activeElement;return !!(ae&&ae.closest&&ae.closest("#sheet")&&(/INPUT|TEXTAREA|SELECT/.test(ae.tagName)||ae.isContentEditable))})();
+  const busy=()=>fdmEdit||auditForm||editKey||addRub||msgEdit||invEdit||(()=>{const ae=document.activeElement;return !!(ae&&ae.closest&&ae.closest("#sheet")&&(/INPUT|TEXTAREA|SELECT/.test(ae.tagName)||ae.isContentEditable))})();
   db.collection("logements").onSnapshot(s=>{logements=s.docs.map(d=>({id:d.id,...d.data()}));render();if(auditOpen){}else if(logOpen&&!busy())renderLogSheet();else if(menOpen&&!degForm)renderMenage()},()=>{});
   db.doc("config/menage").onSnapshot(s=>{const d=s.exists?s.data():{};cfgM={protocole:d.protocole||[],equipe:d.equipe||[]};render()},()=>{});
   db.collection("menages").onSnapshot(s=>{menages=s.docs.map(d=>({id:d.id,...d.data()}));render();if(menOpen&&!degForm)renderMenage();else if(logOpen&&lsTab==="menages"&&!busy())renderLogSheet();else if(openId)renderDetail()},()=>{});
