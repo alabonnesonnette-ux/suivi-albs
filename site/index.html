@@ -1897,7 +1897,10 @@ function fdmBoxBind(l){
     try{await db.doc("logements/"+l.id).update({menageEnt:{...out,maj:nowIso(),par:who()}});await prestSync({v:out},l.nom);toast("Entreprise de ménage enregistrée")}catch(e){toast(failMsg(e))}}}
 function fdmLogP(l){const pr=prospects.find(p=>p.logementId===l.id),pv=pr?pV(pr):{},E=l.menageEnt||{};const adr=((l.fiche||{}).adresse||{}).valeur||"";
   const lg=((l.inventaire||{}).groupes||[]).find(g=>/linge/i.test(g.g));
-  return {logementId:l.id,invLinge:lg?lg.items.filter(x=>!/^Linge fourni par/.test(x.l)):null,invFiles:techFiles(l,"inv"),v:{...pv,...E,log_nom:l.nom,...(pv.log_adr?{}:{log_adr:adr.split("\n")[0],log_cp:"",log_ville:""})}}}
+  const fc=(l.fiche||{}).cles,ct=fc&&!fc.supprime?String(fc.valeur||"").trim():"",ck={};
+  if(ct){const get=re=>{const m=ct.match(re);return m?m[1].trim():""};const voy=get(/(?:^|\n)\s*voyageurs?\s*:\s*([^\n]+)/i),men=get(/(?:^|\n)\s*(?:[ée]quipe de m[ée]nage|m[ée]nage|femme de m[ée]nage)\s*:\s*([^\n]+)/i);
+    if(voy||men){ck.cles_voy_n="";ck.cles_voy=voy;ck.cles_men_n="";ck.cles_men=men}else ck._clesTxt=ct}
+  return {logementId:l.id,invLinge:lg?lg.items.filter(x=>!/^Linge fourni par/.test(x.l)):null,invFiles:techFiles(l,"inv"),v:{...pv,...E,...ck,log_nom:l.nom,...(pv.log_adr?{}:{log_adr:adr.split("\n")[0],log_cp:"",log_ville:""})}}}
 /* images d'un fichier d'inventaire joint (photo ou PDF) pour le contrat */
 let pdfjsP=null;function loadPdfJs(){if(window.pdfjsLib)return Promise.resolve();if(!pdfjsP)pdfjsP=new Promise((res,rej)=>{const sc=document.createElement("script");sc.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";sc.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";res()};sc.onerror=()=>{pdfjsP=null;rej(new Error("pdfjs"))};document.head.appendChild(sc)});return pdfjsP}
 async function fileImages(f){const r=await fetch(blob(f.a));if(!r.ok)throw new Error("fetch");const b=await r.blob();
@@ -1989,7 +1992,8 @@ async function fdmContratPdf(p){const v=pV(p);const fd=x=>x?String(x).slice(0,10
   [["Nom de l'agence de gestion",ALBS_SOC.nom],["Coordonnées de l'agence",ALBS_SOC.mail],["Nom du logement",lg],["Société de nettoyage",ent],["Adresse du logement",ladr||"…………………………"]].forEach(([k,x])=>para(k+" : "+x,{after:1.2}));
   y+=3;title("Remise des clés initiales");
   if(v.cles_voy_n||v.cles_voy){para("Pour le voyageur : "+[v.cles_voy_n?v.cles_voy_n+" clé(s)":"",v.cles_voy].filter(Boolean).join(" — "));para("Ces clés doivent être remises dans la boîte à clés après chaque séjour et une photo doit être envoyée à la conciergerie pour montrer les clés dans la boîte à la fin de la prestation de ménage.",{c:MUT})}
-  para("Pour le service de ménage : "+([v.cles_men_n?v.cles_men_n+" clé(s)":"",v.cles_men].filter(Boolean).join(" — ")||"………………………………………………"));
+  if(v._clesTxt)v._clesTxt.split("\n").filter(x=>x.trim()).forEach(x=>para(x,{after:1.2}));
+  else para("Pour le service de ménage : "+([v.cles_men_n?v.cles_men_n+" clé(s)":"",v.cles_men].filter(Boolean).join(" — ")||"………………………………………………"));
   y+=3;para("Je soussignée "+ALBS_SOC.gerante+", atteste avoir transmis ces clés au service de ménage pour le logement situé "+(ladr||"…………………………")+".");
   sig("Signature conciergerie","Signature de la société de ménage : "+ent);
   if(IF.length){toast("Ajout de l'inventaire joint…");let nOk=0;
