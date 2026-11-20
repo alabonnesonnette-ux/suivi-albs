@@ -294,6 +294,7 @@ textarea{min-height:76px;resize:vertical}
 .lb img{max-width:100%;max-height:100%;border-radius:8px}
 .rub{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-top:1px solid var(--line)}
 .msgr{color:#D32F2F;font-weight:600}
+.msgg{color:#8a8a8a;font-style:italic;background:rgba(0,0,0,.05);border-radius:3px}.msgg .msgr{color:#c98a8a}
 .msgv{white-space:normal;line-height:1.5;font-size:14px}
 .msged{min-height:200px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);line-height:1.5;font-size:14px;outline:none}.msged:focus{border-color:var(--brand)}
 .msgbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
@@ -1766,34 +1767,35 @@ Si vous avez eu des problèmes pendant votre séjour, veuillez nous le faire sav
 Cela nous aide à grandir en tant qu’hôtes. Merci pour votre séjour, je vous souhaite de bien profiter de vos derniers moments !
 Pouvez-vous m'envoyer un message lorsque vous aurez quitté les lieux ?`}];
 let msgEdit=null;
-const msgPlain=x=>String(x||"").replace(/\[\/?r\]/g,"");
-const msgHtml=x=>esc(String(x||"")).replace(/\[r\]([\s\S]*?)\[\/r\]/g,'<span class="msgr">$1</span>').replace(/\n/g,"<br>");
+const msgPlain=(x,sansGris)=>{let t=String(x||"");if(sansGris)t=t.replace(/\[g\][\s\S]*?\[\/g\]/g,"").replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").replace(/^\s+|\s+$/g,"");return t.replace(/\[\/?[rg]\]/g,"")};
+const msgHtml=x=>esc(String(x||"")).replace(/\[g\]([\s\S]*?)\[\/g\]/g,'<span class="msgg">$1</span>').replace(/\[r\]([\s\S]*?)\[\/r\]/g,'<span class="msgr">$1</span>').replace(/\n/g,"<br>");
 /* contenu éditable -> texte avec [r]…[/r] */
 function msgSerialize(el){let out="";const red=n=>{const c=(n.style&&n.style.color||"")+" "+(n.getAttribute&&n.getAttribute("color")||"");return (n.classList&&n.classList.contains("msgr"))||/rgb\(\s*2\d\d,\s*\d{1,2},\s*\d{1,2}\s*\)|red|#e53935|#d32f2f|#f00/i.test(c)};
-  const walk=(n,inRed)=>{for(const c of n.childNodes){if(c.nodeType===3){out+=inRed?"[r]"+c.nodeValue+"[/r]":c.nodeValue;continue}if(c.nodeType!==1)continue;const tag=c.tagName;
-    if(tag==="BR"){out+="\n";continue}const blk=/^(DIV|P)$/.test(tag);if(blk&&out&&!out.endsWith("\n"))out+="\n";walk(c,inRed||red(c));if(blk&&!out.endsWith("\n"))out+="\n"}};
-  walk(el,false);return out.replace(/\[\/r\]\[r\]/g,"").replace(/ /g," ").replace(/\n+$/,"")}
+  const walk=(n,inRed,inG)=>{for(const c of n.childNodes){if(c.nodeType===3){let t=c.nodeValue;if(inRed)t="[r]"+t+"[/r]";if(inG)t="[g]"+t+"[/g]";out+=t;continue}if(c.nodeType!==1)continue;const tag=c.tagName;
+    if(tag==="BR"){out+="\n";continue}const blk=/^(DIV|P)$/.test(tag);if(blk&&out&&!out.endsWith("\n"))out+="\n";walk(c,inRed||red(c),inG||(c.classList&&c.classList.contains("msgg")));if(blk&&!out.endsWith("\n"))out+="\n"}};
+  walk(el,false,false);return out.replace(/\[\/g\]\[g\]/g,"").replace(/\[\/r\]\[r\]/g,"").replace(/\[g\](\s*)\[\/g\]/g,"$1").replace(/\[r\](\s*)\[\/r\]/g,"$1").replace(/ /g," ").replace(/\n+$/,"")}
 function renderMsgs(l,head,s,sy){const M=(l.messages&&Array.isArray(l.messages.list))?l.messages.list:null;
   if(!M){s.innerHTML=head+`<div class="empty">Aucun message automatique noté pour ce logement.</div><div class="inline" style="margin-top:10px"><button class="btn pri" type="button" id="msgInit">Partir des modèles ALBS</button></div><div class="hint" style="margin-top:8px">Les 4 messages (1er message, contact Franck, veille d'arrivée, départ) seront ajoutés. Ce qui est en <span class="msgr">rouge</span> est à adapter au logement.</div></div>`;s.scrollTop=sy;
     $("#msgInit").onclick=async()=>{try{await db.doc("logements/"+l.id).update({messages:{list:MSG_MODELS.map((m,i)=>({id:"m"+(i+1),t:m.t,x:m.x})),maj:nowIso(),par:who()}});toast("Modèles ajoutés : adaptez ce qui est en rouge")}catch(e){toast(failMsg(e))}};return}
-  s.innerHTML=head+`<div class="hint" style="margin-bottom:8px">Ce qui est en <span class="msgr">rouge</span> est propre au logement. « Copier » copie le texte prêt à coller sur Airbnb / Booking.</div>
+  s.innerHTML=head+`<div class="hint" style="margin-bottom:8px">Ce qui est en <span class="msgr">rouge</span> est propre au logement.${M.some(m=>/\[g\]/.test(m.x||""))?` Ce qui est en <span class="msgg">gris</span> est déjà dans le logiciel de messages : pas besoin de le copier.<br>« Copier » copie seulement ce qu'il faut coller dans le logiciel · « Copier tout » copie le message complet (pour un envoi à la main).`:` « Copier » copie le texte prêt à coller sur Airbnb / Booking.`}</div>
   ${M.map((m,i)=>msgEdit===m.id?`<div class="box"><input type="text" id="msgT" value="${esc(m.t)}" aria-label="Titre du message" style="font-weight:700;margin-bottom:8px">
-      <div class="msgbar"><button type="button" class="btn" id="msgRed">🔴 Mettre en rouge</button><button type="button" class="btn" id="msgBlack">⚫ Remettre en noir</button></div>
+      <div class="msgbar"><button type="button" class="btn" id="msgRed">🔴 Mettre en rouge</button><button type="button" class="btn" id="msgGrey">⚪ Déjà dans le logiciel (gris)</button><button type="button" class="btn" id="msgBlack">⚫ Remettre en noir</button></div>
       <div id="msgEd" class="msged" contenteditable="true" spellcheck="true">${msgHtml(m.x)}</div>
       <div class="inline" style="margin-top:8px"><button class="btn pri" type="button" id="msgSave">Enregistrer</button><button class="btn ghost" type="button" id="msgCancel">Annuler</button><button type="button" class="lnk" id="msgDel" style="color:var(--bad);margin-left:auto">Supprimer ce message</button></div></div>`
-    :`<div class="box"><div class="boxhead"><h3>✉️ ${esc(m.t)}</h3><span><button class="lnk" type="button" data-msgcopy="${i}">Copier</button> · <button class="lnk" type="button" data-msgedit="${esc(m.id)}">Modifier</button></span></div><div class="msgv">${msgHtml(m.x)}</div></div>`).join("")}
+    :`<div class="box"><div class="boxhead"><h3>✉️ ${esc(m.t)}</h3><span><button class="lnk" type="button" data-msgcopy="${i}">Copier</button> · ${/\[g\]/.test(m.x||"")?`<button class="lnk" type="button" data-msgcopy="${i}" data-tout="1">Copier tout</button> · `:""}<button class="lnk" type="button" data-msgedit="${esc(m.id)}">Modifier</button></span></div><div class="msgv">${msgHtml(m.x)}</div></div>`).join("")}
   <div class="inline" style="margin-top:8px"><button class="btn" type="button" id="msgAdd">+ Ajouter un message</button></div>
   ${l.messages.maj?`<div class="hint" style="margin-top:6px">Mis à jour le ${fmtAt(l.messages.maj)}${l.messages.par?" · "+esc(l.messages.par):""}</div>`:""}</div>`;s.scrollTop=sy;
   const save=async(list,msg)=>{try{await db.doc("logements/"+l.id).update({messages:{list,maj:nowIso(),par:who()}});toast(msg)}catch(e){toast(failMsg(e))}};
-  s.querySelectorAll("[data-msgcopy]").forEach(b=>b.onclick=async()=>{const t=msgPlain(M[+b.dataset.msgcopy].x);try{await navigator.clipboard.writeText(t);toast("Message copié")}catch(e){const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("Message copié")}catch(_){toast("La copie n'a pas marché")}ta.remove()}});
+  s.querySelectorAll("[data-msgcopy]").forEach(b=>b.onclick=async()=>{const t=msgPlain(M[+b.dataset.msgcopy].x,!b.dataset.tout);try{await navigator.clipboard.writeText(t);toast("Message copié")}catch(e){const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast("Message copié")}catch(_){toast("La copie n'a pas marché")}ta.remove()}});
   s.querySelectorAll("[data-msgedit]").forEach(b=>b.onclick=()=>{msgEdit=b.dataset.msgedit;renderLogSheet();$("#msgEd")?.focus()});
   $("#msgAdd").onclick=async()=>{const id="m"+Date.now().toString(36);msgEdit=id;await save([...M,{id,t:"Nouveau message",x:""}],"Message ajouté");setTimeout(renderLogSheet,400)};
-  if($("#msgEd")){const ed=$("#msgEd");const wrapSel=red=>{const sel=window.getSelection();if(!sel.rangeCount||sel.isCollapsed)return toast("Sélectionnez d'abord le texte");const r=sel.getRangeAt(0);if(!ed.contains(r.commonAncestorContainer))return;
-      const frag=r.extractContents();frag.querySelectorAll&&frag.querySelectorAll(".msgr").forEach(x=>x.replaceWith(...x.childNodes));let node=frag;if(red){const sp=document.createElement("span");sp.className="msgr";sp.appendChild(frag);node=sp}
-      else{let p=r.startContainer.nodeType===1?r.startContainer:r.startContainer.parentElement;const outer=p&&p.closest(".msgr");if(outer&&ed.contains(outer)){r.setStartAfter(outer);r.collapse(true)}}
+  if($("#msgEd")){const ed=$("#msgEd");const wrapSel=mode=>{const sel=window.getSelection();if(!sel.rangeCount||sel.isCollapsed)return toast("Sélectionnez d'abord le texte");const r=sel.getRangeAt(0);if(!ed.contains(r.commonAncestorContainer))return;
+      const cls=mode==="r"?".msgr":mode==="g"?".msgg":".msgr,.msgg";const frag=r.extractContents();frag.querySelectorAll&&frag.querySelectorAll(cls).forEach(x=>x.replaceWith(...x.childNodes));let node=frag;
+      if(mode!=="n"){const sp=document.createElement("span");sp.className=mode==="r"?"msgr":"msgg";sp.appendChild(frag);node=sp}
+      else{let p=r.startContainer.nodeType===1?r.startContainer:r.startContainer.parentElement;let outer;while(p&&(outer=p.closest(".msgr,.msgg"))&&ed.contains(outer)){r.setStartAfter(outer);r.collapse(true);p=outer.parentElement}}
       r.insertNode(node);sel.removeAllRanges()};
-    $("#msgRed").onmousedown=e=>e.preventDefault();$("#msgBlack").onmousedown=e=>e.preventDefault();
-    $("#msgRed").onclick=()=>wrapSel(true);$("#msgBlack").onclick=()=>wrapSel(false);
+    ["#msgRed","#msgGrey","#msgBlack"].forEach(k=>$(k).onmousedown=e=>e.preventDefault());
+    $("#msgRed").onclick=()=>wrapSel("r");$("#msgGrey").onclick=()=>wrapSel("g");$("#msgBlack").onclick=()=>wrapSel("n");
     ed.addEventListener("paste",e=>{e.preventDefault();const t=(e.clipboardData||window.clipboardData).getData("text/plain");document.execCommand("insertText",false,t)});
     $("#msgCancel").onclick=()=>{msgEdit=null;renderLogSheet()};
     $("#msgSave").onclick=async()=>{const x=msgSerialize(ed),t=$("#msgT").value.trim()||"Message";msgEdit=null;await save(M.map(m=>m.id===msgEditId?{...m,t,x}:m),"Message enregistré")};
@@ -2502,10 +2504,10 @@ async function openAccount(){(function w(n){if($("#pushZone")&&$("#pushZone").te
       if(j.type==="fiches"){let nl=0,nr=0,sk=0,nm=0;const miss=[];
         for(const [key,F] of Object.entries(j.fiches||{})){const L=logements.find(l=>l.id===key)||logements.find(l=>norm(l.nom)===norm(F._nom||""));if(!L){miss.push(F._nom||key);continue}
           const upd={};let entU=null,msgU=null;if(F._entree&&!((L.entree||{}).texte||"").trim()){entU={texte:F._entree,maj:nowIso(),par:j.par||"Import"};nr++}
-          if(Array.isArray(F._messages)&&F._messages.length&&!(((L.messages||{}).list)||[]).length){msgU={list:F._messages.map((m,i)=>({id:"m"+(i+1),t:m.t,x:m.x})),maj:nowIso(),par:j.par||"Import"};nm++}
+          if(Array.isArray(F._messages)&&F._messages.length&&(!(((L.messages||{}).list)||[]).length||(j.remplaceMessagesImport&&String((L.messages||{}).par||"").startsWith("Import")))){msgU={list:F._messages.map((m,i)=>({id:"m"+(i+1),t:m.t,x:m.x})),maj:nowIso(),par:j.par||"Import"};nm++}
           for(const [k,r] of Object.entries(F)){if(k[0]==="_")continue;const ex=(L.fiche||{})[k];const exImp=ex&&String(ex.par||"").startsWith("Import");if(ex&&!ex.supprime&&(ex.valeur||"").trim()&&!(j.remplaceImport&&exImp)){sk++;continue}if(ex&&(ex.valeur||"")===r.valeur){continue}upd[k]={label:r.label,valeur:r.valeur,menage:r.menage!==false,modifLe:nowIso(),par:j.par||"Import Drive",...(ex&&ex.valeur&&exImp?{hist:{["h"+Date.now().toString(36)+k]:{valeur:ex.valeur,le:nowIso()}}}:{}),...(FICHE_TPL.some(t=>t[0]===k)?{}:{ordre:r.ordre||Date.now()})};nr++}
           if(Object.keys(upd).length||entU||msgU){msg.textContent="Remplissage de « "+L.nom+" »…";await db.doc("logements/"+L.id).update({fiche:upd,...(entU?{entree:entU}:{}),...(msgU?{messages:msgU}:{})});nl++}}
-        msg.textContent="✓ "+nr+" informations ajoutées dans "+nl+" logements"+(nm?" (dont "+nm+" avec leurs messages auto)":"")+"."+(sk?" "+sk+" rubriques remplies par l'équipe ont été laissées telles quelles.":"")+(miss.length?" Logements introuvables : "+miss.join(", ")+".":"");toast("Fiches remplies");return}
+        msg.textContent="✓ "+(nr?nr+" informations ajoutées dans "+nl+" logements"+(nm?" (dont "+nm+" avec leurs messages auto)":""):nm+" logements ont reçu leurs messages auto")+"."+(sk?" "+sk+" rubriques remplies par l'équipe ont été laissées telles quelles.":"")+(miss.length?" Logements introuvables : "+miss.join(", ")+".":"");toast("Fiches remplies");return}
       const rows=[];for(const [c,docs] of Object.entries(j.docs||{}))for(const [id,data] of Object.entries(docs))rows.push({coll:c,id,data});
       if(!rows.length){msg.textContent="Le fichier ne contient aucune donnée.";return}
       msg.textContent="Import de "+rows.length+" éléments…";
