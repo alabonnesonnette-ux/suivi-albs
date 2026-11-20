@@ -1503,11 +1503,13 @@ function renderAudit(){
       <button class="kbtn mnt" type="button" data-apdf="mnt" aria-pressed="true">📄 Partie maintenance</button>
       <button class="btn" type="button" data-apdf="proprio">📄 Pour le propriétaire</button></div>
       <span class="hint">« Pour le propriétaire » : première version simple (bilan, points à corriger avec photos, remarque générale), à retravailler.</span></div>`:""}
+    <button class="btn" type="button" id="aInfo">🔔 ${a.info&&a.info.at?"Informer à nouveau":"Informer Marion"}</button>
     <button class="btn" type="button" id="aCopy">Copier le résumé</button>
     ${["mnt","men"].some(K=>kItemsG(a,K).length||kDoc(a,K))?`<button class="btn" type="button" id="aSync">${["mnt","men"].some(K=>kDoc(a,K))?"Mettre à jour les suivis":"Créer les suivis maintenant"}</button>`:""}
     ${["mnt","men"].filter(K=>kDoc(a,K)).map(K=>`<button class="kbtn ${K}" type="button" data-open="${esc(a[KINDS[K].idKey])}">Voir le suivi ${KINDS[K].cat.toLowerCase()} (${kItems(a,K).length}) →</button>`).join("")}
     ${kItems(a,"men").length?`<button class="kbtn men" type="button" id="aMenCopy">Copier le récap pour l'équipe ménage</button>`:""}
     <button class="btn ghost" type="button" id="aDelAsk" style="color:var(--crit)">Supprimer cet audit</button></div>
+    <div id="aInfoZone">${a.info&&a.info.at?`<div class="hint" style="margin-top:6px">✓ ${esc(a.info.pour)} a été informée le ${fmtAt(a.info.at)}${a.info.par?" par "+esc(a.info.par):""}${a.info.dossierId&&dossiers.some(d=>d.id===a.info.dossierId)?` · <button class="lnk" type="button" data-open="${esc(a.info.dossierId)}">voir la tâche</button>`:""}</div>`:""}</div>
     <div id="aCopyZone"></div>
     <span class="hint">Pour chaque point : <b style="color:var(--ok)">✓</b> conforme, <b style="color:var(--crit)">✗</b> problème, « Autre » pour écrire une remarque quand ce n'est ni conforme ni un problème. Un ✗ ne crée un dossier que si vous choisissez 🔧 Maintenance ou 🧽 Ménage (le ménage arrive dans la rubrique Ménage du logement, « Contrôle qualité suite à l'audit »). Repasser le point en ✓ clôt ce dossier.</span></div>
   </div>`;
@@ -1531,6 +1533,20 @@ function renderAudit(){
   s.querySelectorAll("[data-adelit]").forEach(b=>b.onclick=async()=>{const [k,mode]=b.dataset.adelit.split("|");const it=audItems(a).find(x=>x.k===k);delAsk=null;
     const G=JSON.parse(JSON.stringify(a.grille)).map(g=>({...g,items:g.items.filter(x=>x.k!==k)}));await audUpd(a,{grille:G},"Point retiré de cet audit");if(ptHas(a,k))syncPoint(a,k,{controle:false,rep:null});
     if(mode==="tous"&&it){const GG=cloneG().map(g=>({...g,items:g.items.filter(x=>x.k!==k&&norm(x.label)!==norm(it.label))}));await saveGrille(GG,"Point retiré de cet audit et des prochains")}});
+  if($("#aInfo"))$("#aInfo").onclick=()=>{const z=$("#aInfoZone");z.innerHTML=`<div class="box" style="border-color:var(--gold);margin-top:8px"><h3>🔔 Informer pour finaliser l'audit</h3>
+      <div class="field"><label for="aInfoPour">Qui prévenir</label><select id="aInfoPour">${P_TEAM.filter(n=>norm(n)!==norm(me.prenom||"")).map(n=>`<option ${n==="Marion"?"selected":""}>${n}</option>`).join("")}</select></div>
+      <div class="field"><label for="aInfoMsg">Message (facultatif)</label><textarea id="aInfoMsg" rows="3" placeholder="Ex. : le propriétaire attend le compte rendu avant vendredi, insister sur la douche…"></textarea>${micBtn("aInfoMsg")}</div>
+      <div class="hint">Une tâche « Finaliser l'audit avec le propriétaire » est créée pour elle dans le suivi du logement, avec une notification sur son téléphone (dans le quart d'heure). Elle reste dans ses tâches jusqu'à ce qu'elle la clôture.</div>
+      <div class="inline" style="margin-top:8px"><button class="btn pri" type="button" id="aInfoGo">Envoyer</button><button class="btn ghost" type="button" id="aInfoNo">Annuler</button></div></div>`;
+    $("#aInfoNo").onclick=()=>renderAudit();
+    $("#aInfoGo").onclick=async()=>{const pour=$("#aInfoPour").value,msg=$("#aInfoMsg").value.trim(),now=new Date(),now2=nowIso();$("#aInfoGo").disabled=true;
+      const hh=String(now.getHours()).padStart(2,"0")+":"+String(Math.floor(now.getMinutes()/15)*15).padStart(2,"0");const S=audSynth(a);
+      const res=[S&&S.mnt&&S.mnt.length?S.mnt.length+" point(s) maintenance":"",S&&S.men&&S.men.length?S.men.length+" point(s) ménage":"",S&&S.imp&&S.imp.length?S.imp.length+" point(s) important(s) pour le propriétaire":""].filter(Boolean).join(" · ");
+      const desc=["Audit du "+String(a.date).split("-").reverse().join("/")+" fait par "+(me.prenom||who())+" : à finaliser et présenter au propriétaire.",res?"À retenir : "+res+".":"",a.remarque?"Remarque générale : "+a.remarque:"",msg?"Message de "+(me.prenom||who())+" : "+msg:"","L'audit complet et ses PDF sont dans l'onglet Audits du logement."].filter(Boolean).join("\n");
+      try{const ref=db.collection("dossiers").doc();await ref.set({type:"suivi",origine:"Audit",categorie:"Autre",titre:"Finaliser l'audit avec le propriétaire",desc,logement:a.logement,dateIncident:today(),mois:today().slice(0,7),urgent:false,statut:"ouvert",auditId:a.id,
+          etapes:{signale:{done:true,at:now2}},taches:{},notes:{n0:{texte:"Tâche créée depuis l'audit pour "+pour+".",at:now2,par:who()}},creeLe:now2,updatedAt:now2,par:who(),
+          rappel:{actif:true,pour,debut:today(),heure:hh,freq:"once"}});
+        await audUpd(a,{info:{pour,at:now2,par:me.prenom||who(),dossierId:ref.id}},pour+" sera prévenue sur son téléphone")}catch(e){$("#aInfoGo").disabled=false;toast(failMsg(e))}}};
   if($("#aEnd"))$("#aEnd").onclick=()=>{const rest=st.tot-st.c;$("#aEndZone").innerHTML=`<div class="confirm">${rest?rest+" point"+(rest>1?"s":"")+" non contrôlé"+(rest>1?"s":"")+". ":""}Terminer l'audit ?<button class="btn pri" type="button" id="aEndYes">Oui, terminer</button><button class="btn ghost" type="button" id="aEndNo">Annuler</button></div>`;
     $("#aEndYes").onclick=async()=>{await audUpd(a,{statut:"termine",finLe:nowIso()},"Audit terminé");if(kItemsG(a,"mnt").length||kItemsG(a,"men").length){try{await syncAll(a)}catch(e){toast(failMsg(e))}}};$("#aEndNo").onclick=renderAudit};
   if($("#aReopen"))$("#aReopen").onclick=()=>audUpd(a,{statut:"en_cours",finLe:null},"Audit rouvert");
