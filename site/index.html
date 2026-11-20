@@ -1273,7 +1273,13 @@ function proprioHtml(l,team,row){
     ${nom||lines.length||avoir.length?`<span class="hint">Repris du dossier prospect.</span>`:""}
     ${row&&(!p||(row.val&&!(v.prop_nom&&row.val.includes(v.prop_nom))))?rubRow(row,team):""}</div>`}
 let invEdit=null;
-function invHtml(l,team){const I=l.inventaire||{},G=I.groupes||[];if(!G.length&&!invEdit)return"";
+function invFilesHtml(l,team){const fs=techFiles(l,"inv"),im=fs.filter(x=>!/pdf/.test(x.type||"")),pd=fs.filter(x=>/pdf/.test(x.type||""));if(!team&&!fs.length)return"";
+  return `<div class="invg">📎 Inventaire en fichier (PDF ou photos)</div>
+  ${im.length?`<div class="thumbs">${im.map(x=>`<span class="th"><button class="im" type="button" data-thumb="${esc(x.a)}" aria-label="Agrandir"><img src="${blob(x.a)}" alt="${esc(x.name||"Inventaire")}" loading="lazy"></button>${team?`<button class="x" type="button" data-techdel="inv|${esc(x.id)}" aria-label="Retirer la photo">✕</button>`:""}</span>`).join("")}</div>`:""}
+  ${pd.length?`<div class="pdfs">${pd.map(x=>`<div class="pdfl"><span class="ic">PDF</span><a href="${blob(x.a)}" target="_blank" rel="noopener">${esc(x.name||"Inventaire PDF")}</a>${team?`<button class="x" type="button" data-techdel="inv|${esc(x.id)}" aria-label="Retirer ${esc(x.name||"le document")}">✕</button>`:""}</div>`).join("")}</div>`:""}
+  ${team?`<div class="chips" style="margin-top:6px">${techUp.inv?`<span class="hint">Envoi en cours…</span>`:`<label class="btn photo-btn" style="font-size:13px;padding:5px 12px">📎 Ajouter un fichier (PDF ou photo)<input type="file" hidden multiple accept="image/*,application/pdf" data-techup="inv"></label>`}</div>
+  <div class="hint" style="margin-top:4px">Ce fichier est ajouté automatiquement à la fin du contrat de ménage du logement.</div>`:""}`}
+function invHtml(l,team){const I=l.inventaire||{},G=I.groupes||[];if(!G.length&&!invEdit)return team||techFiles(l,"inv").length?`<div class="box"><div class="rub-h"><h3 style="margin:0">Équipements et inventaire</h3>${team?`<button class="lnk" type="button" id="ivEdit">Créer l'inventaire</button>`:""}</div>${invFilesHtml(l,team)}</div>`:"";
   if(invEdit&&invEdit.id===l.id){const D=invEdit.G;
     return `<div class="box" data-nomic><h3>Équipements et inventaire · modification</h3><div class="hint">Modifiez tout ce que vous voulez puis enregistrez.</div>
     ${D.map((g,gi)=>`<div class="invg"><input type="text" data-ivg="${gi}" value="${esc(g.g)}" aria-label="Nom de la rubrique" style="font-weight:700"></div>
@@ -1286,6 +1292,7 @@ function invHtml(l,team){const I=l.inventaire||{},G=I.groupes||[];if(!G.length&&
   ${I.maj||I.modifLe?`<div class="hint">${I.modifLe?"Modifié le "+fmtAt(I.modifLe):"Repris de la fiche prospect le "+fmtAt(I.maj)}${I.par?" · "+esc(I.par):""}</div>`:""}
   ${G.map(g=>`<div class="invg">${g.ico||"📦"} ${esc(g.g)}</div><div class="inv">${g.items.map(x=>`<div class="invc${x.buy?" buy":""}"><span class="ic" aria-hidden="true">${x.ico||"•"}</span><span>${esc(x.l)}${x.opt?`<br><small>${esc(x.opt)}</small>`:""}${x.note?`<br><small>📝 ${esc(x.note)}</small>`:""}${x.buy?`<br><small>🛒 à acheter</small>`:""}</span><b>${x.n?"×"+x.n:x.buy?"":"✓"}</b></div>`).join("")}</div>`).join("")}
   ${I.achats?`<div class="invg">🛒 Achats à prévoir</div><div style="white-space:pre-wrap">${esc(I.achats)}</div>`:""}
+  ${invFilesHtml(l,team)}
   <div class="inline" style="margin-top:12px"><button class="btn" type="button" id="ivPdf">⬇ Inventaire (PDF)</button></div></div>`}
 function bindInv(l){const s=$("#sheet");
   if($("#ivEdit"))$("#ivEdit").onclick=()=>{const I=l.inventaire||{};invEdit={id:l.id,G:JSON.parse(JSON.stringify(I.groupes||[])),achats:I.achats||""};renderLogSheet()};
@@ -1870,7 +1877,15 @@ function fdmBoxBind(l){
   $("#fdmLSave").onclick=async()=>{const D=fdmEdit;if(!D.fdm_ent&&!D.fdm_gerant)return toast("Indiquez au moins le nom de l'entreprise ou de la personne");const out={};[...PREST_KEYS,"fdm_debut","fdm_lieu"].forEach(k=>{out[k]=(D[k]||"").trim()});fdmEdit=null;
     try{await db.doc("logements/"+l.id).update({menageEnt:{...out,maj:nowIso(),par:who()}});await prestSync({v:out},l.nom);toast("Entreprise de ménage enregistrée")}catch(e){toast(failMsg(e))}}}
 function fdmLogP(l){const pr=prospects.find(p=>p.logementId===l.id),pv=pr?pV(pr):{},E=l.menageEnt||{};const adr=((l.fiche||{}).adresse||{}).valeur||"";
-  return {logementId:l.id,v:{...pv,...E,log_nom:l.nom,...(pv.log_adr?{}:{log_adr:adr.split("\n")[0],log_cp:"",log_ville:""})}}}
+  const lg=((l.inventaire||{}).groupes||[]).find(g=>/linge/i.test(g.g));
+  return {logementId:l.id,invLinge:lg?lg.items.filter(x=>!/^Linge fourni par/.test(x.l)):null,invFiles:techFiles(l,"inv"),v:{...pv,...E,log_nom:l.nom,...(pv.log_adr?{}:{log_adr:adr.split("\n")[0],log_cp:"",log_ville:""})}}}
+/* images d'un fichier d'inventaire joint (photo ou PDF) pour le contrat */
+let pdfjsP=null;function loadPdfJs(){if(window.pdfjsLib)return Promise.resolve();if(!pdfjsP)pdfjsP=new Promise((res,rej)=>{const sc=document.createElement("script");sc.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";sc.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";res()};sc.onerror=()=>{pdfjsP=null;rej(new Error("pdfjs"))};document.head.appendChild(sc)});return pdfjsP}
+async function fileImages(f){const r=await fetch(blob(f.a));if(!r.ok)throw new Error("fetch");const b=await r.blob();
+  if(/pdf/.test(f.type||b.type)){await loadPdfJs();const pdf=await window.pdfjsLib.getDocument({data:new Uint8Array(await b.arrayBuffer())}).promise;const out=[];
+    for(let i=1;i<=Math.min(pdf.numPages,20);i++){const pg=await pdf.getPage(i),vp=pg.getViewport({scale:1.6}),c=document.createElement("canvas");c.width=vp.width;c.height=vp.height;const cx=c.getContext("2d");cx.fillStyle="#fff";cx.fillRect(0,0,c.width,c.height);await pg.render({canvasContext:cx,viewport:vp}).promise;out.push({d:c.toDataURL("image/jpeg",.85),w:c.width,h:c.height})}return out}
+  const d=await new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.readAsDataURL(b)});const im=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=d});
+  const c=document.createElement("canvas");c.width=im.naturalWidth;c.height=im.naturalHeight;const cx=c.getContext("2d");cx.fillStyle="#fff";cx.fillRect(0,0,c.width,c.height);cx.drawImage(im,0,0);return [{d:c.toDataURL("image/jpeg",.85),w:c.width,h:c.height}]}
 /* ---- contrat de prestation de ménage (un par logement) ---- */
 const ALBS_SOC={nom:"A LA BONNE SONNETTE",capital:"1 000 €",siege:"20, rue du 8 février, 68740 BLODELSHEIM",rep:"Mme Marion SION, Présidente",siret:"91332925600014",adr:"4 rue Poincaré",cpv:"68100 MULHOUSE",mail:"alabonnesonnette@gmail.com",gerante:"Manon HEYDORFF, gérante de la société A LA BONNE SONNETTE"};
 async function fdmContratPdf(p){const v=pV(p);const fd=x=>x?String(x).slice(0,10).split("-").reverse().join("/"):"…………………";toast("Préparation du contrat…");try{await loadJsPdf()}catch(e){return toast("Le PDF n'a pas pu se préparer : vérifiez la connexion")}
@@ -1941,12 +1956,13 @@ async function fdmContratPdf(p){const v=pV(p);const fd=x=>x?String(x).slice(0,10
   para("Logement : "+lg,{b:1,after:1});para("Adresse : "+(ladr||"…………………………"),{after:1});
   const cap=[v.cap_voy?v.cap_voy+" voyageurs max":"",v.cap_ch?v.cap_ch+" chambre(s)":""].filter(Boolean).join(" · ");if(cap)para(cap,{c:MUT,after:1});
   if(v.men_proto)para("Consignes ménage particulières : "+v.men_proto,{after:1});
-  y+=4;const gl=(pInventaire(v).find(g=>g.g==="Linge")||{items:[]}).items.filter(x=>!/^Linge fourni par/.test(x.l));
+  y+=4;const gl=(p.invLinge&&p.invLinge.length?p.invLinge:(pInventaire(v).find(g=>g.g==="Linge")||{items:[]}).items).filter(x=>!/^Linge fourni par/.test(x.l));const IF=p.invFiles||[];
   title("Inventaire linge"+(v.linge?" (linge fourni par : "+v.linge+")":""));
   if(gl.length){doc.setFillColor(...DARK);doc.rect(M,y,CW,8,"F");doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(9.5);doc.text(pdfTxt("DÉSIGNATION"),M+4,y+5.4);doc.text(pdfTxt("QUANTITÉ"),W-M-4,y+5.4,{align:"right"});y+=8;
     gl.forEach((x,i)=>{need(8);doc.setFillColor(...(i%2?[250,247,240]:[255,255,255]));doc.setDrawColor(221,211,188);doc.rect(M,y,CW,8,"FD");doc.setTextColor(...DARK);doc.setFont("helvetica","normal");doc.setFontSize(10);doc.text(pdfTxt(x.l+(x.note?" — "+x.note:"")).slice(0,95),M+4,y+5.4);doc.text(x.n?String(x.n):"",W-M-4,y+5.4,{align:"right"});y+=8});y+=4}
-  else para(v.linge==="Blanchisserie"?"Le linge est fourni par la blanchisserie.":"Inventaire à compléter :",{c:MUT});
-  if(!gl.length&&v.linge!=="Blanchisserie"){for(let i=0;i<8;i++){need(8);doc.setDrawColor(221,211,188);doc.rect(M,y,CW,8,"S");y+=8}y+=4}
+  else if(!IF.length)para(v.linge==="Blanchisserie"?"Le linge est fourni par la blanchisserie.":"Inventaire à compléter :",{c:MUT});
+  if(!gl.length&&IF.length)para("Voir l'inventaire joint à la fin du contrat.",{c:MUT});
+  if(!gl.length&&!IF.length&&v.linge!=="Blanchisserie"){for(let i=0;i<8;i++){need(8);doc.setDrawColor(221,211,188);doc.rect(M,y,CW,8,"S");y+=8}y+=4}
   if(v.linge_note)para("Précisions : "+v.linge_note,{c:MUT});
   sig("Signature conciergerie","Signature service de ménage : "+ent);
   // --- fiche de remise des clés au service de ménage
@@ -1957,6 +1973,11 @@ async function fdmContratPdf(p){const v=pV(p);const fd=x=>x?String(x).slice(0,10
   para("Pour le service de ménage : "+([v.cles_men_n?v.cles_men_n+" clé(s)":"",v.cles_men].filter(Boolean).join(" — ")||"………………………………………………"));
   y+=3;para("Je soussignée "+ALBS_SOC.gerante+", atteste avoir transmis ces clés au service de ménage pour le logement situé "+(ladr||"…………………………")+".");
   sig("Signature conciergerie","Signature de la société de ménage : "+ent);
+  if(IF.length){toast("Ajout de l'inventaire joint…");let nOk=0;
+    for(const f of IF){let ims=[];try{ims=await fileImages(f)}catch(e){continue}
+      for(const im of ims){newPage();doc.setFont("helvetica","bold");doc.setFontSize(11);doc.setTextColor(...GOLD);doc.text(pdfTxt("Inventaire joint"+(f.name&&!/^IMG|^image/i.test(f.name)?" · "+f.name:"")).slice(0,80),M,16);
+        const mw=CW,mh=H-22-24;let w=mw,h=im.h*w/im.w;if(h>mh){h=mh;w=im.w*h/im.h}doc.addImage(im.d,"JPEG",M+(mw-w)/2,22,w,h);nOk++}}
+    if(!nOk)toast("L'inventaire joint n'a pas pu être ajouté au contrat")}
   foot();
   await pdfDeliver(doc.output("blob"),"Contrat menage "+(ent+" "+lg).replace(/œ/g,"oe").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9 '._-]/g,"").trim()+".pdf")}
 /* facturation : une ligne automatique au mois suivant pour chaque pack coché */
