@@ -2194,6 +2194,14 @@ async function pdfDeliver(blob,name){const file=new File([blob],name,{type:"appl
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000)}
 const entOf=l=>l.entree||{};
 const entEmpty=e=>!(e.texte||"").trim()&&!(Array.isArray(e.photos)&&e.photos.length)&&!(Array.isArray(e.ph)&&e.ph.length);
+/* infos clés de l'entrée (code boîte à clés, Wi-Fi) et report automatique dans les messages auto */
+function entKeys(txt){const P=entParse(txt),t=String(txt||"");const g=re=>((t.match(re)||[])[1]||"").trim();
+  return {code:P.code||"",wifiNom:g(/(?:^|\n)\s*(?:nom(?:\s+du\s+r[ée]seau)?|r[ée]seau|ssid)\s*:\s*(\S[^\n]*)/i),wifiMdp:g(/(?:^|\n)\s*(?:mot\s+de\s+passe|mdp|password|cl[ée]\s+wi-?fi)\s*:\s*(\S[^\n]*)/i)}}
+function entSyncMsgs(l,oldTxt,newTxt){const M=(l.messages&&Array.isArray(l.messages.list))?l.messages.list:null;if(!M||!M.length)return null;
+  const A=entKeys(oldTxt),B=entKeys(newTxt),pairs=[["code","code de la boîte à clés"],["wifiNom","nom du Wi-Fi"],["wifiMdp","mot de passe Wi-Fi"]].filter(([k])=>A[k]&&B[k]&&A[k]!==B[k]);if(!pairs.length)return null;
+  const rx=v=>new RegExp("(^|[^\\w])"+v.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"(?![\\w])","g");let n=0,what=new Set();
+  const list=M.map(m=>{let x=m.x||"";for(const [k,lab] of pairs){const y=x.replace(rx(A[k]),(all,pre)=>pre+B[k]);if(y!==x){what.add(lab);x=y}}if(x!==m.x)n++;return x!==m.x?{...m,x}:m});
+  if(!n)return null;return {messages:{list,maj:nowIso(),par:who()},msg:[...what].join(", ").replace(/^./,c=>c.toUpperCase())+" mis à jour dans "+n+" message"+(n>1?"s":"")+" auto"}}
 function entParse(txt){const L=String(txt||"").split(/\r?\n/).map(x=>x.trim());const out={adresse:"",steps:[],wifi:[],videos:[],code:""};let mode="";
   for(const raw of L){let x=raw;if(!x){continue}
     if(/app\.asana\.com/i.test(x))continue;
@@ -2270,7 +2278,8 @@ function renderEntree(l,head,s,sy){
     s.querySelectorAll("[data-entrm]").forEach(b=>b.onclick=()=>{grab();d.photos.splice(+b.dataset.entrm,1);renderLogSheet()});
     $("#entCancel").onclick=()=>{micStop();entEdit=false;entDraft=null;renderLogSheet()};
     const save=async pdf=>{grab();micStop();$("#entSave").disabled=true;$("#entSavePdf").disabled=true;const E={texte:d.texte||"",ph:[],photos:d.photos.filter(x=>x&&x.a).map(x=>({a:x.a,txt:(x.txt||"").trim()})),maj:nowIso(),par:who()};
-      try{await db.doc("logements/"+l.id).update({entree:E});l.entree={...(l.entree||{}),...E};entEdit=false;entDraft=null;toast("Infos d'entrée enregistrées");renderLogSheet();if(pdf)entreePdf(l)}catch(err){$("#entSave").disabled=false;$("#entSavePdf").disabled=false;toast(failMsg(err))}};
+      const sync=entSyncMsgs(l,(l.entree||{}).texte||"",E.texte);
+      try{await db.doc("logements/"+l.id).update(sync?{entree:E,messages:sync.messages}:{entree:E});if(sync)setTimeout(()=>toast(sync.msg),1800);l.entree={...(l.entree||{}),...E};entEdit=false;entDraft=null;toast("Infos d'entrée enregistrées");renderLogSheet();if(pdf)entreePdf(l)}catch(err){$("#entSave").disabled=false;$("#entSavePdf").disabled=false;toast(failMsg(err))}};
     $("#entSave").onclick=()=>save(false);$("#entSavePdf").onclick=()=>save(true);
     return}
   const ph=entPhotos(e),empty=entEmpty(e)&&!ph.length,T=e.trad||{},segs=entTrOpen?entSegs(e):[];
