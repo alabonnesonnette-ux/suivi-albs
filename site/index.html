@@ -303,8 +303,13 @@ textarea{min-height:76px;resize:vertical}
 .drawbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center}.drawbar .seg{flex:none}
 .drawwrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}.drawwrap canvas{max-width:100%;max-height:100%;touch-action:none;border-radius:8px;background:#000}
 .drawcols{display:flex;gap:8px}.drawcols button{width:30px;height:30px;border-radius:999px;border:2px solid rgba(255,255,255,.4)}.drawcols button[aria-pressed="true"]{border:3px solid #fff;box-shadow:0 0 0 2px var(--gold)}
-.entslot{display:grid;grid-template-columns:26px 96px minmax(0,1fr);gap:10px;align-items:start;padding:10px 0;border-top:1px solid var(--line)}
+.entslot{display:grid;grid-template-columns:28px 96px minmax(0,1fr);gap:10px;align-items:start;padding:10px 0;border-top:1px solid var(--line)}
 .entslot:first-of-type{border-top:0}.entslot.vide{grid-template-columns:26px 1fr;align-items:center;padding:6px 0}
+.entmv{display:flex;flex-direction:column;align-items:center;gap:4px}
+.entdrag{width:26px;height:40px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--muted);font-size:18px;line-height:1;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;padding:0}
+.entarr{width:26px;height:24px;border:0;background:none;color:var(--gold);font-size:14px;padding:0;cursor:pointer}.entarr:disabled{opacity:.25}
+.entslot.dragging{position:relative;z-index:5;background:var(--card);box-shadow:0 8px 24px rgba(0,0,0,.18);border-radius:12px;opacity:.95}
+.entslot.droptgt{box-shadow:inset 0 3px 0 var(--gold)}
 .entn{width:24px;height:24px;border-radius:999px;background:var(--gold);color:#fff;font-weight:700;font-size:12px;display:grid;place-items:center}
 .entslot .im{padding:0;border:0;background:none;border-radius:8px;overflow:hidden;width:96px;height:96px}.entslot .im img{width:100%;height:100%;object-fit:cover}
 .entcap{display:flex;flex-direction:column;gap:4px;min-width:0}
@@ -2579,7 +2584,7 @@ let entTrOpen=false,entVers=null,entVersList=null;
 function renderEntree(l,head,s,sy){
   const e=entOf(l);
   if(entEdit){const d=entDraft;
-    const slot=(x,i)=>x&&x.a?`<div class="entslot"><span class="entn">${i+1}</span><button class="im" type="button" data-thumb="${esc(x.a)}" aria-label="Agrandir la photo ${i+1}"><img src="${blob(x.a)}" alt="" loading="lazy"></button>
+    const slot=(x,i)=>x&&x.a?`<div class="entslot" data-entslot="${i}"><span class="entmv"><span class="entn">${i+1}</span><button type="button" class="entarr" data-entup="${i}" aria-label="Monter la photo ${i+1}" ${i?"":"disabled"}>▲</button><button type="button" class="entdrag" data-entdrag="${i}" aria-label="Glisser pour déplacer la photo ${i+1}" title="Restez appuyée et glissez">⠿</button><button type="button" class="entarr" data-entdn="${i}" aria-label="Descendre la photo ${i+1}" ${i<d.photos.length-1?"":"disabled"}>▼</button></span><button class="im" type="button" data-thumb="${esc(x.a)}" aria-label="Agrandir la photo ${i+1}"><img src="${blob(x.a)}" alt="" loading="lazy"></button>
         <div class="entcap"><textarea id="ent_cap_${i}" data-entcap="${i}" rows="3" placeholder="Ce que montre la photo : « La boîte à clés est à gauche de la porte »">${esc(x.txt||"")}</textarea>
         <div class="inline"><button type="button" class="lnk" data-entdraw="${i}">✏️ Entourer / dessiner</button><label class="lnk" style="cursor:pointer">Changer la photo<input type="file" accept="image/*" hidden data-entph="${i}"></label><button type="button" class="lnk" data-entrm="${i}" style="color:var(--crit)">Retirer</button></div></div></div>`
       :`<div class="entslot vide"><span class="entn">${i+1}</span>${assets?`<label class="btn photo-btn">${entUp[i]?"Envoi…":"📷 Photo"}<input type="file" accept="image/*,.heic,.heif" hidden data-entph="${i}"></label>`:""}</div>`;
@@ -2603,6 +2608,18 @@ function renderEntree(l,head,s,sy){
       try{const id=await uploadOne(f);if(d.photos[i])d.photos[i]={...d.photos[i],a:id};else d.photos.push({a:id,txt:""})}catch(err){toast(err&&err.code?upErr(err):failMsg(err))}delete entUp[i];renderLogSheet();const t=$("#ent_cap_"+Math.min(i,d.photos.length-1));if(t)t.focus()});
     s.querySelectorAll("[data-entdraw]").forEach(b=>b.onclick=async()=>{grab();const i=+b.dataset.entdraw,x=d.photos[i];if(!x)return;const nid=await drawOnPhoto(x.a);if(nid){d.photos[i]={...x,a:nid};renderLogSheet();toast("Dessin ajouté sur la photo")}});
     s.querySelectorAll("[data-entrm]").forEach(b=>b.onclick=()=>{grab();d.photos.splice(+b.dataset.entrm,1);renderLogSheet()});
+    const mv=(i,j)=>{if(j<0||j>=d.photos.length||i===j)return;grab();const [x]=d.photos.splice(i,1);d.photos.splice(j,0,x);const st=$("#sheet").scrollTop;renderLogSheet();$("#sheet").scrollTop=st};
+    s.querySelectorAll("[data-entup]").forEach(b=>b.onclick=()=>mv(+b.dataset.entup,+b.dataset.entup-1));
+    s.querySelectorAll("[data-entdn]").forEach(b=>b.onclick=()=>mv(+b.dataset.entdn,+b.dataset.entdn+1));
+    s.querySelectorAll("[data-entdrag]").forEach(h=>h.onpointerdown=ev=>{ev.preventDefault();const i=+h.dataset.entdrag,el=h.closest(".entslot");const slots=[...s.querySelectorAll("[data-entslot]")];
+      const y0=ev.clientY,sh=$("#sheet");let tgt=i,raf=null;try{h.setPointerCapture(ev.pointerId)}catch(e){}el.classList.add("dragging");
+      const mids=()=>slots.map(x=>{const r=x.getBoundingClientRect();return r.top+r.height/2});
+      h.onpointermove=e=>{const dy=e.clientY-y0;el.style.transform="translateY("+dy+"px)";
+        const r=sh.getBoundingClientRect();if(e.clientY<r.top+60)sh.scrollTop-=12;else if(e.clientY>r.bottom-60)sh.scrollTop+=12;
+        const M=mids(),cy=e.clientY;let t=0;for(let k=0;k<M.length;k++){if(k===i)continue;if(cy>M[k])t=k<i?k+1:k;}
+        let n=0;for(let k=0;k<M.length;k++)if(k!==i&&cy>M[k])n++;tgt=n;slots.forEach((x,k)=>x.classList.toggle("droptgt",k!==i&&((tgt<i&&k===tgt)||(tgt>i&&k===tgt+1))))};
+      const end=()=>{h.onpointermove=h.onpointerup=h.onpointercancel=null;el.classList.remove("dragging");el.style.transform="";slots.forEach(x=>x.classList.remove("droptgt"));if(tgt!==i)mv(i,tgt)};
+      h.onpointerup=end;h.onpointercancel=end});
     $("#entCancel").onclick=()=>{micStop();entEdit=false;entDraft=null;renderLogSheet()};
     const save=async pdf=>{micStop();await new Promise(r=>setTimeout(r,250));grab();$("#entSave").disabled=true;$("#entSavePdf").disabled=true;const E={texte:d.texte||"",ph:[],photos:d.photos.filter(x=>x&&x.a).map(x=>({a:x.a,txt:(x.txt||"").trim()})),maj:nowIso(),par:who()};
       const sync=entSyncMsgs(l,(l.entree||{}).texte||"",E.texte);
