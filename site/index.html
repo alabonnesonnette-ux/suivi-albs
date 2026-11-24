@@ -477,12 +477,14 @@ function collRef(c){return{path:c,doc:id=>docRef(c+"/"+(id||rid())),
   onSnapshot(next,err){if(!SB.subsC.has(c))SB.subsC.set(c,new Set());SB.subsC.get(c).add(next);sbLoad(c).then(()=>next(snapC(c)),e=>err&&err(sbErr(e)));return()=>SB.subsC.get(c).delete(next)}}}
 const sbDb={doc:docRef,collection:collRef};
 function sbRealtime(){sb.channel("docs-live").on("postgres_changes",{event:"*",schema:"public",table:"docs"},p=>{const r=(p.new&&p.new.coll)?p.new:p.old;if(!r||!r.coll||!SB.store.has(r.coll))return;const m=cmap(r.coll);
+    if(r.coll==="logements"&&p.eventType!=="DELETE"){const o=m.get(r.id),ot=((o||{}).entree||{}).texte||"",nt=((p.new.data||{}).entree||{}).texte||"";
+      if(ot.trim()&&!nt.trim()){try{sb.from("docs").insert({coll:"diag",id:"d"+Date.now().toString(36)+rid().slice(0,5),data:{quoi:"entree videe",logementId:r.id,nom:(o||{}).nom,at:new Date().toISOString(),vuPar:(me&&me.prenom)||"",cles:Object.keys(p.new.data||{}),entreeCles:Object.keys((p.new.data||{}).entree||{}),avant:ot.slice(0,4000)}}).then(()=>{},()=>{})}catch(e){}}}
     if(p.eventType==="DELETE")m.delete(r.id);else m.set(r.id,p.new.data);sbNotify(r.coll,r.id)}).subscribe();
   const refresh=()=>{for(const c of SB.store.keys())sbLoad(c,true).catch(()=>{})};
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")refresh()});setInterval(()=>{if(document.visibilityState==="visible")refresh()},90000)}
 const pubUrl=id=>/^https?:/.test(id)?id:SUPA_URL+"/storage/v1/object/public/photos/"+id;
 const sbAssets={async upload(b,o){const t=(o&&o.type)||b.type||"image/jpeg",ext=(t.split("/")[1]||"jpg").replace("jpeg","jpg"),path=new Date().toISOString().slice(0,7)+"/"+Date.now().toString(36)+"-"+rid().slice(0,8)+"."+ext;
-    const {error}=await sb.storage.from("photos").upload(path,b,{contentType:t,upsert:false});if(error){console.error(error);throw{code:/size|large/i.test(error.message||"")?"too_large":"upstream_error"}}return{id:path,url:pubUrl(path)}},
+    const {error}=await sb.storage.from("photos").upload(path,b,{contentType:t,upsert:false});if(error){console.error(error);throw{code:/size|large/i.test(error.message||"")?"too_large":/jwt|auth|row-level|security|unauthor|403|401/i.test((error.message||"")+(error.statusCode||""))?"auth":"upstream_error",message:error.message||""}}return{id:path,url:pubUrl(path)}},
   async delete(id){await sb.storage.from("photos").remove([id]);return{deleted:true}}};
 const sbDownloads={async save({filename,data}){const b=data instanceof Blob?data:new Blob([data],{type:/\.csv$/.test(filename)?"text/csv;charset=utf-8":"application/octet-stream"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(u);a.remove()},5000);return{status:"saved"}}};
 </script>
@@ -542,7 +544,7 @@ const fmtAt=iso=>{try{const d=new Date(iso);return d.toLocaleDateString("fr-FR",
 const nowIso=()=>new Date().toISOString();
 const eur=n=>Number(n).toLocaleString("fr-FR",{maximumFractionDigits:2})+" €";
 function toast(t){const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,2400)}
-function failMsg(e){return e&&e.code==="invalid_argument"?"Vous n'avez pas le droit de modifier ce suivi":"Échec de l'enregistrement, réessayez"}
+function failMsg(e){if(e&&e.code==="not_saved")return "⚠ Pas enregistré sur le serveur : votre connexion a expiré. Copiez votre texte, fermez l'appli, rouvrez-la et reconnectez-vous ("+(e.message||"")+")";return e&&e.code==="invalid_argument"?"Vous n'avez pas le droit de modifier ce suivi":"Échec de l'enregistrement, réessayez"}
 
 const who=()=>mode==="menage"?moi:(me.prenom||"Équipe");
 const daysSince=iso=>iso?(Date.now()-Date.parse(iso))/864e5:1e9;
@@ -610,7 +612,7 @@ async function decodeImg(file){try{return await createImageBitmap(file)}catch(e)
   throw new Error("decode")}
 async function compress(file){try{const bmp=await decodeImg(file),w=bmp.naturalWidth||bmp.width,h=bmp.naturalHeight||bmp.height;const sc=Math.min(1,1600/Math.max(w,h));const c=document.createElement("canvas");c.width=Math.round(w*sc);c.height=Math.round(h*sc);c.getContext("2d").drawImage(bmp,0,0,c.width,c.height);if(bmp.close)bmp.close();return await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error("toBlob")),"image/jpeg",0.72))}catch(e){console.warn("photo",e);return file}}
 async function uploadOne(file){const b=await compress(file);const ok=/^image\/(jpeg|png|webp|gif)$/.test(b.type);if(!ok)throw{code:"unsupported_type"};const r=await assets.upload(b,{type:b.type});return r.id}
-function upErr(e){const c=e&&e.code;return c==="unsupported_type"?"Format de photo non pris en charge":c==="quota_or_state"?"Stockage plein : la photo n'a pas été envoyée":c==="too_large"?"Photo trop lourde":"La photo n'a pas pu être envoyée, réessayez"}
+function upErr(e){const c=e&&e.code;if(c==="auth")return "Photo refusée : votre connexion a expiré. Fermez l'appli, rouvrez-la et reconnectez-vous";if(c==="upstream_error")return "La photo n'a pas pu être envoyée ("+(e.message||"erreur inconnue")+")";return c==="unsupported_type"?"Format de photo non pris en charge":c==="quota_or_state"?"Stockage plein : la photo n'a pas été envoyée":c==="too_large"?"Photo trop lourde":"La photo n'a pas pu être envoyée, réessayez"}
 const MOIS=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const dRef=d=>(d.dateIncident||(d.creeLe||"").slice(0,10)||"");
 function byMonth(list){const g=new Map();for(const d of [...list].sort((a,b)=>((b.mois||dRef(b).slice(0,7))+dRef(b)).localeCompare((a.mois||dRef(a).slice(0,7))+dRef(a)))){const k=d.mois||dRef(d).slice(0,7)||"inconnu";if(!g.has(k))g.set(k,[]);g.get(k).push(d)}
@@ -2559,20 +2561,21 @@ async function trOne(t,tl){
   catch(err){const r=await fetch("https://api.mymemory.translated.net/get?langpair=fr|"+tl+"&q="+encodeURIComponent(t.slice(0,480)));const j=await r.json();const o=(j&&j.responseData&&j.responseData.translatedText||"").trim();if(!o)throw new Error("trad");return o}}
 /* enregistre l'entrée complète puis vérifie sur le serveur qu'elle y est bien (sinon 2e écriture) */
 async function entWrite(l,ent,extra={}){const full=JSON.parse(JSON.stringify({...entOf(l),...ent}));
-  await db.doc("logements/"+l.id).update({entree:full,...extra});l.entree=full;
-  let chk=null;try{chk=await sb.from("docs").select("data").eq("coll","logements").eq("id",l.id).maybeSingle()}catch(e){return}
-  if(!chk||chk.error||!chk.data||!chk.data.data)return;const se=chk.data.data.entree||{},sig=x=>JSON.stringify([(x.texte||""),(x.photos||[]).map(p=>p.a+"|"+(p.txt||""))]);
+  await db.doc("logements/"+l.id).update({entree:full,...extra});l.entree=full;if(ent.texte!==undefined||ent.photos)entBackup(l,full);
+  let chk=null;try{chk=await sb.from("docs").select("data").eq("coll","logements").eq("id",l.id).maybeSingle()}catch(e){throw {code:"not_saved",message:String(e&&e.message||e)}}
+  if(!chk||chk.error||!chk.data||!chk.data.data){console.error("vérif entrée",chk&&chk.error);throw {code:"not_saved",message:(chk&&chk.error&&chk.error.message)||"ligne introuvable"}}const se=chk.data.data.entree||{},sig=x=>JSON.stringify([(x.texte||""),(x.photos||[]).map(p=>p.a+"|"+(p.txt||""))]);
   if(sig(se)===sig(full))return;console.warn("Entrée : la 1re écriture n'a pas été gardée, 2e écriture");
   const fixed=jmerge(chk.data.data,JSON.parse(JSON.stringify(extra)));fixed.entree=full;
   const r=await sb.from("docs").update({data:fixed,updated_at:new Date().toISOString()}).eq("coll","logements").eq("id",l.id).select("id");
   if(r.error||!r.data||!r.data.length)throw sbErr(r.error||{code:"42501",message:"aucune ligne modifiée"});cmap("logements").set(l.id,fixed);sbNotify("logements",l.id)}
+async function entBackup(l,full){if(!((full.texte||"").trim()||(full.photos||[]).length))return;try{await db.collection("entree_hist").doc(l.id+"_"+Date.now().toString(36)).set({logementId:l.id,nom:l.nom,at:nowIso(),par:who(),entree:{texte:full.texte||"",photos:full.photos||[]}})}catch(e){console.warn("sauvegarde entrée",e)}}
 async function entTranslate(l,force){const e=entOf(l),T=e.trad||{},add={};let bad=0;
   for(const fr of entSegs(e)){const k=trKey(fr),cur=T[k]||{};const o={fr};let ch=false;
     for(const tl of ["en","de"]){if(cur[tl]&&!force){o[tl]=cur[tl];continue}try{o[tl]=await trOne(fr,tl);ch=true}catch(err){bad++}}
     if(ch)add[k]={...cur,...o}}
   if(Object.keys(add).length){try{await entWrite(l,{trad:{...T,...add}});Object.assign(T,add)}catch(err){toast(failMsg(err))}}
   return bad}
-let entTrOpen=false;
+let entTrOpen=false,entVers=null,entVersList=null;
 function renderEntree(l,head,s,sy){
   const e=entOf(l);
   if(entEdit){const d=entDraft;
@@ -2593,9 +2596,9 @@ function renderEntree(l,head,s,sy){
     $("#entPre").onclick=()=>{grab();const F=l.fiche||{},fv=k=>(F[k]&&!F[k].supprime&&(F[k].valeur||"").trim())||"";
       const t=[fv("adresse"),fv("acces"),fv("boite")?"Boîte à clés : "+fv("boite"):"",fv("parking")?"Parking : "+fv("parking"):"",fv("wifi")?"\nWIFI\n"+fv("wifi"):"",fv("video")?"\nVIDEO ENTREE\n"+fv("video"):""].filter(Boolean).join("\n");
       if(!t)return toast("La fiche ne contient pas encore ces infos");d.texte=(d.texte?d.texte.replace(/\s*$/,"\n\n"):"")+t;renderLogSheet()};
-    if($("#entMulti"))$("#entMulti").onchange=async ev=>{const F=[...ev.target.files].slice(0,ENT_MAX-d.photos.length);ev.target.value="";if(!F.length)return;grab();let ok=0,ko=0;
-      for(let k=0;k<F.length;k++){entUp.multi=(k+1)+"/"+F.length;renderLogSheet();try{const id=await uploadOne(F[k]);d.photos.push({a:id,txt:""});ok++}catch(err){ko++;console.error(err)}}
-      delete entUp.multi;renderLogSheet();toast(ok+" photo"+(ok>1?"s":"")+" ajoutée"+(ok>1?"s":"")+(ko?" · "+ko+" n'ont pas pu être envoyées":"")+". Ajoutez l'explication sous chacune, puis Enregistrer")};
+    if($("#entMulti"))$("#entMulti").onchange=async ev=>{const F=[...ev.target.files].slice(0,ENT_MAX-d.photos.length);ev.target.value="";if(!F.length)return;grab();let ok=0,ko=0,firstErr=null;
+      for(let k=0;k<F.length;k++){entUp.multi=(k+1)+"/"+F.length;renderLogSheet();try{const id=await uploadOne(F[k]);d.photos.push({a:id,txt:""});ok++}catch(err){ko++;console.error(err);if(!firstErr)firstErr=err}}
+      delete entUp.multi;renderLogSheet();toast(ko&&!ok?upErr(firstErr):ok+" photo"+(ok>1?"s":"")+" ajoutée"+(ok>1?"s":"")+(ko?" · "+ko+" refusée(s) : "+upErr(firstErr):"")+". Ajoutez l'explication sous chacune, puis Enregistrer")};
     s.querySelectorAll("[data-entph]").forEach(inp=>inp.onchange=async ev=>{const i=+inp.dataset.entph,f=ev.target.files[0];ev.target.value="";if(!f)return;grab();entUp[i]=1;renderLogSheet();
       try{const id=await uploadOne(f);if(d.photos[i])d.photos[i]={...d.photos[i],a:id};else d.photos.push({a:id,txt:""})}catch(err){toast(err&&err.code?upErr(err):failMsg(err))}delete entUp[i];renderLogSheet();const t=$("#ent_cap_"+Math.min(i,d.photos.length-1));if(t)t.focus()});
     s.querySelectorAll("[data-entdraw]").forEach(b=>b.onclick=async()=>{grab();const i=+b.dataset.entdraw,x=d.photos[i];if(!x)return;const nid=await drawOnPhoto(x.a);if(nid){d.photos[i]={...x,a:nid};renderLogSheet();toast("Dessin ajouté sur la photo")}});
@@ -2608,10 +2611,12 @@ function renderEntree(l,head,s,sy){
     return}
   const ph=entPhotos(e),empty=entEmpty(e)&&!ph.length,T=e.trad||{},segs=entTrOpen?entSegs(e):[];
   const dup=logements.filter(x=>x.id!==l.id&&norm(x.nom)===norm(l.nom));
+  const vers=entVers===l.id?(entVersList||[]):null;
+  const versBox=vers?`<div class="box" style="border-color:var(--gold)"><h3>🕘 Versions enregistrées</h3>${vers.length?vers.map((v,i)=>`<div class="note" style="display:flex;gap:8px;align-items:flex-start;justify-content:space-between"><div><b>${fmtAt(v.at)}</b>${v.par?" · "+esc(v.par):""}<div class="hint">${esc(((v.entree||{}).texte||"").split("\n").filter(Boolean).slice(0,2).join(" · ").slice(0,140)||"(pas de texte)")} · ${((v.entree||{}).photos||[]).length} photo(s)</div></div><button class="btn" type="button" data-entrest="${i}" style="flex:none">Restaurer</button></div>`).join(""):`<div class="hint">Aucune version enregistrée pour l'instant (elles sont gardées à chaque « Enregistrer » à partir de maintenant).</div>`}<button class="lnk" type="button" id="entVersClose">Fermer</button></div>`:"";
   s.innerHTML=head+(dup.length?`<div class="box" style="border-color:var(--crit)"><b>⚠ ${dup.length+1} fiches logement portent le nom « ${esc(l.nom)} »</b><div class="hint">Les infos peuvent sembler disparaître quand l'outil ouvre l'autre fiche. Prévenez Claude pour les fusionner.</div></div>`:"")+(empty?`<div class="empty">Les infos d'entrée ne sont pas encore notées pour ce logement.<br>Notez-les en un seul bloc et ajoutez des photos commentées : la fiche PDF se met en forme et se traduit toute seule.</div>
-      <div class="inline" style="margin-top:10px"><button class="btn pri" type="button" id="entEditBtn">Noter les infos d'entrée</button></div>`
-    :`<button type="button" id="entPdf" class="entcta"><span class="ico" aria-hidden="true">📄</span><span><b>Créer la fiche d'entrée pour le voyageur</b><small>PDF avec les étapes et toutes les photos commentées, en français, anglais et allemand. À envoyer au voyageur ou au technicien.</small></span></button>
-      <div class="inline" style="margin-top:8px"><button class="btn" type="button" id="entEditBtn">Modifier</button><button class="btn ghost" type="button" id="entTr">🌍 ${entTrOpen?"Masquer les traductions":"Voir / corriger les traductions"}</button></div>
+      <div class="inline" style="margin-top:10px"><button class="btn pri" type="button" id="entEditBtn">Noter les infos d'entrée</button><button class="btn" type="button" id="entVers">🕘 Retrouver une version enregistrée</button></div>`+versBox
+    :versBox+`<button type="button" id="entPdf" class="entcta"><span class="ico" aria-hidden="true">📄</span><span><b>Créer la fiche d'entrée pour le voyageur</b><small>PDF avec les étapes et toutes les photos commentées, en français, anglais et allemand. À envoyer au voyageur ou au technicien.</small></span></button>
+      <div class="inline" style="margin-top:8px"><button class="btn" type="button" id="entEditBtn">Modifier</button><button class="btn ghost" type="button" id="entVers">🕘 Versions</button><button class="btn ghost" type="button" id="entTr">🌍 ${entTrOpen?"Masquer les traductions":"Voir / corriger les traductions"}</button></div>
       ${e.maj?`<div class="hint" style="margin:6px 0 10px">Mise à jour le ${fmtAt(e.maj)}${e.par?" · "+esc(e.par):""}</div>`:""}
       ${entTrOpen?`<div class="box"><h3>🌍 Traductions</h3><div class="hint">Elles se font automatiquement au moment du PDF. Vous pouvez les corriger ici.</div>
         ${segs.length?segs.map(fr=>{const k=trKey(fr),t=T[k]||{};return `<div class="trrow"><div class="trfr">🇫🇷 ${esc(fr)}</div><label>🇬🇧<textarea data-trk="${k}" data-trl="en" data-trfr="${esc(fr)}" rows="2">${esc(t.en||"")}</textarea></label><label>🇩🇪<textarea data-trk="${k}" data-trl="de" data-trfr="${esc(fr)}" rows="2">${esc(t.de||"")}</textarea></label></div>`}).join("")
@@ -2621,6 +2626,9 @@ function renderEntree(l,head,s,sy){
   s.scrollTop=sy;
   $("#entEditBtn").onclick=()=>{const c=entOf(l);entDraft={texte:c.texte||"",photos:entPhotos(c).map(x=>({...x}))};entEdit=true;$("#sheet").scrollTop=0;renderLogSheet()};
   if($("#entPdf"))$("#entPdf").onclick=()=>entreePdf(l);
+  if($("#entVers"))$("#entVers").onclick=async()=>{try{await sbLoad("entree_hist",true)}catch(e){}entVersList=[...cmap("entree_hist").values()].filter(v=>v.logementId===l.id).sort((a,b)=>String(b.at).localeCompare(String(a.at)));entVers=l.id;renderLogSheet()};
+  if($("#entVersClose"))$("#entVersClose").onclick=()=>{entVers=null;renderLogSheet()};
+  s.querySelectorAll("[data-entrest]").forEach(b=>b.onclick=async()=>{const v=entVersList[+b.dataset.entrest];if(!v)return;b.disabled=true;try{await entWrite(l,{texte:v.entree.texte||"",photos:v.entree.photos||[],maj:nowIso(),par:who()});entVers=null;toast("Version du "+fmtAt(v.at)+" restaurée");renderLogSheet()}catch(e){b.disabled=false;toast(failMsg(e))}});
   if($("#entTr"))$("#entTr").onclick=()=>{entTrOpen=!entTrOpen;renderLogSheet()};
   if($("#trAuto"))$("#trAuto").onclick=async()=>{$("#trAuto").disabled=true;toast("Traduction en cours…");const bad=await entTranslate(l,false);toast(bad?"Certaines traductions n'ont pas pu se faire (connexion ?)":"Traductions faites");renderLogSheet()};
   if($("#trSave"))$("#trSave").onclick=async()=>{const add={};s.querySelectorAll("[data-trk]").forEach(t=>{const k=t.dataset.trk;add[k]=add[k]||{fr:t.dataset.trfr};add[k][t.dataset.trl]=t.value.trim()});
