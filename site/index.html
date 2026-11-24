@@ -2580,6 +2580,10 @@ async function entTranslate(l,force){const e=entOf(l),T=e.trad||{},add={};let ba
     if(ch)add[k]={...cur,...o}}
   if(Object.keys(add).length){try{await entWrite(l,{trad:{...T,...add}});Object.assign(T,add)}catch(err){toast(failMsg(err))}}
   return bad}
+/* traduit tout seul en anglais et en allemand ce qui manque, après chaque enregistrement */
+let entTrBusy=false;async function entAutoTr(l){if(entTrBusy)return;const e=entOf(l);if(!entSegs(e).some(fr=>{const t=(e.trad||{})[trKey(fr)]||{};return !t.en||!t.de}))return;
+  entTrBusy=true;renderLogSheet();let bad=0;try{bad=await entTranslate(l,false)}catch(err){bad=1}entTrBusy=false;
+  toast(bad?"Certaines traductions n'ont pas pu se faire : touchez « Traduire automatiquement ce qui manque »":"Traductions anglais et allemand faites");if(lsTab==="entree"&&!entEdit)renderLogSheet()}
 let entTrOpen=false,entVers=null,entVersList=null;
 function renderEntree(l,head,s,sy){
   const e=entOf(l);
@@ -2623,7 +2627,7 @@ function renderEntree(l,head,s,sy){
     $("#entCancel").onclick=()=>{micStop();entEdit=false;entDraft=null;renderLogSheet()};
     const save=async pdf=>{micStop();await new Promise(r=>setTimeout(r,250));grab();$("#entSave").disabled=true;$("#entSavePdf").disabled=true;const E={texte:d.texte||"",ph:[],photos:d.photos.filter(x=>x&&x.a).map(x=>({a:x.a,txt:(x.txt||"").trim()})),maj:nowIso(),par:who()};
       const sync=entSyncMsgs(l,(l.entree||{}).texte||"",E.texte);
-      try{await entWrite(l,E,sync?{messages:sync.messages}:{});if(sync)setTimeout(()=>toast(sync.msg),1800);entEdit=false;entDraft=null;toast("Infos d'entrée enregistrées");renderLogSheet();if(pdf)entreePdf(l)}catch(err){$("#entSave").disabled=false;$("#entSavePdf").disabled=false;toast(failMsg(err))}};
+      try{await entWrite(l,E,sync?{messages:sync.messages}:{});if(sync)setTimeout(()=>toast(sync.msg),1800);entEdit=false;entDraft=null;toast("Infos d'entrée enregistrées");renderLogSheet();if(pdf)entreePdf(l);else entAutoTr(l)}catch(err){$("#entSave").disabled=false;$("#entSavePdf").disabled=false;toast(failMsg(err))}};
     $("#entSave").onclick=()=>save(false);$("#entSavePdf").onclick=()=>save(true);
     return}
   const ph=entPhotos(e),empty=entEmpty(e)&&!ph.length,T=e.trad||{},segs=entTrOpen?entSegs(e):[];
@@ -2634,7 +2638,7 @@ function renderEntree(l,head,s,sy){
       <div class="inline" style="margin-top:10px"><button class="btn pri" type="button" id="entEditBtn">Noter les infos d'entrée</button><button class="btn" type="button" id="entVers">🕘 Retrouver une version enregistrée</button></div>`+versBox
     :versBox+`<button type="button" id="entPdf" class="entcta"><span class="ico" aria-hidden="true">📄</span><span><b>Créer la fiche d'entrée pour le voyageur</b><small>PDF avec les étapes et toutes les photos commentées, en français, anglais et allemand. À envoyer au voyageur ou au technicien.</small></span></button>
       <div class="inline" style="margin-top:8px"><button class="btn" type="button" id="entEditBtn">Modifier</button><button class="btn ghost" type="button" id="entVers">🕘 Versions</button><button class="btn ghost" type="button" id="entTr">🌍 ${entTrOpen?"Masquer les traductions":"Voir / corriger les traductions"}</button></div>
-      ${e.maj?`<div class="hint" style="margin:6px 0 10px">Mise à jour le ${fmtAt(e.maj)}${e.par?" · "+esc(e.par):""}</div>`:""}
+      ${e.maj?`<div class="hint" style="margin:6px 0 10px">Mise à jour le ${fmtAt(e.maj)}${e.par?" · "+esc(e.par):""}${entTrBusy?" · 🌍 traduction en cours…":""}</div>`:""}
       ${entTrOpen?`<div class="box"><h3>🌍 Traductions</h3><div class="hint">Elles se font automatiquement au moment du PDF. Vous pouvez les corriger ici.</div>
         ${segs.length?segs.map(fr=>{const k=trKey(fr),t=T[k]||{};return `<div class="trrow"><div class="trfr">🇫🇷 ${esc(fr)}</div><label>🇬🇧<textarea data-trk="${k}" data-trl="en" data-trfr="${esc(fr)}" rows="2">${esc(t.en||"")}</textarea></label><label>🇩🇪<textarea data-trk="${k}" data-trl="de" data-trfr="${esc(fr)}" rows="2">${esc(t.de||"")}</textarea></label></div>`}).join("")
           +`<div class="inline"><button class="btn" type="button" id="trAuto">Traduire automatiquement ce qui manque</button><button class="btn pri" type="button" id="trSave">Enregistrer les traductions</button></div>`:`<div class="hint">Rien à traduire pour l'instant.</div>`}</div>`:""}
@@ -2646,7 +2650,7 @@ function renderEntree(l,head,s,sy){
   if($("#entVers"))$("#entVers").onclick=async()=>{try{await sbLoad("entree_hist",true)}catch(e){}entVersList=[...cmap("entree_hist").values()].filter(v=>v.logementId===l.id).sort((a,b)=>String(b.at).localeCompare(String(a.at)));entVers=l.id;renderLogSheet()};
   if($("#entVersClose"))$("#entVersClose").onclick=()=>{entVers=null;renderLogSheet()};
   s.querySelectorAll("[data-entrest]").forEach(b=>b.onclick=async()=>{const v=entVersList[+b.dataset.entrest];if(!v)return;b.disabled=true;try{await entWrite(l,{texte:v.entree.texte||"",photos:v.entree.photos||[],maj:nowIso(),par:who()});entVers=null;toast("Version du "+fmtAt(v.at)+" restaurée");renderLogSheet()}catch(e){b.disabled=false;toast(failMsg(e))}});
-  if($("#entTr"))$("#entTr").onclick=()=>{entTrOpen=!entTrOpen;renderLogSheet()};
+  if($("#entTr"))$("#entTr").onclick=()=>{entTrOpen=!entTrOpen;renderLogSheet();if(entTrOpen&&entSegs(entOf(l)).some(fr=>{const t=(entOf(l).trad||{})[trKey(fr)]||{};return !t.en||!t.de}))entAutoTr(l)};
   if($("#trAuto"))$("#trAuto").onclick=async()=>{$("#trAuto").disabled=true;toast("Traduction en cours…");const bad=await entTranslate(l,false);toast(bad?"Certaines traductions n'ont pas pu se faire (connexion ?)":"Traductions faites");renderLogSheet()};
   if($("#trSave"))$("#trSave").onclick=async()=>{const add={};s.querySelectorAll("[data-trk]").forEach(t=>{const k=t.dataset.trk;add[k]=add[k]||{fr:t.dataset.trfr};add[k][t.dataset.trl]=t.value.trim()});
     try{const T=entOf(l).trad||{};const m={...T};for(const k in add)m[k]={...(T[k]||{}),...add[k]};await entWrite(l,{trad:m});toast("Traductions enregistrées")}catch(err){toast(failMsg(err))}};
