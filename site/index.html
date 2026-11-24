@@ -1158,7 +1158,7 @@ function renderForm(){
 }
 
 /* ---------- logement sheet ---------- */
-function openLogSheet(nom){entAirOpen=false;fdmEdit=null;rqForm=false;rqDel=null;entEdit=false;entDraft=null;auditForm=false;auditOpen=null;editKey=null;addRub=false;histOpen=null;lsTab=mode==="menage"?"fiche":"suivi";menOpen=null;logOpen=nom;retLog=null;openId=null;formState=null;$("#sheet").hidden=false;renderLogSheet()}
+function openLogSheet(nom){fdmEdit=null;rqForm=false;rqDel=null;entEdit=false;entDraft=null;auditForm=false;auditOpen=null;editKey=null;addRub=false;histOpen=null;lsTab=mode==="menage"?"fiche":"suivi";menOpen=null;logOpen=nom;retLog=null;openId=null;formState=null;$("#sheet").hidden=false;renderLogSheet()}
 function renderLogSheet(){
   const nom=logOpen, l=logements.find(x=>norm(x.nom)===norm(nom)), s=$("#sheet"), sy=s.scrollTop;
   const mine=dossiers.filter(d=>norm(d.logement)===norm(nom));
@@ -2585,7 +2585,7 @@ let entTrBusy=false;async function entAutoTr(l){if(entTrBusy)return;const e=entO
   entTrBusy=true;renderLogSheet();let bad=0;try{bad=await entTranslate(l,false)}catch(err){bad=1}entTrBusy=false;
   toast(bad?"Certaines traductions n'ont pas pu se faire : touchez « Traduire automatiquement ce qui manque »":"Traductions anglais et allemand faites");if(lsTab==="entree"&&!entEdit)renderLogSheet()}
 /* photos pour Airbnb : téléchargement une par une ou toutes, avec les textes traduits */
-let entAirOpen=false;const entBlobs=new Map(),entComp=new Map();
+const entBlobs=new Map(),entComp=new Map(),entPrepped=new Set();
 async function entPrep(l){const ph=entPhotos(entOf(l)),TX=entTexts(l);for(let i=0;i<ph.length;i++){try{let b=await entFetch(ph[i].a);if(TX[i].fr){const ck=ph[i].a+"|"+(i+1)+"|"+TX[i].fr+"|"+TX[i].en+"|"+TX[i].de;if(!entComp.has(ck))entComp.set(ck,await entComposite(b,TX[i],i+1))}}catch(e){}}}
 const entFileName=(l,i,b)=>(String(l.nom||"logement").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9]+/g,"-").replace(/^-|-$/g,"")||"logement")+"-entree-"+String(i+1).padStart(2,"0")+"."+(((b&&b.type)||"image/jpeg").split("/")[1]||"jpg").replace("jpeg","jpg");
 async function entFetch(a){if(entBlobs.has(a))return entBlobs.get(a);const r=await fetch(blob(a));if(!r.ok)throw new Error("photo");const b=await r.blob();entBlobs.set(a,b);return b}
@@ -2610,13 +2610,6 @@ async function entDownload(l,idx,seule){const ph=entPhotos(entOf(l)),TX=entTexts
   for(const f of files){const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000);await new Promise(r=>setTimeout(r,350))}
   toast(files.length>1?files.length+" photos téléchargées":"Photo téléchargée")}
 function entTexts(l){const e=entOf(l),T=e.trad||{};return entPhotos(e).map((x,i)=>{const fr=(x.txt||"").trim(),t=fr?(T[trKey(fr)]||{}):{};return {i,fr,en:t.en||"",de:t.de||""}})}
-function entAirHtml(l){const ph=entPhotos(entOf(l)),TX=entTexts(l);
-  return `<div class="box" style="border-color:var(--gold)"><h3>📸 Photos pour Airbnb</h3><div class="hint">Chaque photo est téléchargée avec son explication en français, anglais et allemand écrite dessous, dans la même image. Vous pouvez aussi copier chaque texte séparément.${matchMedia("(pointer:coarse)").matches?" Sur téléphone, choisissez « Enregistrer les images » pour les mettre dans vos photos.":""}</div>
-    <div class="inline" style="margin:8px 0"><button class="btn pri" type="button" id="entAirAll">⬇ Toutes les photos avec les textes (${ph.length})</button><button class="btn" type="button" id="entAirTxt">⬇ Tous les textes (FR · EN · DE)</button></div>
-    ${ph.map((x,i)=>{const t=TX[i];return `<div class="entslot"><span class="entn">${i+1}</span><button class="im" type="button" data-thumb="${esc(x.a)}" aria-label="Agrandir la photo ${i+1}"><img src="${blob(x.a)}" alt="" loading="lazy"></button><div class="entcap">
-      <div class="inline"><button class="btn" type="button" data-airdl="${i}" style="flex:none;font-size:13px;padding:5px 12px">⬇ Photo ${i+1} avec les textes</button><button class="lnk" type="button" data-airdl1="${i}">photo seule</button></div>
-      ${t.fr?[["🇫🇷","fr"],["🇬🇧","en"],["🇩🇪","de"]].map(([f,k])=>`<div style="display:flex;gap:6px;align-items:flex-start"><span>${f}</span><span style="flex:1;font-size:14px">${t[k]?esc(t[k]):`<span class="hint">${entTrBusy?"traduction en cours…":"pas encore traduit"}</span>`}</span>${t[k]?`<button class="lnk" type="button" data-aircp="${i}|${k}">Copier</button>`:""}</div>`).join(""):`<span class="hint">Pas d'explication sous cette photo.</span>`}</div></div>`}).join("")}
-    <button class="lnk" type="button" id="entAirClose">Fermer</button></div>`}
 let entTrOpen=false,entVers=null,entVersList=null;
 function renderEntree(l,head,s,sy){
   const e=entOf(l);
@@ -2660,7 +2653,7 @@ function renderEntree(l,head,s,sy){
     $("#entCancel").onclick=()=>{micStop();entEdit=false;entDraft=null;renderLogSheet()};
     const save=async pdf=>{micStop();await new Promise(r=>setTimeout(r,250));grab();$("#entSave").disabled=true;$("#entSavePdf").disabled=true;const E={texte:d.texte||"",ph:[],photos:d.photos.filter(x=>x&&x.a).map(x=>({a:x.a,txt:(x.txt||"").trim()})),maj:nowIso(),par:who()};
       const sync=entSyncMsgs(l,(l.entree||{}).texte||"",E.texte);
-      try{await entWrite(l,E,sync?{messages:sync.messages}:{});if(sync)setTimeout(()=>toast(sync.msg),1800);entEdit=false;entDraft=null;toast("Infos d'entrée enregistrées");renderLogSheet();if(pdf)entreePdf(l);else entAutoTr(l)}catch(err){$("#entSave").disabled=false;$("#entSavePdf").disabled=false;toast(failMsg(err))}};
+      try{await entWrite(l,E,sync?{messages:sync.messages}:{});if(sync)setTimeout(()=>toast(sync.msg),1800);entEdit=false;entDraft=null;toast("Infos d'entrée enregistrées");renderLogSheet();entPrepped.delete(l.id);if(pdf)entreePdf(l)}catch(err){$("#entSave").disabled=false;$("#entSavePdf").disabled=false;toast(failMsg(err))}};
     $("#entSave").onclick=()=>save(false);$("#entSavePdf").onclick=()=>save(true);
     return}
   const ph=entPhotos(e),empty=entEmpty(e)&&!ph.length,T=e.trad||{},segs=entTrOpen?entSegs(e):[];
@@ -2670,26 +2663,22 @@ function renderEntree(l,head,s,sy){
   s.innerHTML=head+(dup.length?`<div class="box" style="border-color:var(--crit)"><b>⚠ ${dup.length+1} fiches logement portent le nom « ${esc(l.nom)} »</b><div class="hint">Les infos peuvent sembler disparaître quand l'outil ouvre l'autre fiche. Prévenez Claude pour les fusionner.</div></div>`:"")+(empty?`<div class="empty">Les infos d'entrée ne sont pas encore notées pour ce logement.<br>Notez-les en un seul bloc et ajoutez des photos commentées : la fiche PDF se met en forme et se traduit toute seule.</div>
       <div class="inline" style="margin-top:10px"><button class="btn pri" type="button" id="entEditBtn">Noter les infos d'entrée</button><button class="btn" type="button" id="entVers">🕘 Retrouver une version enregistrée</button></div>`+versBox
     :versBox+`<button type="button" id="entPdf" class="entcta"><span class="ico" aria-hidden="true">📄</span><span><b>Créer la fiche d'entrée pour le voyageur</b><small>PDF avec les étapes et toutes les photos commentées, en français, anglais et allemand. À envoyer au voyageur ou au technicien.</small></span></button>
-      <div class="inline" style="margin-top:8px"><button class="btn" type="button" id="entEditBtn">Modifier</button>${ph.length?`<button class="btn" type="button" id="entAir">📸 Photos pour Airbnb</button>`:""}<button class="btn ghost" type="button" id="entVers">🕘 Versions</button><button class="btn ghost" type="button" id="entTr">🌍 ${entTrOpen?"Masquer les traductions":"Voir / corriger les traductions"}</button></div>
-      ${entAirOpen&&ph.length?entAirHtml(l):""}
+      <div class="inline" style="margin-top:8px"><button class="btn" type="button" id="entEditBtn">Modifier</button><button class="btn ghost" type="button" id="entVers">🕘 Versions</button><button class="btn ghost" type="button" id="entTr">🌍 ${entTrOpen?"Masquer les traductions":"Voir / corriger les traductions"}</button></div>
       ${e.maj?`<div class="hint" style="margin:6px 0 10px">Mise à jour le ${fmtAt(e.maj)}${e.par?" · "+esc(e.par):""}${entTrBusy?" · 🌍 traduction en cours…":""}</div>`:""}
       ${entTrOpen?`<div class="box"><h3>🌍 Traductions</h3><div class="hint">Elles se font automatiquement au moment du PDF. Vous pouvez les corriger ici.</div>
         ${segs.length?segs.map(fr=>{const k=trKey(fr),t=T[k]||{};return `<div class="trrow"><div class="trfr">🇫🇷 ${esc(fr)}</div><label>🇬🇧<textarea data-trk="${k}" data-trl="en" data-trfr="${esc(fr)}" rows="2">${esc(t.en||"")}</textarea></label><label>🇩🇪<textarea data-trk="${k}" data-trl="de" data-trfr="${esc(fr)}" rows="2">${esc(t.de||"")}</textarea></label></div>`}).join("")
           +`<div class="inline"><button class="btn" type="button" id="trAuto">Traduire automatiquement ce qui manque</button><button class="btn pri" type="button" id="trSave">Enregistrer les traductions</button></div>`:`<div class="hint">Rien à traduire pour l'instant.</div>`}</div>`:""}
       ${(e.texte||"").trim()?`<div class="box"><h3>✍️ Rubrique écrite</h3><p style="margin:0;white-space:pre-wrap">${esc(e.texte).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')}</p></div>`:""}
-      ${ph.length?`<div class="box"><h3>📷 Rubrique photos</h3>${ph.map((x,i)=>`<div class="entslot"><span class="entn">${i+1}</span><button class="im" type="button" data-thumb="${esc(x.a)}" aria-label="Agrandir la photo ${i+1}"><img src="${blob(x.a)}" alt="" loading="lazy"></button><div class="entcap"><p style="margin:0;white-space:pre-wrap">${x.txt?esc(x.txt):`<span class="hint">Pas d'explication</span>`}</p></div></div>`).join("")}</div>`:""}`)+`</div>`;
+      ${ph.length?`<div class="box"><div class="rub-h" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h3 style="margin:0">📷 Rubrique photos</h3><button class="btn pri" type="button" id="entDlAll" style="flex:none;font-size:13px;padding:6px 12px">⬇ Tout télécharger</button></div>
+        <div class="hint" style="margin:4px 0 2px">Chaque photo est téléchargée avec son explication en français, anglais et allemand écrite dessous.</div>
+        ${ph.map((x,i)=>`<div class="entslot"><span class="entn">${i+1}</span><button class="im" type="button" data-thumb="${esc(x.a)}" aria-label="Agrandir la photo ${i+1}"><img src="${blob(x.a)}" alt="" loading="lazy"></button><div class="entcap"><p style="margin:0;white-space:pre-wrap">${x.txt?esc(x.txt):`<span class="hint">Pas d'explication</span>`}</p><button class="lnk" type="button" data-airdl="${i}" style="align-self:flex-start">⬇ Télécharger</button></div></div>`).join("")}</div>`:""}`)+`</div>`;
   s.scrollTop=sy;
   $("#entEditBtn").onclick=()=>{const c=entOf(l);entDraft={texte:c.texte||"",photos:entPhotos(c).map(x=>({...x}))};entEdit=true;$("#sheet").scrollTop=0;renderLogSheet()};
   if($("#entPdf"))$("#entPdf").onclick=()=>entreePdf(l);
   if($("#entVers"))$("#entVers").onclick=async()=>{try{await sbLoad("entree_hist",true)}catch(e){}entVersList=[...cmap("entree_hist").values()].filter(v=>v.logementId===l.id).sort((a,b)=>String(b.at).localeCompare(String(a.at)));entVers=l.id;renderLogSheet()};
-  if($("#entAir"))$("#entAir").onclick=()=>{entAirOpen=!entAirOpen;renderLogSheet();if(entAirOpen){(async()=>{await entAutoTr(l);entPrep(l)})()}};
-  if($("#entAirClose"))$("#entAirClose").onclick=()=>{entAirOpen=false;renderLogSheet()};
-  if($("#entAirAll"))$("#entAirAll").onclick=()=>entDownload(l,null);
+  if($("#entDlAll"))$("#entDlAll").onclick=()=>entDownload(l,null);
   s.querySelectorAll("[data-airdl]").forEach(b=>b.onclick=()=>entDownload(l,+b.dataset.airdl));
-  s.querySelectorAll("[data-airdl1]").forEach(b=>b.onclick=()=>entDownload(l,+b.dataset.airdl1,true));
-  s.querySelectorAll("[data-aircp]").forEach(b=>b.onclick=async()=>{const [i,k]=b.dataset.aircp.split("|");const t=entTexts(l)[+i][k];try{await navigator.clipboard.writeText(t);toast("Texte copié")}catch(e){toast("La copie n'a pas marché")}});
-  if($("#entAirTxt"))$("#entAirTxt").onclick=()=>{const TX=entTexts(l);const txt=TX.map(t=>"PHOTO "+(t.i+1)+"\nFR : "+(t.fr||"-")+"\nEN : "+(t.en||"-")+"\nDE : "+(t.de||"-")).join("\n\n");const f=new File([txt],entFileName(l,0).replace(/-01\.jpg$/,"-textes.txt"),{type:"text/plain"});
-    (async()=>{try{if(matchMedia("(pointer:coarse)").matches&&navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});return}}catch(e){if(e&&e.name==="AbortError")return}const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000)})()};
+  if(ph.length&&!entPrepped.has(l.id)){entPrepped.add(l.id);(async()=>{await entAutoTr(l);entPrep(l)})()}
   if($("#entVersClose"))$("#entVersClose").onclick=()=>{entVers=null;renderLogSheet()};
   s.querySelectorAll("[data-entrest]").forEach(b=>b.onclick=async()=>{const v=entVersList[+b.dataset.entrest];if(!v)return;b.disabled=true;try{await entWrite(l,{texte:v.entree.texte||"",photos:v.entree.photos||[],maj:nowIso(),par:who()});entVers=null;toast("Version du "+fmtAt(v.at)+" restaurée");renderLogSheet()}catch(e){b.disabled=false;toast(failMsg(e))}});
   if($("#entTr"))$("#entTr").onclick=()=>{entTrOpen=!entTrOpen;renderLogSheet();if(entTrOpen&&entSegs(entOf(l)).some(fr=>{const t=(entOf(l).trad||{})[trKey(fr)]||{};return !t.en||!t.de}))entAutoTr(l)};
