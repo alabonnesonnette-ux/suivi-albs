@@ -2551,11 +2551,20 @@ function entSegs(e){const P=entParse(e.texte);return [...new Set([...P.steps,...
 async function trOne(t,tl){
   try{const r=await fetch("https://translate.googleapis.com/translate_a/single?client=gtx&sl=fr&tl="+tl+"&dt=t&q="+encodeURIComponent(t));if(!r.ok)throw 0;const j=await r.json();const o=(j[0]||[]).map(x=>x[0]).join("").trim();if(o)return o;throw 0}
   catch(err){const r=await fetch("https://api.mymemory.translated.net/get?langpair=fr|"+tl+"&q="+encodeURIComponent(t.slice(0,480)));const j=await r.json();const o=(j&&j.responseData&&j.responseData.translatedText||"").trim();if(!o)throw new Error("trad");return o}}
+/* enregistre l'entrée complète puis vérifie sur le serveur qu'elle y est bien (sinon 2e écriture) */
+async function entWrite(l,ent,extra={}){const full=JSON.parse(JSON.stringify({...entOf(l),...ent}));
+  await db.doc("logements/"+l.id).update({entree:full,...extra});l.entree=full;
+  let chk=null;try{chk=await sb.from("docs").select("data").eq("coll","logements").eq("id",l.id).maybeSingle()}catch(e){return}
+  if(!chk||chk.error||!chk.data||!chk.data.data)return;const se=chk.data.data.entree||{},sig=x=>JSON.stringify([(x.texte||""),(x.photos||[]).map(p=>p.a+"|"+(p.txt||""))]);
+  if(sig(se)===sig(full))return;console.warn("Entrée : la 1re écriture n'a pas été gardée, 2e écriture");
+  const fixed=jmerge(chk.data.data,JSON.parse(JSON.stringify(extra)));fixed.entree=full;
+  const r=await sb.from("docs").update({data:fixed,updated_at:new Date().toISOString()}).eq("coll","logements").eq("id",l.id).select("id");
+  if(r.error||!r.data||!r.data.length)throw sbErr(r.error||{code:"42501",message:"aucune ligne modifiée"});cmap("logements").set(l.id,fixed);sbNotify("logements",l.id)}
 async function entTranslate(l,force){const e=entOf(l),T=e.trad||{},add={};let bad=0;
   for(const fr of entSegs(e)){const k=trKey(fr),cur=T[k]||{};const o={fr};let ch=false;
     for(const tl of ["en","de"]){if(cur[tl]&&!force){o[tl]=cur[tl];continue}try{o[tl]=await trOne(fr,tl);ch=true}catch(err){bad++}}
     if(ch)add[k]={...cur,...o}}
-  if(Object.keys(add).length){try{await db.doc("logements/"+l.id).update({entree:{trad:add}});Object.assign(T,add);l.entree={...e,trad:{...T}}}catch(err){toast(failMsg(err))}}
+  if(Object.keys(add).length){try{await entWrite(l,{trad:{...T,...add}});Object.assign(T,add)}catch(err){toast(failMsg(err))}}
   return bad}
 let entTrOpen=false;
 function renderEntree(l,head,s,sy){
@@ -2582,13 +2591,14 @@ function renderEntree(l,head,s,sy){
     s.querySelectorAll("[data-entdraw]").forEach(b=>b.onclick=async()=>{grab();const i=+b.dataset.entdraw,x=d.photos[i];if(!x)return;const nid=await drawOnPhoto(x.a);if(nid){d.photos[i]={...x,a:nid};renderLogSheet();toast("Dessin ajouté sur la photo")}});
     s.querySelectorAll("[data-entrm]").forEach(b=>b.onclick=()=>{grab();d.photos.splice(+b.dataset.entrm,1);renderLogSheet()});
     $("#entCancel").onclick=()=>{micStop();entEdit=false;entDraft=null;renderLogSheet()};
-    const save=async pdf=>{grab();micStop();$("#entSave").disabled=true;$("#entSavePdf").disabled=true;const E={texte:d.texte||"",ph:[],photos:d.photos.filter(x=>x&&x.a).map(x=>({a:x.a,txt:(x.txt||"").trim()})),maj:nowIso(),par:who()};
+    const save=async pdf=>{micStop();await new Promise(r=>setTimeout(r,250));grab();$("#entSave").disabled=true;$("#entSavePdf").disabled=true;const E={texte:d.texte||"",ph:[],photos:d.photos.filter(x=>x&&x.a).map(x=>({a:x.a,txt:(x.txt||"").trim()})),maj:nowIso(),par:who()};
       const sync=entSyncMsgs(l,(l.entree||{}).texte||"",E.texte);
-      try{await db.doc("logements/"+l.id).update(sync?{entree:E,messages:sync.messages}:{entree:E});if(sync)setTimeout(()=>toast(sync.msg),1800);l.entree={...(l.entree||{}),...E};entEdit=false;entDraft=null;toast("Infos d'entrée enregistrées");renderLogSheet();if(pdf)entreePdf(l)}catch(err){$("#entSave").disabled=false;$("#entSavePdf").disabled=false;toast(failMsg(err))}};
+      try{await entWrite(l,E,sync?{messages:sync.messages}:{});if(sync)setTimeout(()=>toast(sync.msg),1800);entEdit=false;entDraft=null;toast("Infos d'entrée enregistrées");renderLogSheet();if(pdf)entreePdf(l)}catch(err){$("#entSave").disabled=false;$("#entSavePdf").disabled=false;toast(failMsg(err))}};
     $("#entSave").onclick=()=>save(false);$("#entSavePdf").onclick=()=>save(true);
     return}
   const ph=entPhotos(e),empty=entEmpty(e)&&!ph.length,T=e.trad||{},segs=entTrOpen?entSegs(e):[];
-  s.innerHTML=head+(empty?`<div class="empty">Les infos d'entrée ne sont pas encore notées pour ce logement.<br>Notez-les en un seul bloc et ajoutez des photos commentées : la fiche PDF se met en forme et se traduit toute seule.</div>
+  const dup=logements.filter(x=>x.id!==l.id&&norm(x.nom)===norm(l.nom));
+  s.innerHTML=head+(dup.length?`<div class="box" style="border-color:var(--crit)"><b>⚠ ${dup.length+1} fiches logement portent le nom « ${esc(l.nom)} »</b><div class="hint">Les infos peuvent sembler disparaître quand l'outil ouvre l'autre fiche. Prévenez Claude pour les fusionner.</div></div>`:"")+(empty?`<div class="empty">Les infos d'entrée ne sont pas encore notées pour ce logement.<br>Notez-les en un seul bloc et ajoutez des photos commentées : la fiche PDF se met en forme et se traduit toute seule.</div>
       <div class="inline" style="margin-top:10px"><button class="btn pri" type="button" id="entEditBtn">Noter les infos d'entrée</button></div>`
     :`<button type="button" id="entPdf" class="entcta"><span class="ico" aria-hidden="true">📄</span><span><b>Créer la fiche d'entrée pour le voyageur</b><small>PDF avec les étapes et toutes les photos commentées, en français, anglais et allemand. À envoyer au voyageur ou au technicien.</small></span></button>
       <div class="inline" style="margin-top:8px"><button class="btn" type="button" id="entEditBtn">Modifier</button><button class="btn ghost" type="button" id="entTr">🌍 ${entTrOpen?"Masquer les traductions":"Voir / corriger les traductions"}</button></div>
@@ -2604,7 +2614,7 @@ function renderEntree(l,head,s,sy){
   if($("#entTr"))$("#entTr").onclick=()=>{entTrOpen=!entTrOpen;renderLogSheet()};
   if($("#trAuto"))$("#trAuto").onclick=async()=>{$("#trAuto").disabled=true;toast("Traduction en cours…");const bad=await entTranslate(l,false);toast(bad?"Certaines traductions n'ont pas pu se faire (connexion ?)":"Traductions faites");renderLogSheet()};
   if($("#trSave"))$("#trSave").onclick=async()=>{const add={};s.querySelectorAll("[data-trk]").forEach(t=>{const k=t.dataset.trk;add[k]=add[k]||{fr:t.dataset.trfr};add[k][t.dataset.trl]=t.value.trim()});
-    try{await db.doc("logements/"+l.id).update({entree:{trad:add}});toast("Traductions enregistrées")}catch(err){toast(failMsg(err))}};
+    try{const T=entOf(l).trad||{};const m={...T};for(const k in add)m[k]={...(T[k]||{}),...add[k]};await entWrite(l,{trad:m});toast("Traductions enregistrées")}catch(err){toast(failMsg(err))}};
 }
 async function entreePdf(l){
   let e=entOf(l);const phs=entPhotos(e);if(entEmpty(e)&&!phs.length)return toast("Notez d'abord les infos d'entrée");
