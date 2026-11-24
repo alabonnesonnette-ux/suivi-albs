@@ -2586,7 +2586,7 @@ let entTrBusy=false;async function entAutoTr(l){if(entTrBusy)return;const e=entO
   toast(bad?"Certaines traductions n'ont pas pu se faire : touchez « Traduire automatiquement ce qui manque »":"Traductions anglais et allemand faites");if(lsTab==="entree"&&!entEdit)renderLogSheet()}
 /* photos pour Airbnb : téléchargement une par une ou toutes, avec les textes traduits */
 const entBlobs=new Map(),entComp=new Map(),entPrepped=new Set();
-async function entPrep(l){const ph=entPhotos(entOf(l)),TX=entTexts(l);for(let i=0;i<ph.length;i++){try{let b=await entFetch(ph[i].a);if(TX[i].fr){const ck=ph[i].a+"|"+(i+1)+"|"+TX[i].fr+"|"+TX[i].en+"|"+TX[i].de;if(!entComp.has(ck))entComp.set(ck,await entComposite(b,TX[i],i+1))}}catch(e){}}}
+async function entPrep(l){const ph=entPhotos(entOf(l)),TX=entTexts(l);for(let i=0;i<ph.length;i++){try{const b=await entFetch(ph[i].a);if(TX[i].fr){const ck=entCk(ph[i],i,TX[i]);if(!entComp.has(ck)){let c=b;try{c=await entComposite(b,TX[i],i+1)}catch(e){console.warn("photo+texte",e)}entComp.set(ck,c)}}}catch(e){console.warn("photo",e)}}}
 const entFileName=(l,i,b)=>(String(l.nom||"logement").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9]+/g,"-").replace(/^-|-$/g,"")||"logement")+"-entree-"+String(i+1).padStart(2,"0")+"."+(((b&&b.type)||"image/jpeg").split("/")[1]||"jpg").replace("jpeg","jpg");
 async function entFetch(a){if(entBlobs.has(a))return entBlobs.get(a);const r=await fetch(blob(a));if(!r.ok)throw new Error("photo");const b=await r.blob();entBlobs.set(a,b);return b}
 /* photo + textes FR / EN / DE dessous, dans une seule image */
@@ -2600,15 +2600,17 @@ async function entComposite(b,t,n){const im=await decodeImg(b),w0=im.naturalWidt
   if(rows.length){cx.fillStyle="#a89331";cx.fillRect(0,ph,W,5);let y=ph+P+FS-6;
     for(const r of rows){cx.fillStyle=r.col;cx.font="bold "+(FS-6)+"px Helvetica, Arial, sans-serif";cx.fillText(r.k,P,y);cx.fillStyle="#2a2614";cx.font=FS+"px Helvetica, Arial, sans-serif";r.L.forEach((ln,j)=>cx.fillText(ln,P+70,y+j*LH));y+=r.L.length*LH+18}}
   return await new Promise((res,rej)=>c.toBlob(x=>x?res(x):rej(new Error("toBlob")),"image/jpeg",.9))}
-async function entDownload(l,idx,seule){const ph=entPhotos(entOf(l)),TX=entTexts(l);const L=idx==null?ph.map((x,i)=>[x,i]):[[ph[idx],idx]];const files=[];
-  if(!seule)toast("Préparation des photos avec les textes…");
-  for(const [x,i] of L){let b=entBlobs.get(x.a);if(!b){try{b=await entFetch(x.a)}catch(e){continue}}
-    if(!seule&&TX[i].fr){const ck=x.a+"|"+(i+1)+"|"+TX[i].fr+"|"+TX[i].en+"|"+TX[i].de;if(entComp.has(ck))b=entComp.get(ck);else{try{b=await entComposite(b,TX[i],i+1);entComp.set(ck,b)}catch(e){console.warn(e)}}}
-    files.push(new File([b],entFileName(l,i,b),{type:b.type||"image/jpeg"}))}
-  if(!files.length)return toast("Les photos n'ont pas pu être chargées, réessayez");
-  try{if(matchMedia("(pointer:coarse)").matches&&navigator.canShare&&navigator.canShare({files})){await navigator.share({files});return}}catch(e){if(e&&e.name==="AbortError")return;if(e&&e.name==="NotAllowedError")return toast("Les photos sont prêtes : touchez à nouveau le bouton")}
-  for(const f of files){const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000);await new Promise(r=>setTimeout(r,350))}
-  toast(files.length>1?files.length+" photos téléchargées":"Photo téléchargée")}
+let entPrepRun=null;const entCk=(x,i,t)=>x.a+"|"+(i+1)+"|"+t.fr+"|"+t.en+"|"+t.de;
+function entReady(l,idx){const ph=entPhotos(entOf(l)),TX=entTexts(l);const L=idx==null?ph.map((x,i)=>[x,i]):[[ph[idx],idx]];const files=[];
+  for(const [x,i] of L){let b=TX[i].fr?entComp.get(entCk(x,i,TX[i])):entBlobs.get(x.a);if(!b)return null;files.push(new File([b],entFileName(l,i,b),{type:b.type||"image/jpeg"}))}return files}
+function entDownload(l,idx){const mobile=matchMedia("(pointer:coarse)").matches&&!!navigator.share;
+  const files=entReady(l,idx);
+  if(!files){if(!entPrepRun)entPrepRun=entPrep(l).finally(()=>{entPrepRun=null;toast("Les photos sont prêtes : touchez à nouveau « Télécharger »")});toast("Préparation des photos avec les textes… touchez à nouveau dans quelques secondes");return}
+  if(!files.length)return toast("Aucune photo à télécharger");
+  if(mobile){let ok=false;try{ok=!navigator.canShare||navigator.canShare({files})}catch(e){}
+    if(ok){navigator.share({files}).catch(e=>{if(e&&e.name==="AbortError")return;console.error(e);toast(e&&e.name==="NotAllowedError"?"Touchez à nouveau « Télécharger »":"Le téléchargement n'a pas marché ("+((e&&e.name)||"erreur")+"), réessayez")});return}}
+  (async()=>{for(const f of files){const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000);await new Promise(r=>setTimeout(r,350))}
+    toast(files.length>1?files.length+" photos téléchargées":"Photo téléchargée")})()}
 function entTexts(l){const e=entOf(l),T=e.trad||{};return entPhotos(e).map((x,i)=>{const fr=(x.txt||"").trim(),t=fr?(T[trKey(fr)]||{}):{};return {i,fr,en:t.en||"",de:t.de||""}})}
 let entTrOpen=false,entVers=null,entVersList=null;
 function renderEntree(l,head,s,sy){
