@@ -2095,7 +2095,7 @@ let socCfg={};const SOC=()=>{const x={...SOC_DEF,...Object.fromEntries(Object.en
 /* ---- attestations taxe d'habitation : logement confié à la conciergerie par contrat et non occupé par le propriétaire ---- */
 let ctrsCfg={},attEdit=null,attYear=new Date().getFullYear();
 const CTRS=()=>Array.isArray((ctrsCfg||{}).contrats)?ctrsCfg.contrats:[];
-const ATT_CL={renonce:"Le propriétaire a renoncé à toute occupation personnelle (article « Usage et destination »)",accord:"Toute utilisation personnelle doit être convenue avec la conciergerie",aucune:"Pas de clause sur l'occupation personnelle"};
+const ATT_CL={renonce:"Le propriétaire a renoncé à toute occupation personnelle (article « Usage et destination »)",accord:"Toute utilisation personnelle doit être convenue avec la conciergerie : le propriétaire signe une déclaration jointe",aucune:"Pas de clause sur l'occupation personnelle (ancien contrat) : le propriétaire signe une déclaration jointe"};
 const attN=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9²]+/g," ").trim();
 const ATT_STOP=new Set("rue avenue boulevard place quai impasse chemin route allee croisee coteaux de du des la le les et au aux a d l sis situe situee".split(" "));
 function attStreet(a){const t=attN(a);const m=t.match(/\b(\d+)\s*([a-z])?\s+(?:rue|avenue|av|boulevard|bd|place|quai|croisee|impasse|chemin|route|allee|coteaux)\s+(.+)$/);if(!m)return null;
@@ -2144,7 +2144,7 @@ function attBind(l){if(!$("#attBox"))return;
     if(!o.proprio)return toast("Indiquez le propriétaire");$("#attSave").disabled=true;
     try{await db.doc("logements/"+l.id).update({attest:o});l.attest=o;attEdit=null;toast("Attestation enregistrée");renderLogSheet()}catch(e){$("#attSave").disabled=false;toast(failMsg(e))}}}
 /* PDF : une attestation pour un ou plusieurs logements du même propriétaire */
-async function attPdf(items,year){const SO=SOC();if(!items.length)return;toast("Préparation de l'attestation…");try{await loadJsPdf()}catch(e){return toast("Le PDF n'a pas pu se préparer : vérifiez la connexion")}
+async function attPdf(items,year){const SO=SOC();if(!items.length)return;items=items.map(i=>({...i,v:{...i.v,log_adr:String(i.v.log_adr||"").replace(/m²/g,"m2").replace(/²/g,"2")}}));toast("Préparation de l'attestation…");try{await loadJsPdf()}catch(e){return toast("Le PDF n'a pas pu se préparer : vérifiez la connexion")}
   const doc=new window.jspdf.jsPDF({unit:"mm",format:"a4"});const W=210,H=297,M=22,CW=W-2*M,GOLD=[168,147,49],DARK=[42,38,20],MUT=[110,102,74];let y=22;
   const para=(t,o={})=>{doc.setFont("helvetica",o.b?"bold":o.i?"italic":"normal");doc.setFontSize(o.s||10.5);doc.setTextColor(...(o.c||DARK));const x=M+(o.ind||0);const L=doc.splitTextToSize(pdfTxt(t),CW-(o.ind||0));const lh=(o.s||10.5)*0.5;
     for(const ln of L){if(y+lh>H-24){doc.addPage();y=22}doc.text(ln,o.center?W/2:o.right?W-M:x,y,o.center?{align:"center"}:o.right?{align:"right"}:undefined);y+=lh}y+=o.after??2.5};
@@ -2171,7 +2171,12 @@ async function attPdf(items,year){const SO=SOC();if(!items.length)return;toast("
   para("La présente attestation est délivrée à la demande de l'intéressé"+(isSoc?"e":"(e)")+" pour servir et valoir ce que de droit, notamment auprès de l'administration fiscale au titre de la taxe d'habitation "+year+".",{after:10});
   para("Fait à "+SO.ville+", le "+attFd(today()),{after:10});
   para(SO.signataire,{b:1,right:1,after:.5});para(SO.sign_fct.charAt(0).toUpperCase()+SO.sign_fct.slice(1)+" – "+SO.nom,{right:1,c:MUT,s:9.5,after:1});para("Signature et cachet de la société",{right:1,i:1,c:MUT,s:9,after:0});
-  doc.setDrawColor(...GOLD);doc.setLineWidth(.3);doc.line(M,H-14,W-M,H-14);doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(...MUT);doc.text(pdfTxt(SO.nom+" – "+SO.siege+" – SIRET "+SO.siret),W/2,H-9,{align:"center"});
+  if(items.some(i=>(i.v.clause||"aucune")!=="renonce")){const plur=!isSoc&&/ et /.test(v0.proprio),ref2=items.every(i=>i.v.effet&&i.v.effet<=year+"-01-01")?"au 1er janvier "+year+", ni depuis la prise d'effet du contrat":"depuis la prise d'effet du contrat";
+    if(y>H-110){doc.addPage();y=22}else y+=12;doc.setDrawColor(...GOLD);doc.setLineWidth(.3);doc.line(M,y,W-M,y);y+=9;
+    doc.setFont("times","bold");doc.setFontSize(14);doc.setTextColor(...DARK);doc.text(plur?"DÉCLARATION DES PROPRIÉTAIRES":"DÉCLARATION DU PROPRIÉTAIRE",W/2,y,{align:"center"});y+=9;
+    para((isSoc?"Je soussigné(e) ………………………………………, agissant en qualité de représentant légal de "+v0.proprio+", propriétaire":(plur?"Nous soussignés "+v0.proprio+", propriétaires":"Je soussigné(e) "+v0.proprio+", propriétaire"))+" "+(many?"des logements suivants : ":"du logement suivant : ")+items.map(i=>i.v.log_adr||"(adresse)").join(" ; ")+", "+(plur?"déclarons":"déclare")+" sur l'honneur que "+(many?"ces logements sont":"ce logement est")+" exclusivement "+(many?"affectés":"affecté")+" à la location meublée de courte durée et "+(plur?"que nous ne les avons":(many?"que je ne les ai":"que je ne l'ai"))+" "+(plur&&!many?"pas":"pas")+" "+(many?"occupés":"occupé")+", ni "+(many?"réservés":"réservé")+" pour "+(plur?"notre":"mon")+" usage personnel ou celui de "+(plur?"nos":"mes")+" proches, "+ref2+".",{after:3});
+    para("Fait à ………………………………, le ……………………",{after:6});para("Signature"+(plur?"s":"")+" précédée"+(plur?"s":"")+" de la mention « lu et approuvé »",{i:1,c:MUT,s:9,after:0})}
+  const np=doc.getNumberOfPages();for(let pg=1;pg<=np;pg++){doc.setPage(pg);doc.setDrawColor(...GOLD);doc.setLineWidth(.3);doc.line(M,H-14,W-M,H-14);doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(...MUT);doc.text(pdfTxt(SO.nom+" – "+SO.siege+" – SIRET "+SO.siret),W/2,H-9,{align:"center"});if(np>1)doc.text(pg+"/"+np,W-M,H-9,{align:"right"})}
   const nm=("Attestation taxe habitation "+year+" - "+v0.proprio).replace(/œ/g,"oe").replace(/Œ/g,"Oe").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9 '._-]/g,"").replace(/\s+/g," ").trim().slice(0,90)+".pdf";
   await pdfDeliver(doc.output("blob"),nm)}
 /* écran « Attestations » : par propriétaire, import des contrats du Drive */
