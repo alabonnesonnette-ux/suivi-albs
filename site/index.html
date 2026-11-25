@@ -1172,7 +1172,7 @@ function renderForm(){
 }
 
 /* ---------- logement sheet ---------- */
-function openLogSheet(nom){fdmEdit=null;attEdit=null;rqForm=false;rqDel=null;entEdit=false;entDraft=null;auditForm=false;auditOpen=null;editKey=null;addRub=false;histOpen=null;lsTab=mode==="menage"?"fiche":"suivi";menOpen=null;logOpen=nom;retLog=null;openId=null;formState=null;$("#sheet").hidden=false;renderLogSheet()}
+function openLogSheet(nom){fdmEdit=null;attEdit=null;pnEdit=null;rqForm=false;rqDel=null;entEdit=false;entDraft=null;auditForm=false;auditOpen=null;editKey=null;addRub=false;histOpen=null;lsTab=mode==="menage"?"fiche":"suivi";menOpen=null;logOpen=nom;retLog=null;openId=null;formState=null;$("#sheet").hidden=false;renderLogSheet()}
 function renderLogSheet(){
   const nom=logOpen, l=logements.find(x=>norm(x.nom)===norm(nom)), s=$("#sheet"), sy=s.scrollTop;
   const mine=dossiers.filter(d=>norm(d.logement)===norm(nom));
@@ -1187,7 +1187,7 @@ function renderLogSheet(){
   if(tab==="fiche"){s.innerHTML=head+(team?`<div class="inline"><button class="btn" type="button" id="lsPdf">⬇ Fiche complète (PDF)</button></div>`:"")+ficheHtml(l,team)+(team?attBoxHtml(l):"")+`</div>`;s.scrollTop=sy;
     if($("#lsPdf"))$("#lsPdf").onclick=()=>downloadFiches([l],"Fiche "+l.nom.replace(/œ/g,"oe").replace(/Œ/g,"Oe").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9 '._-]/g,"").trim()+" "+today()+".pdf");
     if($("#rubVal")&&keep.rubVal!=null){$("#rubVal").value=keep.rubVal;if($("#rubLab")&&keep.rubLab!=null)$("#rubLab").value=keep.rubLab;if(keep.rubVis!=null)$("#rubVis").checked=keep.rubVis}
-    if($("#asTxt"))$("#asTxt").value=keep.asTxt;bindFiche(l,team);if(team)attBind(l);return}
+    if($("#asTxt"))$("#asTxt").value=keep.asTxt;bindFiche(l,team);if(team){attBind(l);pnBind(l)}return}
   if(tab==="entree"){renderEntree(l,head,s,sy);return}
   if(tab==="msg"){renderMsgs(l,head,s,sy);return}
   if(tab==="menages"){const ms=menages.filter(x=>norm(x.logement)===norm(l.nom));const g=new Map();for(const x of [...ms].sort((a,b)=>b.date.localeCompare(a.date))){const k=x.date.slice(0,7);if(!g.has(k))g.set(k,[]);g.get(k).push(x)}
@@ -1212,7 +1212,7 @@ function renderLogSheet(){
     s.querySelectorAll("[data-rqdel]").forEach(b=>b.onclick=async()=>{const id=b.dataset.rqdel;if(rqDel!==id){rqDel=id;renderLogSheet();return}rqDel=null;
       try{await db.doc("logements/"+l.id).update({remarquesMenage:{[id]:{supprime:true}}});toast("Remarque supprimée")}catch(e){toast(failMsg(e))}});
     return}
-  s.innerHTML=head+`
+  s.innerHTML=head+pnBand(l)+`
   ${l?(()=>{const ok=auditDone(l),a=lastAudit(l),hist=auditsOf(l);return `<div class="audit ${ok?"ok":"todo"}"><b>${ok?"✓ Audit fait le "+fmt(a.date):"⚠ Audit à faire"}</b>
     ${ok&&a.note?`<span class="hint" style="white-space:pre-wrap">${esc(a.note)}</span>`:""}${!ok&&a?`<span class="hint">Dernier audit le ${fmt(a.date)}, avant la tournée en cours.</span>`:""}${!ok&&!a?`<span class="hint">Ce logement n'a encore jamais été contrôlé.</span>`:""}
     <div id="auditZone">${(()=>{const ec=enCoursOf(l.nom);if(ec){const st=audStats(ec);return `<button class="btn pri" type="button" data-aud="${esc(ec.id)}">Reprendre l'audit en cours · ${st.c}/${st.tot}</button>`}
@@ -1305,10 +1305,13 @@ function proprioHtml(l,team,row){
   const nom=[v.prop_nom,v.soc_nom].filter(Boolean).join(" · ");
   const lines=[["Téléphone",v.prop_tel],["E-mail",v.prop_mail],["Adresse",v.prop_adr],["Préfère être contacté par",Array.isArray(v.prop_contact)?v.prop_contact.join(", "):v.prop_contact],["Formule",v.formule],["Travaux sans validation jusqu'à",v.travaux]].filter(([,x])=>x);
   const avoir=[v.prop_notes,...["Rendez-vous","Identité","Accord avec la conciergerie"].map(t=>v[snKey(t)])].filter(x=>x&&String(x).trim());
+  const pn=String(l.propNote||"").trim();
   return `<div class="box proprio"><h3>Propriétaire</h3>
     ${nom?`<div class="pname">${esc(nom)}</div>`:""}
     ${lines.length?`<div class="pinfos">${lines.map(([k,x])=>`<div><span class="lbl">${esc(k)}</span><span class="pv">${esc(x)}</span></div>`).join("")}</div>`:""}
-    ${avoir.length?`<div class="pavoir"><b>💡 À savoir sur le propriétaire</b>${avoir.map(x=>`<div>${esc(x)}</div>`).join("")}</div>`:""}
+    ${pnEdit===l.id?`<div class="pavoir"><b>💡 À savoir sur le propriétaire</b><textarea id="pnTxt" rows="4" placeholder="Ex. : pour les litiges, ne pas déranger le propriétaire ; il s'occupe lui-même du jardin…">${esc(l.propNote||"")}</textarea>${micBtn("pnTxt")}<div class="inline"><button class="btn pri" type="button" id="pnSave">Enregistrer</button><button class="btn ghost" type="button" id="pnNo">Annuler</button></div></div>`
+      :(avoir.length||pn?`<div class="pavoir"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b>💡 À savoir sur le propriétaire</b><button class="lnk" type="button" id="pnMod">${pn?"Modifier":"Ajouter une note"}</button></div>${pn?`<div>${esc(pn)}</div>`:""}${avoir.map(x=>`<div>${esc(x)}</div>`).join("")}</div>`
+        :`<div><button class="btn" type="button" id="pnMod">💡 Ajouter une note « À savoir sur le propriétaire »</button></div>`)}
     ${nom||lines.length||avoir.length?`<span class="hint">Repris du dossier prospect.</span>`:""}
     ${row&&(!p||(row.val&&!(v.prop_nom&&row.val.includes(v.prop_nom))))?rubRow(row,team,l):""}</div>`}
 let invEdit=null;
@@ -2093,7 +2096,7 @@ const SOC_DEF={nom:"À LA BONNE SONNETTE",forme:"SAS (société par actions simp
 const SOC_FIELDS=[["nom","Nom de la société"],["forme","Forme juridique"],["capital","Capital"],["adr","Adresse du siège social"],["cp","Code postal"],["ville","Ville"],["rcs","Immatriculation (RCS)"],["siret","SIRET"],["rep","Représentant légal"],["rep_fct","Fonction du représentant"],["signataire","Qui signe les contrats"],["sign_fct","Fonction de la personne qui signe"],["tel","Téléphone"],["mail","E-mail"],["mail_rgpd","E-mail pour les données personnelles (RGPD)"],["messagerie","Messagerie à privilégier"],["tribunal","Tribunal compétent (contrat de ménage)"]];
 let socCfg={};const SOC=()=>{const x={...SOC_DEF,...Object.fromEntries(Object.entries(socCfg||{}).filter(([k,v])=>SOC_DEF[k]!==undefined&&String(v||"").trim()))};x.siege=x.adr+", "+x.cp+" "+x.ville;x.cpv=x.cp+" "+String(x.ville).toUpperCase();return x};
 /* ---- attestations taxe d'habitation : logement confié à la conciergerie par contrat et non occupé par le propriétaire ---- */
-let ctrsCfg={},attEdit=null,ctrBusy=null,ctrZoneDone=null,attYear=new Date().getFullYear(),signCfg={};
+let pnEdit=null,ctrsCfg={},attEdit=null,ctrBusy=null,ctrZoneDone=null,attYear=new Date().getFullYear(),signCfg={};
 /* signature + cachet : photo nettoyée (fond blanc rendu transparent, recadrée) puis enregistrée dans config/signature */
 async function signPrep(file){const im=await decodeImg(file),w0=im.naturalWidth||im.width,h0=im.naturalHeight||im.height,sc=Math.min(1,1400/Math.max(w0,h0)),w=Math.round(w0*sc),h=Math.round(h0*sc);
   const c=document.createElement("canvas");c.width=w;c.height=h;const cx=c.getContext("2d");cx.drawImage(im,0,0,w,h);if(im.close)im.close();const d=cx.getImageData(0,0,w,h),D=d.data;let x0=w,y0=h,x1=-1,y1=-1;
@@ -2154,6 +2157,12 @@ function attBoxHtml(l){const v=attVals(l),y=attYear,w=attWarn(v,y);
       ${v.auto?`<div class="hint">Trouvé automatiquement dans les contrats du Drive (${esc(v.ctr.fichier||"")}) : vérifiez puis « Modifier » pour confirmer ou corriger.</div>`:""}`:`<div class="hint">Aucun contrat trouvé pour ce logement : cliquez sur « Modifier » pour choisir le contrat ou remplir les informations.</div>`}
     ${w?`<div class="hint" style="color:var(--warn);font-weight:600">⚠ ${esc(w)}</div>`:""}
     <div class="inline" style="margin-top:8px;align-items:center"><label for="attY" class="hint" style="margin:0">Année</label><select id="attY" class="fmois">${[y-2,y-1,y,y+1].filter((x,i,a)=>a.indexOf(x)===i).map(x=>`<option ${x===attYear?"selected":""}>${x}</option>`).join("")}</select><button class="btn" type="button" id="attPdf" ${v.proprio?"":"disabled"}>⬇ Attestation (PDF)</button></div></div>`}
+function pnBind(l){if($("#pnMod"))$("#pnMod").onclick=()=>{pnEdit=l.id;renderLogSheet();const t=$("#pnTxt");if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length)}};
+  if($("#pnNo"))$("#pnNo").onclick=()=>{pnEdit=null;renderLogSheet()};
+  if($("#pnSave"))$("#pnSave").onclick=async()=>{const t=$("#pnTxt").value.trim();$("#pnSave").disabled=true;try{await db.doc("logements/"+l.id).update({propNote:t,propNoteMaj:nowIso(),propNotePar:who()});l.propNote=t;pnEdit=null;toast(t?"Note enregistrée":"Note retirée");renderLogSheet()}catch(e){$("#pnSave").disabled=false;toast(failMsg(e))}}}
+/* note propriétaire rappelée en haut de l'onglet Suivi (litiges) */
+function pnBand(l){if(!l||mode!=="equipe")return"";const p=prospectOf(l),v=p?pV(p):{};const a=[l.propNote,v.prop_notes].map(x=>String(x||"").trim()).filter(Boolean);
+  return a.length?`<div class="pavoir" style="margin:10px 0"><b>💡 À savoir sur le propriétaire</b>${a.map(x=>`<div>${esc(x)}</div>`).join("")}</div>`:""}
 function attBind(l){if(!$("#attBox"))return;
   if($("#attMod"))$("#attMod").onclick=()=>{attEdit=l.id;renderLogSheet();$("#att_ctr")?.focus()};
   if($("#ctrUp"))$("#ctrUp").onchange=async e=>{const files=[...e.target.files];e.target.value="";if(!files.length)return;ctrBusy=l.id;renderLogSheet();const step=t=>{const z=$("#ctrStep");if(z)z.textContent=t};
@@ -3067,7 +3076,7 @@ async function startApp(user){
   $("#auth").hidden=true;$("#auth").innerHTML="";
   if(booted){render();return}booted=true;
   db=sbDb;assets=sbAssets;downloads=sbDownloads;view=TABS[mode][0][0];sbRealtime();
-  const busy=()=>techRen||fdmEdit||attEdit||ctrBusy||auditForm||editKey||addRub||msgEdit||invEdit||(()=>{const ae=document.activeElement;return !!(ae&&ae.closest&&ae.closest("#sheet")&&(/INPUT|TEXTAREA|SELECT/.test(ae.tagName)||ae.isContentEditable))})();
+  const busy=()=>techRen||fdmEdit||pnEdit||attEdit||ctrBusy||auditForm||editKey||addRub||msgEdit||invEdit||(()=>{const ae=document.activeElement;return !!(ae&&ae.closest&&ae.closest("#sheet")&&(/INPUT|TEXTAREA|SELECT/.test(ae.tagName)||ae.isContentEditable))})();
   db.collection("logements").onSnapshot(s=>{logements=s.docs.map(d=>({id:d.id,...d.data()}));render();if(auditOpen){}else if(logOpen&&!busy())renderLogSheet();else if(menOpen&&!degForm)renderMenage()},()=>{});
   db.doc("config/menage").onSnapshot(s=>{const d=s.exists?s.data():{};cfgM={protocole:d.protocole||[],equipe:d.equipe||[]};render()},()=>{});
   db.collection("menages").onSnapshot(s=>{menages=s.docs.map(d=>({id:d.id,...d.data()}));render();if(menOpen&&!degForm)renderMenage();else if(logOpen&&lsTab==="menages"&&!busy())renderLogSheet();else if(openId)renderDetail()},()=>{});
