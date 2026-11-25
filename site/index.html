@@ -234,6 +234,13 @@ textarea{min-height:76px;resize:vertical}
 .lgroup{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 .lrow{display:flex;align-items:center;gap:8px;border-top:1px solid var(--line)}
 .lrow:first-child{border-top:0}
+.lrow .dot{width:12px;height:12px;border-radius:50%;flex:none;display:inline-block;margin-right:8px;vertical-align:middle}
+.lrow .mv{background:transparent;border:1px solid var(--line);border-radius:8px;width:34px;height:34px;font-size:14px;color:var(--ink);flex:none}
+.lrow .mv:disabled{opacity:.3}
+.lrow .cbtn{width:28px;height:28px;border-radius:50%;border:2px dashed var(--line);flex:none;background:transparent}
+.lpal{display:flex;flex-wrap:wrap;gap:10px;padding:10px 14px;border-top:1px solid var(--line);align-items:center}
+.lpal button{width:32px;height:32px;border-radius:50%;border:2px solid transparent}
+.lpal button[aria-pressed=true]{border-color:var(--ink)}
 .lrow .go{flex:1;min-width:0;display:flex;justify-content:space-between;align-items:center;gap:10px;background:transparent;border:0;padding:11px 14px;text-align:left}
 .lrow .n{font-weight:600;min-width:0}
 .lrow .c{font-size:12px;color:var(--muted);white-space:nowrap}
@@ -771,6 +778,12 @@ function openFacForm(id){
 const lieuKey=x=>String(x||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/\(.*?\)/g,"").replace(/\d+/g,"").replace(/[^a-z ]/g," ").replace(/\s+/g," ").trim();
 function lieuxConnus(){const out=[];for(const x of [...LIEUX,...logements.map(l=>l.lieu)])if(x&&!out.some(y=>lieuKey(y)===lieuKey(x)))out.push(x);return out}
 const canonLieu=x=>{const k=lieuKey(x);if(!k)return "";return lieuxConnus().find(y=>lieuKey(y)===k)||String(x).replace(/\b\d{5}\b/g,"").replace(/\s+/g," ").trim()};
+const LCOUL=[["rose","#E58FB5"],["bleu","#6FA8DC"],["vert","#7CBF8E"],["jaune","#E8C84F"],["violet","#A98BD6"],["orange","#E9A15E"],["rouge","#D9665B"],["gris","#9AA0A6"]];
+const lCol=l=>(LCOUL.find(c=>c[0]===l.couleur)||[])[1]||"";
+const logSort=a=>[...a].sort((x,y)=>((x.ordre??1e9)-(y.ordre??1e9))||x.nom.localeCompare(y.nom,"fr"));
+let logOrg=false,colPick=null;
+async function logMove(arr,id,dir){const L=logSort(arr).filter(x=>x.id),i=L.findIndex(x=>x.id===id),j=i+dir;if(i<0||j<0||j>=L.length)return;[L[i],L[j]]=[L[j],L[i]];
+  try{for(let k=0;k<L.length;k++){const o=(k+1)*10;if(L[k].ordre!==o){L[k].ordre=o;await db.doc("logements/"+L[k].id).update({ordre:o})}}render()}catch(e){toast(failMsg(e))}}
 function groupLog(L){const lieux=[];for(const x of [...LIEUX,...L.map(l=>l.lieu)])if(x&&!lieux.some(y=>lieuKey(y)===lieuKey(x)))lieux.push(x);const g=lieux.map(li=>[li,L.filter(l=>l.lieu&&lieuKey(l.lieu)===lieuKey(li))]).filter(([,a])=>a.length);const sans=L.filter(l=>!l.lieu);if(sans.length)g.push(["Sans localisation",sans]);return g}
 async function saveCfg(patchObj,msg){try{await db.doc("config/menage").set({protocole:cfgM.protocole||[],equipe:cfgM.equipe||[],...patchObj,at:nowIso()});toast(msg)}catch(e){toast(failMsg(e))}}
 async function exportCsv(rows){
@@ -891,11 +904,18 @@ function render(){
     const groups=groupLog(actuels);
     const known=new Set(logements.map(l=>norm(l.nom)));const anciens=[...logements.filter(l=>l.ancien),...new Map(dossiers.filter(d=>d.logement&&!known.has(norm(d.logement))).map(d=>[norm(d.logement),{id:"",nom:d.logement,old:true}])).values()];
     if(anciens.length)groups.push(["Anciens logements",anciens]);
-    const row=l=>{const n=open.filter(d=>norm(d.logement)===norm(l.nom)).length,c=dossiers.filter(d=>d.statut==="clos"&&norm(d.logement)===norm(l.nom)).length;return `<div class="lrow"><button class="go" type="button" data-log="${esc(l.nom)}"><span class="n">${esc(l.nom)}</span><span class="c ${n?"on":""}">${n?n+" ouvert"+(n>1?"s":""):(c?c+" clos":"—")}</span></button>${l.old?"":`<button class="ed" type="button" data-edlog="${esc(l.id)}" aria-label="Modifier ${esc(l.nom)}">Modifier</button>`}</div>`};
-    m.innerHTML=`<div class="sec-title" style="margin-top:6px"><span>${actuels.length} logements gérés</span></div>
-      ${groups.length?groups.map(([li,a])=>`<div class="sec-title"><span>${esc(li)}</span><span>${a.length}</span></div><div class="lgroup">${[...a].sort((x,y)=>x.nom.localeCompare(y.nom,"fr")).map(row).join("")}</div>`).join(""):`<div class="empty">Aucun logement pour l'instant.</div>`}
+    const row=(l,i,arr)=>{const n=open.filter(d=>norm(d.logement)===norm(l.nom)).length,c=dossiers.filter(d=>d.statut==="clos"&&norm(d.logement)===norm(l.nom)).length,col=lCol(l);
+      if(logOrg&&!l.old&&l.id)return `<div class="lrow" style="padding:6px 10px;gap:6px${col?`;box-shadow:inset 5px 0 0 ${col}`:""}"><button class="mv" type="button" data-lmv="${esc(l.id)}|-1" aria-label="Monter ${esc(l.nom)}" ${i===0?"disabled":""}>▲</button><button class="mv" type="button" data-lmv="${esc(l.id)}|1" aria-label="Descendre ${esc(l.nom)}" ${i===arr.length-1?"disabled":""}>▼</button>
+        <span class="n" style="flex:1;min-width:0;padding-left:4px">${esc(l.nom)}</span><button class="cbtn" type="button" data-lcol="${esc(l.id)}" aria-label="Couleur de ${esc(l.nom)}" style="${col?`background:${col};border:2px solid ${col}`:""}"></button></div>
+        ${colPick===l.id?`<div class="lpal">${LCOUL.map(([k,h])=>`<button type="button" data-lsetcol="${esc(l.id)}|${k}" aria-label="${k}" aria-pressed="${l.couleur===k}" style="background:${h}"></button>`).join("")}<button type="button" class="lnk" data-lsetcol="${esc(l.id)}|" style="width:auto;height:auto;border:0">Aucune</button></div>`:""}`;
+      return `<div class="lrow"${col?` style="box-shadow:inset 5px 0 0 ${col}"`:""}><button class="go" type="button" data-log="${esc(l.nom)}"><span class="n">${col?`<span class="dot" style="background:${col}"></span>`:""}${esc(l.nom)}</span><span class="c ${n?"on":""}">${n?n+" ouvert"+(n>1?"s":""):(c?c+" clos":"—")}</span></button>${l.old?"":`<button class="ed" type="button" data-edlog="${esc(l.id)}" aria-label="Modifier ${esc(l.nom)}">Modifier</button>`}</div>`};
+    m.innerHTML=`<div class="sec-title" style="margin-top:6px"><span>${actuels.length} logements gérés</span><button class="btn${logOrg?" pri":""}" type="button" id="logOrg" style="padding:6px 12px;font-size:13px">${logOrg?"✓ Terminé":"↕ Ordre et couleurs"}</button></div>${logOrg?`<div class="hint" style="margin-bottom:8px">Déplacez avec ▲ ▼ à l'intérieur de chaque secteur. Touchez le rond à droite pour choisir une couleur.</div>`:""}
+      ${groups.length?groups.map(([li,a])=>`<div class="sec-title"><span>${esc(li)}</span><span>${a.length}</span></div><div class="lgroup">${logSort(a).map(row).join("")}</div>`).join(""):`<div class="empty">Aucun logement pour l'instant.</div>`}
       <div class="inline" style="margin-top:16px"><button class="btn" type="button" id="addLog">Ajouter un logement</button><button class="btn" type="button" id="allPdf">Toutes les fiches (PDF)</button>${me.role==="equipe"?`<button class="btn" type="button" id="attAll">🧾 Attestations taxe d'habitation</button>`:""}<button class="btn" type="button" data-view="men">Ménages : récap &amp; protocole photo</button></div>`;
-    $("#addLog").onclick=()=>openLogForm(null);if($("#attAll"))$("#attAll").onclick=attOpen;
+    $("#addLog").onclick=()=>openLogForm(null);$("#logOrg").onclick=()=>{logOrg=!logOrg;colPick=null;render()};
+    m.querySelectorAll("[data-lmv]").forEach(b=>b.onclick=()=>{const [id,d]=b.dataset.lmv.split("|");const l=logements.find(x=>x.id===id);if(!l)return;const grp=groups.find(([,a])=>a.some(x=>x.id===id));if(grp)logMove(grp[1],id,+d)});
+    m.querySelectorAll("[data-lcol]").forEach(b=>b.onclick=()=>{colPick=colPick===b.dataset.lcol?null:b.dataset.lcol;render()});
+    m.querySelectorAll("[data-lsetcol]").forEach(b=>b.onclick=async()=>{const [id,k]=b.dataset.lsetcol.split("|");colPick=null;try{await db.doc("logements/"+id).update({couleur:k||null});const l=logements.find(x=>x.id===id);if(l)l.couleur=k||null;render()}catch(e){toast(failMsg(e))}});if($("#attAll"))$("#attAll").onclick=attOpen;
     $("#allPdf").onclick=()=>downloadFiches([...actuels].sort((a,b)=>(a.lieu||"").localeCompare(b.lieu||"","fr")||a.nom.localeCompare(b.nom,"fr")),"Fiches logements ALBS "+today()+".pdf");
   }
 }
