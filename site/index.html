@@ -2178,7 +2178,16 @@ async function attPdf(items,year){const SO=SOC();if(!items.length)return;items=i
   para("Le propriétaire n'a pas accès "+(many?"à ces logements":"à ce logement")+" pour son usage personnel ou celui de ses proches. "+(many?"Ces logements n'ont":"Ce logement n'a")+" pas été occupé"+(many?"s":"")+" par le propriétaire "+ref+".",{after:3.5});
   para("La présente attestation est délivrée à la demande de l'intéressé"+(isSoc?"e":"(e)")+" pour servir et valoir ce que de droit.",{after:10});
   para("Fait à "+SO.ville+", le "+attFd(today()),{after:10});
-  para(SO.signataire,{b:1,right:1,after:.5});para(SO.sign_fct.charAt(0).toUpperCase()+SO.sign_fct.slice(1)+" – "+SO.nom,{right:1,c:MUT,s:9.5,after:1});const SG=await signData();if(SG){const mw=58,mh=34,r=Math.min(mw/SG.w,mh/SG.h),iw=SG.w*r,ih=SG.h*r;if(y+ih+4>H-18){doc.addPage();y=22}y+=2;doc.addImage(SG.d,"PNG",W-M-iw,y,iw,ih);y+=ih}else para("Signature et cachet de la société",{right:1,i:1,c:MUT,s:9,after:0});
+  para(SO.signataire,{b:1,right:1,after:.5});para(SO.sign_fct.charAt(0).toUpperCase()+SO.sign_fct.slice(1)+" – "+SO.nom,{right:1,c:MUT,s:9.5,after:1});/* cachet de la société (dessiné à partir de « Nos informations ») + signature par-dessus */
+  {const SG=await signData(),INK=[28,52,138],sw=74,sh=27;if(y+sh+12>H-18){doc.addPage();y=22}y+=6;const sx=W-M-sw,sy=y;
+    doc.setDrawColor(...INK);doc.setLineWidth(.9);doc.roundedRect(sx,sy,sw,sh,2,2,"S");doc.setLineWidth(.3);doc.roundedRect(sx+1.3,sy+1.3,sw-2.6,sh-2.6,1.5,1.5,"S");doc.setTextColor(...INK);
+    const sf=(String(SO.forme).match(/^([A-Z]{2,5})\b/)||[])[1]||"";const L1=(sf?sf+" ":"")+SO.nom;
+    doc.setFont("helvetica","bold");doc.setFontSize(L1.length>26?9.5:11);doc.text(pdfTxt(L1),sx+sw/2,sy+7.2,{align:"center"});
+    doc.setFont("helvetica","normal");doc.setFontSize(8.3);doc.text(pdfTxt(SO.adr+" – "+SO.cp+" "+SO.ville),sx+sw/2,sy+12.6,{align:"center"});
+    doc.setFont("helvetica","bold");doc.text(pdfTxt("SIRET "+SO.siret),sx+sw/2,sy+17.4,{align:"center"});
+    doc.setFont("helvetica","normal");doc.setFontSize(7.6);doc.text(pdfTxt([String(SO.rcs).replace(/\s*\d[\d ]*$/,""),SO.tel?"Tél. "+SO.tel:""].filter(Boolean).join(" – ")),sx+sw/2,sy+22.2,{align:"center"});
+    if(SG){const mw=50,mh=24,r=Math.min(mw/SG.w,mh/SG.h),iw=SG.w*r,ih=SG.h*r;doc.addImage(SG.d,"PNG",sx+sw/2-iw/2-8,sy+sh/2-ih/2+2,iw,ih)}
+    y=sy+sh+2}
   const np=doc.getNumberOfPages();for(let pg=1;pg<=np;pg++){doc.setPage(pg);doc.setDrawColor(...GOLD);doc.setLineWidth(.3);doc.line(M,H-14,W-M,H-14);doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(...MUT);doc.text(pdfTxt(SO.nom+" – "+SO.siege+" – SIRET "+SO.siret),W/2,H-9,{align:"center"});if(np>1)doc.text(pg+"/"+np,W-M,H-9,{align:"right"})}
   const nm=("Attestation taxe habitation "+year+" - "+v0.proprio).replace(/œ/g,"oe").replace(/Œ/g,"Oe").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9 '._-]/g,"").replace(/\s+/g," ").trim().slice(0,90)+".pdf";
   await pdfDeliver(doc.output("blob"),nm)}
@@ -3053,8 +3062,8 @@ async function openAccount(){(function w(n){if($("#pushZone")&&$("#pushZone").te
     <div class="hint" id="bkLast">${sauvegarde.lastAt?"Dernière sauvegarde : le "+fmtAt(sauvegarde.lastAt):"Aucune sauvegarde pour l'instant."}</div>
     <div><button class="btn pri" type="button" id="bkBtn">Exporter toutes les données</button></div></div>
   ${E?`<div class="box"><div class="boxhead"><h3>🏢 Nos informations</h3><button class="lnk" type="button" id="socEdit">Modifier</button></div><div class="hint">Utilisées automatiquement dans tous les contrats (ménage et propriétaire).</div><div id="socZone" style="margin-top:6px;line-height:1.6">${SOC_FIELDS.map(([k,lab])=>`<div><span class="hint">${esc(lab)} :</span> ${esc(SOC()[k]||"—")}</div>`).join("")}</div>
-    <div class="rub" style="margin-top:10px"><b>Signature et cachet</b><div class="hint">Ajoutés automatiquement en bas des attestations. Prenez en photo votre cachet signé sur une feuille blanche, bien à plat : le fond blanc est enlevé automatiquement.</div>
-      ${signCfg.img?`<div style="background:#fff;border-radius:10px;padding:8px;margin:8px 0;display:inline-block"><img src="${esc(blob(signCfg.img))}" alt="Signature et cachet enregistrés" style="max-width:220px;max-height:130px;display:block"></div>`:""}
+    <div class="rub" style="margin-top:10px"><b>Signature</b><div class="hint">Le cachet de la société est créé automatiquement avec les informations ci-dessus ; votre signature est posée dessus, en bas de chaque attestation. Signez sur une feuille blanche (stylo foncé) et prenez-la en photo bien à plat : le fond blanc est enlevé automatiquement.</div>
+      ${signCfg.img?`<div style="background:#fff;border-radius:10px;padding:8px;margin:8px 0;display:inline-block"><img src="${esc(blob(signCfg.img))}" alt="Signature enregistrée" style="max-width:220px;max-height:130px;display:block"></div>`:""}
       <div class="inline"><label class="btn">${signCfg.img?"Remplacer la photo":"📷 Ajouter la photo"}<input type="file" id="signIn" accept="image/*" hidden></label>${signCfg.img?`<button class="btn ghost" type="button" id="signDel">Retirer</button>`:""}</div></div></div>`:""}
   <div class="box"><h3>Importer des données</h3><div class="hint">Choisissez un fichier préparé par Claude (fiches, entrées, messages auto) : seules les rubriques vides sont remplies, rien de ce que l'équipe a déjà saisi n'est écrasé.</div><label class="btn photo-btn">Choisir le fichier<input type="file" accept=".json,application/json" hidden id="impIn"></label><div id="impMsg" class="hint"></div></div>`:""}
   </div>`;
