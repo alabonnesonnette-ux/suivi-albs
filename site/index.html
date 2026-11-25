@@ -1268,8 +1268,14 @@ function techHtml(l,team){
 const RUB_ICO={adresse:"📍",boite:"🔐",acces:"🚪",wifi:"📶",parking:"🅿️",poubelles:"♻️",linge:"🛏️",stock:"📦",packs:"🎁",consignes:"🧹",equip:"🍽️",proprio:"👤",video:"🎬",tv:"📺",p_tech:"🔧",p_cap:"🏠",p_regles:"📋",cles:"🗝️",airbnb:"🔑",mairie:"🏛️",p_lancement:"🚀",annonce:"📝",p_notes:"🗒️"};
 function rubIco(x){if(RUB_ICO[x.k])return RUB_ICO[x.k];const l=norm(x.label);return /wifi|internet/.test(l)?"📶":/tele|tv/.test(l)?"📺":/airbnb|booking|code/.test(l)?"🔑":/mairie|taxe/.test(l)?"🏛️":/chauff|electri|eau|compteur|techn/.test(l)?"🔧":/poubel|tri/.test(l)?"♻️":/menage|linge/.test(l)?"🧹":/note/.test(l)?"🗒️":/parking|garage/.test(l)?"🅿️":"📌"}
 function rubVal(t){return String(t).split(/\n/).map(li=>{const m=li.match(/^([^:]{2,40}) : (.+)$/);return `<div class="rv">${m?`<span class="rk">${esc(m[1])}</span> ${esc(m[2])}`:esc(li)}</div>`}).join("").replace(/(https?:\/\/[^\s<"]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')}
-function rubRow(x,team){return editKey===x.k?rubForm(x):`<div class="rub"><div class="rub-h"><span class="rub-l"><span class="rub-i" aria-hidden="true">${rubIco(x)}</span>${esc(x.label)}${daysSince(x.r.modifLe)<=7&&(x.hist.length||!x.t)?`<span class="new">Nouveau</span>`:""}${team&&!x.vis?`<span class="priv">Équipe seulement</span>`:""}</span>${team?`<button class="lnk" type="button" data-editrub="${esc(x.k)}">Modifier</button>`:""}</div>
-      <div class="rub-v ${x.val?"":"empty-v"}">${x.val?rubVal(x.val):"À compléter"}</div>
+/* photos ou PDF joints à une rubrique de la fiche info (techPhotos["rub_"+clé]) */
+const RUB_NOFILE=new Set(["airbnb"]);
+function rubFilesHtml(l,k,team){if(!l||RUB_NOFILE.has(k))return"";const key="rub_"+k,fs=techFiles(l,key),im=fs.filter(x=>!/pdf/.test(x.type||"")),pd=fs.filter(x=>/pdf/.test(x.type||""));if(!team&&!fs.length)return"";
+  return `${im.length?`<div class="thumbs" style="margin-top:6px">${im.map(x=>`<span class="th"><button class="im" type="button" data-thumb="${esc(x.a)}" aria-label="Agrandir la photo"><img src="${blob(x.a)}" alt="" loading="lazy"></button>${team?`<button class="x" type="button" data-techdel="${key}|${esc(x.id)}" aria-label="Retirer la photo">✕</button>`:""}</span>`).join("")}</div>`:""}
+  ${pd.length?`<div class="pdfs">${pd.map(x=>`<div class="pdfl"><span class="ic">PDF</span><a href="${blob(x.a)}" target="_blank" rel="noopener">${esc(x.name||"Document PDF")}</a>${team?`<button class="x" type="button" data-techdel="${key}|${esc(x.id)}" aria-label="Retirer ${esc(x.name||"le document")}">✕</button>`:""}</div>`).join("")}</div>`:""}
+  ${team?`<div style="margin-top:4px">${techUp[key]?`<span class="hint">Envoi en cours…</span>`:`<label class="lnk" style="cursor:pointer">📎 Ajouter une photo ou un PDF<input type="file" hidden multiple accept="image/*,.heic,.heif,application/pdf" data-techup="${key}"></label>`}</div>`:""}`}
+function rubRow(x,team,l){return editKey===x.k?rubForm(x):`<div class="rub"><div class="rub-h"><span class="rub-l"><span class="rub-i" aria-hidden="true">${rubIco(x)}</span>${esc(x.label)}${daysSince(x.r.modifLe)<=7&&(x.hist.length||!x.t)?`<span class="new">Nouveau</span>`:""}${team&&!x.vis?`<span class="priv">Équipe seulement</span>`:""}</span>${team?`<button class="lnk" type="button" data-editrub="${esc(x.k)}">Modifier</button>`:""}</div>
+      <div class="rub-v ${x.val?"":"empty-v"}">${x.val?rubVal(x.val):"À compléter"}</div>${rubFilesHtml(l,x.k,team)}
       ${x.r.modifLe?`<div class="hint">Modifié le ${fmtAt(x.r.modifLe)}${x.r.par?" · "+esc(x.r.par):""}${team&&x.hist.length?` · <button class="lnk" type="button" data-histrub="${esc(x.k)}">${histOpen===x.k?"Masquer":"Voir"} l'historique (${x.hist.length})</button>`:""}</div>`:""}
       ${histOpen===x.k?`<div class="band">${x.hist.map(h=>`<div>${h.le?"Jusqu'au "+fmtAt(h.le):"Avant"} : ${esc(h.valeur)}</div>`).join("")}</div>`:""}</div>`}
 /* Propriétaire en haut de la fiche (équipe seulement) : infos du dossier prospect + rubrique « Propriétaire » */
@@ -1284,7 +1290,7 @@ function proprioHtml(l,team,row){
     ${lines.length?`<div class="pinfos">${lines.map(([k,x])=>`<div><span class="lbl">${esc(k)}</span><span class="pv">${esc(x)}</span></div>`).join("")}</div>`:""}
     ${avoir.length?`<div class="pavoir"><b>💡 À savoir sur le propriétaire</b>${avoir.map(x=>`<div>${esc(x)}</div>`).join("")}</div>`:""}
     ${nom||lines.length||avoir.length?`<span class="hint">Repris du dossier prospect.</span>`:""}
-    ${row&&(!p||(row.val&&!(v.prop_nom&&row.val.includes(v.prop_nom))))?rubRow(row,team):""}</div>`}
+    ${row&&(!p||(row.val&&!(v.prop_nom&&row.val.includes(v.prop_nom))))?rubRow(row,team,l):""}</div>`}
 let invEdit=null;
 function invFilesHtml(l,team){const fs=techFiles(l,"inv"),im=fs.filter(x=>!/pdf/.test(x.type||"")),pd=fs.filter(x=>/pdf/.test(x.type||""));if(!team&&!fs.length)return"";
   return `<div class="invg">📎 Inventaire en fichier (PDF ou photos)</div>
@@ -1358,7 +1364,7 @@ function ficheHtml(l,team){
   const hasInv=!!((l.inventaire||{}).groupes||[]).length;const all=ficheRows(l).filter(x=>!(hasInv&&x.k==="equip")&&x.k!=="stock").filter(x=>team||(x.vis&&x.val)),prow=all.find(x=>x.k==="proprio"),rows=all.filter(x=>x.k!=="proprio");
   return `${proprioHtml(l,team,prow)}
   <div class="box"><h3>Fiche du logement</h3><div>
-    ${rows.map(x=>rubRow(x,team)).join("")||`<div class="hint">Aucune information partagée pour ce logement.</div>`}
+    ${rows.map(x=>rubRow(x,team,l)).join("")||`<div class="hint">Aucune information partagée pour ce logement.</div>`}
     ${team?(addRub?rubForm(null):`<div style="padding-top:10px"><button class="btn" type="button" id="rubNew">+ Ajouter une rubrique</button></div>`):""}
   </div></div>
   ${invHtml(l,team)}
