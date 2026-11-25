@@ -2168,7 +2168,7 @@ async function attPdf(items,year){const SO=SOC();if(!items.length)return;items=i
   if(!mixed&&cls[0]==="accord")para("Aux termes du contrat, le propriétaire ne dispose pas librement du logement en dehors des périodes louées, toute utilisation personnelle devant être préalablement convenue avec notre conciergerie.",{after:3.5});
   const ref=items.every(i=>i.v.effet&&i.v.effet<=year+"-01-01")?"que ce soit au 1er janvier "+year+" ou depuis cette date":"depuis la prise d'effet du contrat";
   para("À notre connaissance, et au vu du planning des réservations que nous gérons, "+(many?"ces logements n'ont":"ce logement n'a")+" pas été occupé"+(many?"s":"")+" par le propriétaire, ni mis à la disposition de ses proches, "+ref+".",{after:3.5});
-  para("La présente attestation est délivrée à la demande de l'intéressé"+(isSoc?"e":"(e)")+" pour servir et valoir ce que de droit, notamment auprès de l'administration fiscale au titre de la taxe d'habitation "+year+".",{after:10});
+  para("La présente attestation est délivrée à la demande de l'intéressé"+(isSoc?"e":"(e)")+" pour servir et valoir ce que de droit.",{after:10});
   para("Fait à "+SO.ville+", le "+attFd(today()),{after:10});
   para(SO.signataire,{b:1,right:1,after:.5});para(SO.sign_fct.charAt(0).toUpperCase()+SO.sign_fct.slice(1)+" – "+SO.nom,{right:1,c:MUT,s:9.5,after:1});para("Signature et cachet de la société",{right:1,i:1,c:MUT,s:9,after:0});
   if(items.some(i=>(i.v.clause||"aucune")!=="renonce")){const plur=!isSoc&&/ et /.test(v0.proprio),ref2=items.every(i=>i.v.effet&&i.v.effet<=year+"-01-01")?"au 1er janvier "+year+", ni depuis la prise d'effet du contrat":"depuis la prise d'effet du contrat";
