@@ -2224,7 +2224,7 @@ async function attPdf(items,year){const SO=SOC();if(!items.length)return;items=i
   y+=2;
   const nc=new Set(items.map(i=>i.v.ctrId||i.l.id)).size>1;para((nc?"Ces contrats, conclus":"Ce contrat, conclu")+" pour une durée d'un an renouvelable par tacite reconduction, "+(nc?"sont":"est")+" en cours à la date de la présente attestation.",{after:3.5});
   para("Depuis "+(nc?"leur":"sa")+" prise d'effet, "+(many?"ces logements sont exploités":"ce logement est exploité")+" par notre conciergerie, exclusivement en location meublée de courte durée à une clientèle de passage : nous en assurons la mise en location sur les plateformes de réservation, l'accueil des voyageurs, le ménage et le linge.",{after:3.5});
-  const ref=items.every(i=>i.v.effet&&i.v.effet<=year+"-01-01")?"au 1er janvier "+year+" ni depuis cette date":"depuis la prise d'effet du contrat";
+  const ref="depuis la prise d'effet du contrat";
   para("Le propriétaire n'a pas accès "+(many?"à ces logements":"à ce logement")+" pour son usage personnel ou celui de ses proches. "+(many?"Ces logements n'ont":"Ce logement n'a")+" pas été occupé"+(many?"s":"")+" par le propriétaire "+ref+".",{after:3.5});
   para("La présente attestation est délivrée à la demande de l'intéressé"+(isSoc?"e":"(e)")+" pour servir et valoir ce que de droit.",{after:10});
   para("Fait à "+SO.ville+", le "+attFd(today()),{after:10});
@@ -2239,7 +2239,7 @@ async function attPdf(items,year){const SO=SOC();if(!items.length)return;items=i
     if(SG){const mw=50,mh=24,r=Math.min(mw/SG.w,mh/SG.h),iw=SG.w*r,ih=SG.h*r;doc.addImage(SG.d,"PNG",sx+sw/2-iw/2-8,sy+sh/2-ih/2+2,iw,ih)}
     y=sy+sh+2}
   const np=doc.getNumberOfPages();for(let pg=1;pg<=np;pg++){doc.setPage(pg);doc.setDrawColor(...GOLD);doc.setLineWidth(.3);doc.line(M,H-14,W-M,H-14);doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(...MUT);doc.text(pdfTxt(SO.nom+" – "+SO.siege+" – SIRET "+SO.siret),W/2,H-9,{align:"center"});if(np>1)doc.text(pg+"/"+np,W-M,H-9,{align:"right"})}
-  const nm=("Attestation taxe habitation "+year+" - "+v0.proprio).replace(/œ/g,"oe").replace(/Œ/g,"Oe").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9 '._-]/g,"").replace(/\s+/g," ").trim().slice(0,90)+".pdf";
+  const nm=("Attestation conciergerie - "+v0.proprio).replace(/œ/g,"oe").replace(/Œ/g,"Oe").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9 '._-]/g,"").replace(/\s+/g," ").trim().slice(0,90)+".pdf";
   await pdfDeliver(doc.output("blob"),nm)}
 /* écran « Attestations » : par propriétaire, import des contrats du Drive */
 function attOpen(){document.getElementById("attChooser")?.remove();const o=document.createElement("div");o.id="attChooser";o.className="chooser";document.body.appendChild(o);const close=()=>o.remove();o.onclick=e=>{if(e.target===o)close()};
