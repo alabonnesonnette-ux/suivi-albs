@@ -2093,7 +2093,17 @@ const SOC_DEF={nom:"À LA BONNE SONNETTE",forme:"SAS (société par actions simp
 const SOC_FIELDS=[["nom","Nom de la société"],["forme","Forme juridique"],["capital","Capital"],["adr","Adresse du siège social"],["cp","Code postal"],["ville","Ville"],["rcs","Immatriculation (RCS)"],["siret","SIRET"],["rep","Représentant légal"],["rep_fct","Fonction du représentant"],["signataire","Qui signe les contrats"],["sign_fct","Fonction de la personne qui signe"],["tel","Téléphone"],["mail","E-mail"],["mail_rgpd","E-mail pour les données personnelles (RGPD)"],["messagerie","Messagerie à privilégier"],["tribunal","Tribunal compétent (contrat de ménage)"]];
 let socCfg={};const SOC=()=>{const x={...SOC_DEF,...Object.fromEntries(Object.entries(socCfg||{}).filter(([k,v])=>SOC_DEF[k]!==undefined&&String(v||"").trim()))};x.siege=x.adr+", "+x.cp+" "+x.ville;x.cpv=x.cp+" "+String(x.ville).toUpperCase();return x};
 /* ---- attestations taxe d'habitation : logement confié à la conciergerie par contrat et non occupé par le propriétaire ---- */
-let ctrsCfg={},attEdit=null,attYear=new Date().getFullYear();
+let ctrsCfg={},attEdit=null,attYear=new Date().getFullYear(),signCfg={};
+/* signature + cachet : photo nettoyée (fond blanc rendu transparent, recadrée) puis enregistrée dans config/signature */
+async function signPrep(file){const im=await decodeImg(file),w0=im.naturalWidth||im.width,h0=im.naturalHeight||im.height,sc=Math.min(1,1400/Math.max(w0,h0)),w=Math.round(w0*sc),h=Math.round(h0*sc);
+  const c=document.createElement("canvas");c.width=w;c.height=h;const cx=c.getContext("2d");cx.drawImage(im,0,0,w,h);if(im.close)im.close();const d=cx.getImageData(0,0,w,h),D=d.data;let x0=w,y0=h,x1=-1,y1=-1;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=(y*w+x)*4,r=D[i],g=D[i+1],b=D[i+2],mx=Math.max(r,g,b),mn=Math.min(r,g,b),lum=(r+g+b)/3;
+    if(D[i+3]<20||(lum>200&&mx-mn<40)){D[i+3]=0;continue}if(lum>170&&mx-mn<40)D[i+3]=Math.round(255*(200-lum)/30);if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}
+  cx.putImageData(d,0,0);if(x1<0)throw{code:"empty"};const m=8;x0=Math.max(0,x0-m);y0=Math.max(0,y0-m);x1=Math.min(w-1,x1+m);y1=Math.min(h-1,y1+m);
+  const o=document.createElement("canvas");o.width=x1-x0+1;o.height=y1-y0+1;o.getContext("2d").drawImage(c,x0,y0,o.width,o.height,0,0,o.width,o.height);
+  return await new Promise((res,rej)=>o.toBlob(b=>b?res(b):rej(new Error("toBlob")),"image/png"))}
+async function signData(){if(!signCfg.img)return null;try{const r=await fetch(blob(signCfg.img));if(!r.ok)return null;const b=await r.blob();const d=await new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.readAsDataURL(b)});
+  const im=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=d});return {d,w:im.naturalWidth,h:im.naturalHeight}}catch(e){return null}}
 const CTRS=()=>Array.isArray((ctrsCfg||{}).contrats)?ctrsCfg.contrats:[];
 const ATT_CL={renonce:"Le propriétaire a renoncé à toute occupation personnelle (article « Usage et destination »)",accord:"Toute utilisation personnelle doit être convenue avec la conciergerie : le propriétaire signe une déclaration jointe",aucune:"Pas de clause sur l'occupation personnelle (ancien contrat) : le propriétaire signe une déclaration jointe"};
 const attN=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9²]+/g," ").trim();
@@ -2126,10 +2136,10 @@ function attBoxHtml(l){const v=attVals(l),y=attYear,w=attWarn(v,y);
       ${F("proprio","Propriétaire(s) ou société","text","Ex. : Bernard GENG et Marie-Anne GENG")}${F("qualite","Précision (facultatif)","text","Ex. : société civile immobilière, RCS Mulhouse 914 272 307")}${F("proprio_adr","Adresse du propriétaire / siège (facultatif)")}
       ${F("log_adr","Adresse du logement","text","Ex. : Appartement F3, 4 rue des Tanneurs, 68100 Mulhouse")}
       <div class="grid2">${F("signe","Contrat signé le","date")}${F("effet","Contrat en vigueur depuis le","date")}</div>
-      <div class="field"><label for="att_clause">Ce que dit le contrat sur l'occupation par le propriétaire</label><select id="att_clause">${Object.entries(ATT_CL).map(([k,t])=>`<option value="${k}" ${(v.clause||"aucune")===k?"selected":""}>${esc(t)}</option>`).join("")}</select></div>
+      
       <div class="inline"><button class="btn pri" type="button" id="attSave">Enregistrer</button><button class="btn ghost" type="button" id="attCancel">Annuler</button></div></div>`}
   return `<div class="box" id="attBox"><div class="boxhead"><h3>🧾 Attestation taxe d'habitation</h3><button class="lnk" type="button" id="attMod">Modifier</button></div>
-    ${v.proprio?`<div class="note" style="white-space:pre-wrap"><b>${esc(v.proprio)}</b>${v.qualite?" · "+esc(v.qualite):""}\n${esc(v.log_adr||"Adresse du logement à indiquer")}\nContrat ${v.signe?"signé le "+attFd(v.signe)+", ":""}${v.effet?"en vigueur depuis le "+attFd(v.effet):"date de prise d'effet à indiquer"}\n${esc(ATT_CL[v.clause||"aucune"])}</div>
+    ${v.proprio?`<div class="note" style="white-space:pre-wrap"><b>${esc(v.proprio)}</b>${v.qualite?" · "+esc(v.qualite):""}\n${esc(v.log_adr||"Adresse du logement à indiquer")}\nContrat ${v.signe?"signé le "+attFd(v.signe)+", ":""}${v.effet?"en vigueur depuis le "+attFd(v.effet):"date de prise d'effet à indiquer"}</div>
       ${v.auto?`<div class="hint">Trouvé automatiquement dans les contrats du Drive (${esc(v.ctr.fichier||"")}) : vérifiez puis « Modifier » pour confirmer ou corriger.</div>`:""}`:`<div class="hint">Aucun contrat trouvé pour ce logement : cliquez sur « Modifier » pour choisir le contrat ou remplir les informations.</div>`}
     ${w?`<div class="hint" style="color:var(--warn);font-weight:600">⚠ ${esc(w)}</div>`:""}
     <div class="inline" style="margin-top:8px;align-items:center"><label for="attY" class="hint" style="margin:0">Année</label><select id="attY" class="fmois">${[y-2,y-1,y,y+1].filter((x,i,a)=>a.indexOf(x)===i).map(x=>`<option ${x===attYear?"selected":""}>${x}</option>`).join("")}</select><button class="btn" type="button" id="attPdf" ${v.proprio?"":"disabled"}>⬇ Attestation (PDF)</button></div></div>`}
@@ -2139,8 +2149,8 @@ function attBind(l){if(!$("#attBox"))return;
   if($("#attPdf"))$("#attPdf").onclick=()=>{const v=attVals(l);const w=attWarn(v,attYear);if(w)toast("⚠ "+w);attPdf([{l,v}],attYear)};
   if($("#attCancel"))$("#attCancel").onclick=()=>{attEdit=null;renderLogSheet()};
   if($("#att_ctr"))$("#att_ctr").onchange=e=>{const c=CTRS().find(x=>x.id===e.target.value);if(!c)return;const o=(attVals(l).cands.find(x=>x.c===c)||{}).adr||(c.logements||[])[0]||"";
-    for(const k of ["proprio","qualite","proprio_adr","signe","effet"])$("#att_"+k).value=c[k]||"";$("#att_clause").value=c.clause||"aucune";if(!$("#att_log_adr").value.trim())$("#att_log_adr").value=o};
-  if($("#attSave"))$("#attSave").onclick=async()=>{const o={ctrId:$("#att_ctr").value,maj:nowIso(),par:who()};for(const k of ["proprio","qualite","proprio_adr","log_adr","signe","effet","clause"])o[k]=$("#att_"+k).value.trim();
+    for(const k of ["proprio","qualite","proprio_adr","signe","effet"])$("#att_"+k).value=c[k]||"";if(!$("#att_log_adr").value.trim())$("#att_log_adr").value=o};
+  if($("#attSave"))$("#attSave").onclick=async()=>{const o={ctrId:$("#att_ctr").value,maj:nowIso(),par:who()};for(const k of ["proprio","qualite","proprio_adr","log_adr","signe","effet"])o[k]=$("#att_"+k).value.trim();
     if(!o.proprio)return toast("Indiquez le propriétaire");$("#attSave").disabled=true;
     try{await db.doc("logements/"+l.id).update({attest:o});l.attest=o;attEdit=null;toast("Attestation enregistrée");renderLogSheet()}catch(e){$("#attSave").disabled=false;toast(failMsg(e))}}}
 /* PDF : une attestation pour un ou plusieurs logements du même propriétaire */
@@ -2159,23 +2169,16 @@ async function attPdf(items,year){const SO=SOC();if(!items.length)return;items=i
   para("atteste que :",{b:1,after:4});
   const qui=v0.proprio+(v0.qualite?", "+v0.qualite:"")+(v0.proprio_adr?(isSoc?", dont le siège est situé ":", demeurant ")+v0.proprio_adr:"");
   para(qui+(isSoc?", a confié":(/ et /.test(v0.proprio)?", ont confié":", a confié"))+" à notre société, par contrat de prestations de services de conciergerie, "+(many?"les logements meublés suivants":"le logement meublé suivant")+" :",{after:3});
-  const cls=[...new Set(items.map(i=>i.v.clause||"aucune"))],mixed=cls.length>1;
   for(const {v} of items){para("• "+(v.log_adr||"(adresse du logement)"),{b:1,ind:4,after:.8});
-    para((v.signe?"contrat signé le "+attFd(v.signe)+", ":"contrat ")+(v.effet?"en vigueur depuis le "+attFd(v.effet):"")+(mixed&&v.clause==="renonce"?" ; le propriétaire y a renoncé à toute occupation personnelle du logement":"")+".",{ind:8,c:MUT,s:10,after:2.5})}
+    para((v.signe?"contrat signé le "+attFd(v.signe)+", ":"contrat ")+(v.effet?"en vigueur depuis le "+attFd(v.effet):"")+".",{ind:8,c:MUT,s:10,after:2.5})}
   y+=2;
-  const nc=new Set(items.map(i=>i.v.ctrId||i.l.id)).size>1;para((nc?"Ces contrats, conclus":"Ce contrat, conclu")+" pour une durée d'un an renouvelable par tacite reconduction, "+(nc?"sont":"est")+" en cours à la date de la présente attestation. Depuis "+(nc?"leur":"sa")+" prise d'effet, "+(many?"ces logements sont exclusivement proposés":"ce logement est exclusivement proposé")+" à la location meublée de courte durée à une clientèle de passage, par l'intermédiaire de plateformes de réservation, notre conciergerie assurant l'accueil des voyageurs, le ménage et le linge.",{after:3.5});
-  if(!mixed&&cls[0]==="renonce")para("Aux termes du contrat (article « Usage et destination »), le propriétaire a renoncé à se réserver toute période d'occupation et à la disposition ou la jouissance personnelle "+(many?"des logements":"du logement")+" pendant toute la durée du contrat.",{after:3.5});
-  if(!mixed&&cls[0]==="accord")para("Aux termes du contrat, le propriétaire ne dispose pas librement du logement en dehors des périodes louées, toute utilisation personnelle devant être préalablement convenue avec notre conciergerie.",{after:3.5});
-  const ref=items.every(i=>i.v.effet&&i.v.effet<=year+"-01-01")?"que ce soit au 1er janvier "+year+" ou depuis cette date":"depuis la prise d'effet du contrat";
-  para("À notre connaissance, et au vu du planning des réservations que nous gérons, "+(many?"ces logements n'ont":"ce logement n'a")+" pas été occupé"+(many?"s":"")+" par le propriétaire, ni mis à la disposition de ses proches, "+ref+".",{after:3.5});
+  const nc=new Set(items.map(i=>i.v.ctrId||i.l.id)).size>1;para((nc?"Ces contrats, conclus":"Ce contrat, conclu")+" pour une durée d'un an renouvelable par tacite reconduction, "+(nc?"sont":"est")+" en cours à la date de la présente attestation.",{after:3.5});
+  para("Depuis "+(nc?"leur":"sa")+" prise d'effet, "+(many?"ces logements sont exploités":"ce logement est exploité")+" par notre conciergerie, exclusivement en location meublée de courte durée à une clientèle de passage : nous en assurons la mise en location sur les plateformes de réservation, l'accueil des voyageurs, le ménage et le linge.",{after:3.5});
+  const ref=items.every(i=>i.v.effet&&i.v.effet<=year+"-01-01")?"au 1er janvier "+year+" ni depuis cette date":"depuis la prise d'effet du contrat";
+  para("Le propriétaire n'a pas accès "+(many?"à ces logements":"à ce logement")+" pour son usage personnel ou celui de ses proches. "+(many?"Ces logements n'ont":"Ce logement n'a")+" pas été occupé"+(many?"s":"")+" par le propriétaire "+ref+".",{after:3.5});
   para("La présente attestation est délivrée à la demande de l'intéressé"+(isSoc?"e":"(e)")+" pour servir et valoir ce que de droit.",{after:10});
   para("Fait à "+SO.ville+", le "+attFd(today()),{after:10});
-  para(SO.signataire,{b:1,right:1,after:.5});para(SO.sign_fct.charAt(0).toUpperCase()+SO.sign_fct.slice(1)+" – "+SO.nom,{right:1,c:MUT,s:9.5,after:1});para("Signature et cachet de la société",{right:1,i:1,c:MUT,s:9,after:0});
-  if(items.some(i=>(i.v.clause||"aucune")!=="renonce")){const plur=!isSoc&&/ et /.test(v0.proprio),ref2=items.every(i=>i.v.effet&&i.v.effet<=year+"-01-01")?"au 1er janvier "+year+", ni depuis la prise d'effet du contrat":"depuis la prise d'effet du contrat";
-    if(y>H-110){doc.addPage();y=22}else y+=12;doc.setDrawColor(...GOLD);doc.setLineWidth(.3);doc.line(M,y,W-M,y);y+=9;
-    doc.setFont("times","bold");doc.setFontSize(14);doc.setTextColor(...DARK);doc.text(plur?"DÉCLARATION DES PROPRIÉTAIRES":"DÉCLARATION DU PROPRIÉTAIRE",W/2,y,{align:"center"});y+=9;
-    para((isSoc?"Je soussigné(e) ………………………………………, agissant en qualité de représentant légal de "+v0.proprio+", propriétaire":(plur?"Nous soussignés "+v0.proprio+", propriétaires":"Je soussigné(e) "+v0.proprio+", propriétaire"))+" "+(many?"des logements suivants : ":"du logement suivant : ")+items.map(i=>i.v.log_adr||"(adresse)").join(" ; ")+", "+(plur?"déclarons":"déclare")+" sur l'honneur que "+(many?"ces logements sont":"ce logement est")+" exclusivement "+(many?"affectés":"affecté")+" à la location meublée de courte durée et "+(plur?"que nous ne les avons":(many?"que je ne les ai":"que je ne l'ai"))+" "+(plur&&!many?"pas":"pas")+" "+(many?"occupés":"occupé")+", ni "+(many?"réservés":"réservé")+" pour "+(plur?"notre":"mon")+" usage personnel ou celui de "+(plur?"nos":"mes")+" proches, "+ref2+".",{after:3});
-    para("Fait à ………………………………, le ……………………",{after:6});para("Signature"+(plur?"s":"")+" précédée"+(plur?"s":"")+" de la mention « lu et approuvé »",{i:1,c:MUT,s:9,after:0})}
+  para(SO.signataire,{b:1,right:1,after:.5});para(SO.sign_fct.charAt(0).toUpperCase()+SO.sign_fct.slice(1)+" – "+SO.nom,{right:1,c:MUT,s:9.5,after:1});const SG=await signData();if(SG){const mw=58,mh=34,r=Math.min(mw/SG.w,mh/SG.h),iw=SG.w*r,ih=SG.h*r;if(y+ih+4>H-18){doc.addPage();y=22}y+=2;doc.addImage(SG.d,"PNG",W-M-iw,y,iw,ih);y+=ih}else para("Signature et cachet de la société",{right:1,i:1,c:MUT,s:9,after:0});
   const np=doc.getNumberOfPages();for(let pg=1;pg<=np;pg++){doc.setPage(pg);doc.setDrawColor(...GOLD);doc.setLineWidth(.3);doc.line(M,H-14,W-M,H-14);doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(...MUT);doc.text(pdfTxt(SO.nom+" – "+SO.siege+" – SIRET "+SO.siret),W/2,H-9,{align:"center"});if(np>1)doc.text(pg+"/"+np,W-M,H-9,{align:"right"})}
   const nm=("Attestation taxe habitation "+year+" - "+v0.proprio).replace(/œ/g,"oe").replace(/Œ/g,"Oe").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9 '._-]/g,"").replace(/\s+/g," ").trim().slice(0,90)+".pdf";
   await pdfDeliver(doc.output("blob"),nm)}
@@ -3013,6 +3016,7 @@ async function startApp(user){
   if(me.role==="equipe"){
     db.doc("config/sauvegarde").onSnapshot(s=>{sauvegarde=s.exists?s.data():{};render()},()=>{});
     db.doc("config/societe").onSnapshot(sn=>{socCfg=sn.exists?sn.data():{}},()=>{});
+    db.doc("config/signature").onSnapshot(sn=>{signCfg=sn.exists?sn.data():{}},()=>{});
     db.doc("config/contrats").onSnapshot(sn=>{ctrsCfg=sn.exists?sn.data():{};if(logOpen&&!busy())renderLogSheet()},()=>{});
     db.doc("config/prestataires").onSnapshot(s=>{prestCfg=s.exists?s.data():{}},()=>{});
     db.doc("config/lancement").onSnapshot(s=>{lanCfg=s.exists?s.data():{};applyLanCfg();render();const ae=document.activeElement;if(prosCur&&prosTab==="lancement"&&!(ae&&ae.closest&&ae.closest("#sheet")&&/INPUT|TEXTAREA/.test(ae.tagName)))renderProspect()},()=>{});
@@ -3048,7 +3052,10 @@ async function openAccount(){(function w(n){if($("#pushZone")&&$("#pushZone").te
   <div class="box"><h3>Sauvegarde de secours</h3><div class="hint">Télécharge une copie complète de toutes les données (logements, dossiers, litiges, audits, ménages, réglages). Gardez ce fichier dans un endroit sûr : en cas d'erreur, il permet de tout remettre avec « Importer des données ». Conseillé une fois par mois.</div>
     <div class="hint" id="bkLast">${sauvegarde.lastAt?"Dernière sauvegarde : le "+fmtAt(sauvegarde.lastAt):"Aucune sauvegarde pour l'instant."}</div>
     <div><button class="btn pri" type="button" id="bkBtn">Exporter toutes les données</button></div></div>
-  ${E?`<div class="box"><div class="boxhead"><h3>🏢 Nos informations</h3><button class="lnk" type="button" id="socEdit">Modifier</button></div><div class="hint">Utilisées automatiquement dans tous les contrats (ménage et propriétaire).</div><div id="socZone" style="margin-top:6px;line-height:1.6">${SOC_FIELDS.map(([k,lab])=>`<div><span class="hint">${esc(lab)} :</span> ${esc(SOC()[k]||"—")}</div>`).join("")}</div></div>`:""}
+  ${E?`<div class="box"><div class="boxhead"><h3>🏢 Nos informations</h3><button class="lnk" type="button" id="socEdit">Modifier</button></div><div class="hint">Utilisées automatiquement dans tous les contrats (ménage et propriétaire).</div><div id="socZone" style="margin-top:6px;line-height:1.6">${SOC_FIELDS.map(([k,lab])=>`<div><span class="hint">${esc(lab)} :</span> ${esc(SOC()[k]||"—")}</div>`).join("")}</div>
+    <div class="rub" style="margin-top:10px"><b>Signature et cachet</b><div class="hint">Ajoutés automatiquement en bas des attestations. Prenez en photo votre cachet signé sur une feuille blanche, bien à plat : le fond blanc est enlevé automatiquement.</div>
+      ${signCfg.img?`<div style="background:#fff;border-radius:10px;padding:8px;margin:8px 0;display:inline-block"><img src="${esc(blob(signCfg.img))}" alt="Signature et cachet enregistrés" style="max-width:220px;max-height:130px;display:block"></div>`:""}
+      <div class="inline"><label class="btn">${signCfg.img?"Remplacer la photo":"📷 Ajouter la photo"}<input type="file" id="signIn" accept="image/*" hidden></label>${signCfg.img?`<button class="btn ghost" type="button" id="signDel">Retirer</button>`:""}</div></div></div>`:""}
   <div class="box"><h3>Importer des données</h3><div class="hint">Choisissez un fichier préparé par Claude (fiches, entrées, messages auto) : seules les rubriques vides sont remplies, rien de ce que l'équipe a déjà saisi n'est écrasé.</div><label class="btn photo-btn">Choisir le fichier<input type="file" accept=".json,application/json" hidden id="impIn"></label><div id="impMsg" class="hint"></div></div>`:""}
   </div>`;
   $("#logout").onclick=async()=>{try{localStorage.removeItem("albs-mode");localStorage.removeItem("albs-fdm")}catch(e){}await sb.auth.signOut();location.reload()};
@@ -3063,6 +3070,9 @@ async function openAccount(){(function w(n){if($("#pushZone")&&$("#pushZone").te
       await db.doc("config/sauvegarde").set({lastAt:now,count:n});$("#bkLast").textContent="Dernière sauvegarde : le "+fmtAt(now)+" ("+n+" éléments)";toast("Sauvegarde téléchargée")}
     catch(e){console.error(e);toast("La sauvegarde n'a pas pu être créée, réessayez")}
     b.disabled=false;b.textContent="Exporter toutes les données"};
+  if($("#signIn"))$("#signIn").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;toast("Préparation de la signature…");
+    try{const b=await signPrep(f);const r=await assets.upload(b,{type:"image/png"});await db.doc("config/signature").set({img:r.id,maj:nowIso(),par:who()});signCfg={img:r.id};toast("Signature enregistrée : elle sera sur toutes les attestations");openAccount()}catch(err){toast(err&&err.code==="empty"?"Aucune signature visible sur la photo":upErr(err))}};
+  if($("#signDel"))$("#signDel").onclick=async()=>{try{await db.doc("config/signature").set({img:null,maj:nowIso(),par:who()});signCfg={};toast("Signature retirée");openAccount()}catch(err){toast(failMsg(err))}};
   bindSoc();if($("#impIn"))$("#impIn").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;const msg=$("#impMsg");
     try{const j=JSON.parse(await f.text());
       if(j.type==="fiches"){let nl=0,nr=0,sk=0,nm=0;const miss=[];
