@@ -1472,7 +1472,10 @@ function bindFiche(l,team){
     const val=$("#rubVal").value.trim(), upd={label:lab,valeur:val,menage:$("#rubVis").checked};
     if(!editKey)upd.ordre=Date.now();
     if(val!==(old.valeur||"")){upd.modifLe=nowIso();upd.par=who();if(old.valeur)upd.hist={["h"+Date.now().toString(36)]:{valeur:old.valeur,le:nowIso()}}}
-    try{await db.doc("logements/"+l.id).update({fiche:{[k]:upd}});editKey=null;addRub=false;toast("Fiche mise à jour");renderLogSheet()}catch(e){toast(failMsg(e))}};
+    const BS=k==="boite"&&val!==(old.valeur||"")?boxSync(l,old.valeur||"",val):null;
+    try{if(BS){const extra={fiche:{[k]:upd,...(BS.fiche||{})},...BS.extra};if(BS.ent!==null)await entWrite(l,{texte:BS.ent,maj:nowIso(),par:who()},extra);else await db.doc("logements/"+l.id).update(extra)}
+      else await db.doc("logements/"+l.id).update({fiche:{[k]:upd}});
+      editKey=null;addRub=false;toast(BS?"Nouveau code "+boxCode(val)+" reporté dans "+BS.where.join(", "):"Fiche mise à jour");renderLogSheet()}catch(e){toast(failMsg(e))}};
 }
 
 /* ---------- audit en direct ---------- */
@@ -2680,7 +2683,8 @@ async function pPushFiche(L,isNew){if(!L)return toast("Logement introuvable");co
   const upd={fiche:patch};if(invOld!==invNew){upd.inventaire={groupes:inv,achats,maj:now,par:who()};if(!n)n=1}
   if(fdmU){upd.menageEnt=fdmU;if(!n)n=1}
   pSyncPacks(prosCur);
-  try{await db.doc("logements/"+L.id).update(upd);toast(isNew?"Logement créé · fiche remplie ("+n+" rubriques)":n+" rubrique"+(n>1?"s":"")+" mise"+(n>1?"s":"")+" à jour")}catch(e){toast(failMsg(e))}}
+  const BS=patch.boite?boxSync(L,(old.boite||{}).valeur||"",patch.boite.valeur):null;if(BS){if(BS.fiche&&!patch.acces)Object.assign(patch,BS.fiche);Object.assign(upd,BS.extra)}
+  try{if(BS&&BS.ent!==null)await entWrite(L,{texte:BS.ent,maj:now,par:who()},upd);else await db.doc("logements/"+L.id).update(upd);toast((isNew?"Logement créé · fiche remplie ("+n+" rubriques)":n+" rubrique"+(n>1?"s":"")+" mise"+(n>1?"s":"")+" à jour")+(BS?" · nouveau code reporté dans "+BS.where.join(", "):""))}catch(e){toast(failMsg(e))}}
 async function pCreateLog(){const nom=$("#pLNom").value.trim(),sel=$("#pLLieu").value,lieu=canonLieu(sel==="__new"?$("#pLLieuNew").value:sel);if(!nom)return toast("Indiquez le nom du logement");if(!lieu)return toast("Choisissez le secteur");
   const b=$("#pCreate");b.disabled=true;
   try{let L=logByName(nom);if(!L){const ref=db.collection("logements").doc();await ref.set({nom,lieu,fiche:{}});L={id:ref.id,nom,lieu,fiche:{}}}
@@ -2799,6 +2803,17 @@ const entEmpty=e=>!(e.texte||"").trim()&&!(Array.isArray(e.photos)&&e.photos.len
 /* infos clés de l'entrée (code boîte à clés, Wi-Fi) et report automatique dans les messages auto */
 function entKeys(txt){const P=entParse(txt),t=String(txt||"");const g=re=>((t.match(re)||[])[1]||"").trim();
   return {code:P.code||"",wifiNom:g(/(?:^|\n)\s*(?:nom(?:\s+du\s+r[ée]seau)?|r[ée]seau|ssid)\s*:\s*(\S[^\n]*)/i),wifiMdp:g(/(?:^|\n)\s*(?:mot\s+de\s+passe|mdp|password|cl[ée]\s+wi-?fi)\s*:\s*(\S[^\n]*)/i)}}
+/* code boîte à clés saisi dans la fiche : reporté partout où un ancien code est écrit (messages auto, rubrique Accès / entrée, onglet Entrée) */
+function boxCode(v){const t=String(v||"");let m=t.match(/code[^:\n\d]{0,30}[:=]?\s*([A-Za-z0-9#*]{3,12})/i);if(m&&/\d/.test(m[1]))return m[1];m=t.match(/(?:^|[^\w])((?=[A-Za-z]*\d)[A-Za-z0-9]{3,10})(?![\w])/);return m?m[1]:""}
+function codeInTxt(t){const out=[];for(const m of String(t||"").matchAll(/(?:code|cadenas|bo[iî]te\s+[àa]\s+cl[ée]s?|keybox|key\s*box|lockbox)[^\n\d]{0,40}?([A-Za-z]?\d[A-Za-z0-9]{2,9})(?![\w])/gi))out.push(m[1]);return out}
+function boxSync(l,oldVal,newVal){const C=boxCode(newVal);if(!C)return null;const ent=(l.entree||{}).texte||"",acc=(((l.fiche||{}).acces)||{}),M=(l.messages&&Array.isArray(l.messages.list))?l.messages.list:[];
+  const olds=new Set([boxCode(oldVal),entKeys(ent).code,...codeInTxt(ent),...codeInTxt(acc.valeur),...M.flatMap(m=>codeInTxt(m.x))].filter(c=>c&&c!==C&&c.length>=3&&/\d/.test(c)));if(!olds.size)return null;
+  const rx=v=>new RegExp("(^|[^\\w])"+v.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"(?![\\w])","g"),fix=t=>{let x=String(t||"");for(const o of olds)x=x.replace(rx(o),(a,pre)=>pre+C);return x};
+  const out={extra:{},ent:null,where:[]};let n=0;const list=M.map(m=>{const x=fix(m.x);if(x!==(m.x||"")){n++;return {...m,x}}return m});
+  if(n){out.extra.messages={list,maj:nowIso(),par:who()};out.where.push(n+" message"+(n>1?"s":"")+" auto")}
+  if(acc.valeur&&!acc.supprime){const v=fix(acc.valeur);if(v!==acc.valeur){out.fiche={acces:{valeur:v,modifLe:nowIso(),par:who(),hist:{["h"+Date.now().toString(36)+"c"]:{valeur:acc.valeur,le:nowIso()}}}};out.where.push("la rubrique Accès / entrée")}}
+  const e2=fix(ent);if(e2!==ent){out.ent=e2;out.where.push("l'onglet Entrée")}
+  return out.where.length?out:null}
 function entSyncMsgs(l,oldTxt,newTxt){const M=(l.messages&&Array.isArray(l.messages.list))?l.messages.list:null;if(!M||!M.length)return null;
   const A=entKeys(oldTxt),B=entKeys(newTxt),pairs=[["code","code de la boîte à clés"],["wifiNom","nom du Wi-Fi"],["wifiMdp","mot de passe Wi-Fi"]].filter(([k])=>A[k]&&B[k]&&A[k]!==B[k]);if(!pairs.length)return null;
   const rx=v=>new RegExp("(^|[^\\w])"+v.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"(?![\\w])","g");let n=0,what=new Set();
