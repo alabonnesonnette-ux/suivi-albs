@@ -84,6 +84,9 @@ input.hasmic{padding-right:42px!important}
 .fac-r .t span{display:block;font-size:12px;color:var(--muted)}
 .fac-r .m{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 .fac-r.done .t,.fac-r.done .m{opacity:.55}
+.chooser{position:fixed;inset:0;background:rgb(0 0 0/.35);z-index:200;display:flex;align-items:flex-end;justify-content:center}
+.chooser-in{background:var(--surface);border-radius:16px 16px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));width:100%;max-width:560px;max-height:85vh;overflow:auto}
+@media(min-width:700px){.chooser{align-items:center}.chooser-in{border-radius:16px}}
 .fmois{width:auto;font-size:12.5px;padding:4px 6px;border-radius:8px;flex:none}
 .fbtn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700;white-space:nowrap}
 .fbtn.ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok)}
@@ -1945,7 +1948,7 @@ function fdmBoxHtml(l){const E=l.menageEnt||{},has=E.fdm_ent||E.fdm_gerant;
       <div class="inline" style="margin-top:10px"><button class="btn pri" type="button" id="fdmLPdf">📄 Éditer le contrat de ménage (PDF)</button></div>`:`<div class="hint">Aucune entreprise de ménage renseignée. Remplissez sa fiche (SIRET, adresse…) pour pouvoir éditer le contrat de ménage de ce logement. Une personne déjà enregistrée se choisit dans une liste.</div>`}</div>`}
 function fdmBoxBind(l){
   if($("#fdmLEdit"))$("#fdmLEdit").onclick=()=>{fdmEdit={...(l.menageEnt||{})};renderLogSheet()};
-  if($("#fdmLPdf"))$("#fdmLPdf").onclick=()=>fdmContratPdf(fdmLogP(l));
+  if($("#fdmLPdf"))$("#fdmLPdf").onclick=()=>fdmChoose(fdmLogP(l));
   if(!fdmEdit)return;
   document.querySelectorAll("[data-fdml]").forEach(i=>i.oninput=()=>{fdmEdit[i.dataset.fdml]=i.value});
   if($("#fdmLPick"))$("#fdmLPick").onchange=e=>{const x=(prestCfg.list||{})[e.target.value];if(!x)return;PREST_KEYS.forEach(k=>{fdmEdit[k]=x[k]||""});renderLogSheet();toast("Infos de « "+(x.fdm_ent||x.fdm_gerant)+" » reprises")};
@@ -2073,12 +2076,23 @@ async function ctrPropPdf(p){const v=pV(p),SO=SOC();const fd=x=>x?String(x).slic
   [["Le Prestataire","Signature et nom du représentant",SO.signataire.toUpperCase()],["Le(s) Client(s)","Signature de chaque propriétaire / client, suivie de la mention « bon pour accord »",clients.join(" · ")||(soc?v.soc_nom:"")]].forEach(([t,sub,nm],i)=>{const x=M+i*(CW/2+4);doc.setDrawColor(221,211,188);doc.setLineWidth(.3);doc.roundedRect(x,y,CW/2-4,46,2.5,2.5,"S");doc.setFont("helvetica","bold");doc.setFontSize(10);doc.setTextColor(...DARK);doc.text(pdfTxt(t),x+5,y+7);doc.setFont("helvetica","italic");doc.setFontSize(8.5);doc.setTextColor(...MUT);doc.text(doc.splitTextToSize(pdfTxt(sub),CW/2-14),x+5,y+12);doc.setFont("helvetica","bold");doc.setFontSize(9.5);doc.setTextColor(...DARK);doc.text(doc.splitTextToSize(pdfTxt(nm),CW/2-14),x+5,y+42)});y+=50;
   foot();
   await pdfDeliver(doc.output("blob"),"Contrat conciergerie "+(lg+" "+(clients[0]||v.soc_nom||"")).replace(/œ/g,"oe").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9 '._-]/g,"").trim()+".pdf")}
+/* choisir les pages du contrat de ménage avant de l'éditer */
+function fdmChoose(p){const IFs=p.invFiles||[];document.getElementById("fdmChooser")?.remove();const o=document.createElement("div");o.id="fdmChooser";o.className="chooser";
+  const ck=(k,lab,sub)=>`<label class="check" style="align-items:flex-start"><input type="checkbox" data-fdmsk="${esc(k)}" checked><span>${esc(lab)}${sub?`<span class="hint" style="display:block">${esc(sub)}</span>`:""}</span></label>`;
+  o.innerHTML=`<div class="chooser-in" role="dialog" aria-modal="true" aria-label="Pages du contrat"><h3 style="margin:0 0 4px">📄 Pages du contrat de ménage</h3><div class="hint" style="margin-bottom:8px">Décochez les pages à ne pas mettre dans le PDF.</div>
+    <label class="check" style="opacity:.7"><input type="checkbox" checked disabled><span>Le contrat (articles et signatures)<span class="hint" style="display:block">toujours inclus</span></span></label>
+    ${ck("a1","Annexe 1 : déclaration micro-entreprise")}${ck("a2","Annexe 2 : logement et inventaire linge")}${ck("cles","Fiche de remise des clés")}
+    ${IFs.map(f=>ck("f:"+f.id,"Inventaire joint : "+(f.desc||f.name||"fichier"),/pdf/.test(f.type||"")?"PDF (toutes ses pages)":"photo")).join("")}
+    <div class="inline" style="margin-top:10px"><button class="btn pri" type="button" id="fdmGo">Éditer le PDF</button><button class="btn ghost" type="button" id="fdmNo">Annuler</button></div></div>`;
+  document.body.appendChild(o);const close=()=>o.remove();o.onclick=e=>{if(e.target===o)close()};o.querySelector("#fdmNo").onclick=close;
+  o.querySelector("#fdmGo").onclick=()=>{const SK={files:[]};o.querySelectorAll("[data-fdmsk]").forEach(c=>{if(c.checked)return;const k=c.dataset.fdmsk;if(k.startsWith("f:"))SK.files.push(k.slice(2));else SK[k]=true});close();fdmContratPdf(p,SK)};
+  o.querySelector("#fdmGo").focus()}
 /* ---- contrat de prestation de ménage (un par logement) ---- */
 /* « Nos informations » : infos de la conciergerie utilisées dans tous les contrats (config/societe) */
 const SOC_DEF={nom:"À LA BONNE SONNETTE",forme:"SAS (société par actions simplifiée)",capital:"1 000 €",adr:"4 rue Poincaré",cp:"68100",ville:"Mulhouse",rcs:"RCS de Colmar 913 329 256",siret:"913 329 256 00022",rep:"Marion SION",rep_fct:"Présidente",signataire:"Manon HEYDORFF",sign_fct:"gérante",tel:"07 71 65 05 05",mail:"alabonnesonnette@gmail.com",mail_rgpd:"direction.alabonnesonnette@gmail.com",messagerie:"WhatsApp",tribunal:"Mulhouse"};
 const SOC_FIELDS=[["nom","Nom de la société"],["forme","Forme juridique"],["capital","Capital"],["adr","Adresse du siège social"],["cp","Code postal"],["ville","Ville"],["rcs","Immatriculation (RCS)"],["siret","SIRET"],["rep","Représentant légal"],["rep_fct","Fonction du représentant"],["signataire","Qui signe les contrats"],["sign_fct","Fonction de la personne qui signe"],["tel","Téléphone"],["mail","E-mail"],["mail_rgpd","E-mail pour les données personnelles (RGPD)"],["messagerie","Messagerie à privilégier"],["tribunal","Tribunal compétent (contrat de ménage)"]];
 let socCfg={};const SOC=()=>{const x={...SOC_DEF,...Object.fromEntries(Object.entries(socCfg||{}).filter(([k,v])=>SOC_DEF[k]!==undefined&&String(v||"").trim()))};x.siege=x.adr+", "+x.cp+" "+x.ville;x.cpv=x.cp+" "+String(x.ville).toUpperCase();return x};
-async function fdmContratPdf(p){const v=pV(p),SO=SOC();SO.gerante=SO.signataire+", "+SO.sign_fct+" de la société "+SO.nom;const fd=x=>x?String(x).slice(0,10).split("-").reverse().join("/"):"…………………";toast("Préparation du contrat…");try{await loadJsPdf()}catch(e){return toast("Le PDF n'a pas pu se préparer : vérifiez la connexion")}
+async function fdmContratPdf(p,SK={}){const v=pV(p),SO=SOC();const IF=(p.invFiles||[]).filter(f=>!(SK.files||[]).includes(f.id));SO.gerante=SO.signataire+", "+SO.sign_fct+" de la société "+SO.nom;const fd=x=>x?String(x).slice(0,10).split("-").reverse().join("/"):"…………………";toast("Préparation du contrat…");try{await loadJsPdf()}catch(e){return toast("Le PDF n'a pas pu se préparer : vérifiez la connexion")}
   const doc=new window.jspdf.jsPDF({unit:"mm",format:"a4"});const W=210,H=297,M=20,CW=W-2*M,GOLD=[168,147,49],DARK=[42,38,20],MUT=[110,102,74];let y=24,page=1;
   const ent=v.fdm_ent||v.fdm_gerant,lg=((logements.find(l=>l.id===p.logementId)||{}).nom)||pName(p)||"Logement";
   const ladr=[v.log_adr,[v.log_cp,v.log_ville].filter(Boolean).join(" ")].filter(Boolean).join(", ");
@@ -2131,6 +2145,7 @@ async function fdmContratPdf(p){const v=pV(p),SO=SOC();SO.gerante=SO.signataire+
   para("En cas de manquement à cette obligation, le Client pourra demander réparation du préjudice subi, notamment la perte de chiffre d'affaires liée au logement concerné.");
   y+=3;para("Fait à : "+(v.fdm_lieu||"Mulhouse"),{after:1});para("Le : "+fd(v.fdm_debut),{after:1});para("En deux exemplaires originaux.");
   sig("Le Client : "+SO.nom,"Le Prestataire : "+ent);
+  if(!SK.a1){
   // --- annexe 1
   newPage();doc.setFont("helvetica","bold");doc.setFontSize(13);doc.setTextColor(...GOLD);doc.text("Annexe 1",M,y);y+=9;
   para(ent,{b:1,after:.5});if(v.fdm_gerant&&v.fdm_ent)para(v.fdm_gerant,{after:.5});if(v.fdm_adr)para(v.fdm_adr,{after:.5});if(v.fdm_cp||v.fdm_ville)para([v.fdm_cp,v.fdm_ville].filter(Boolean).join(" "),{after:.5});para("SIRET "+(v.fdm_siret||"…………………"),{after:6});
@@ -2141,12 +2156,14 @@ async function fdmContratPdf(p){const v=pV(p),SO=SOC();SO.gerante=SO.signataire+
   para("En contrepartie, je comprends que la société A LA BONNE SONNETTE pourra mettre fin à mon contrat de prestation à tout moment, sans préavis autre que celui précisé dans le contrat de prestations conclu par ailleurs.");
   para("Veuillez recevoir, Madame, Monsieur, mes salutations les meilleures.",{after:8});
   need(40);doc.setDrawColor(221,211,188);doc.roundedRect(W-M-CW/2+4,y,CW/2-4,34,2.5,2.5,"S");doc.setFont("helvetica","bold");doc.setFontSize(10);doc.setTextColor(...DARK);doc.text(pdfTxt("Date et signature : "+ent),W-M-CW/2+9,y+7);y+=40;
+  }
+  if(!SK.a2){
   // --- annexe 2 : logement + inventaire linge
   newPage();doc.setFont("helvetica","bold");doc.setFontSize(13);doc.setTextColor(...GOLD);doc.text(pdfTxt("Annexe 2 : détail du logement"),M,y);y+=9;
   para("Logement : "+lg,{b:1,after:1});para("Adresse : "+(ladr||"…………………………"),{after:1});
   const cap=[v.cap_voy?v.cap_voy+" voyageurs max":"",v.cap_ch?v.cap_ch+" chambre(s)":""].filter(Boolean).join(" · ");if(cap)para(cap,{c:MUT,after:1});
   if(v.men_proto)para("Consignes ménage particulières : "+v.men_proto,{after:1});
-  y+=4;const gl=(p.invLinge&&p.invLinge.length?p.invLinge:(pInventaire(v).find(g=>g.g==="Linge")||{items:[]}).items).filter(x=>!/^Linge fourni par/.test(x.l));const IF=p.invFiles||[];
+  y+=4;const gl=(p.invLinge&&p.invLinge.length?p.invLinge:(pInventaire(v).find(g=>g.g==="Linge")||{items:[]}).items).filter(x=>!/^Linge fourni par/.test(x.l));
   title("Inventaire linge"+(v.linge?" (linge fourni par : "+v.linge+")":""));
   if(gl.length){doc.setFillColor(...DARK);doc.rect(M,y,CW,8,"F");doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(9.5);doc.text(pdfTxt("DÉSIGNATION"),M+4,y+5.4);doc.text(pdfTxt("QUANTITÉ"),W-M-4,y+5.4,{align:"right"});y+=8;
     gl.forEach((x,i)=>{need(8);doc.setFillColor(...(i%2?[250,247,240]:[255,255,255]));doc.setDrawColor(221,211,188);doc.rect(M,y,CW,8,"FD");doc.setTextColor(...DARK);doc.setFont("helvetica","normal");doc.setFontSize(10);doc.text(pdfTxt(x.l+(x.note?" — "+x.note:"")).slice(0,95),M+4,y+5.4);doc.text(x.n?String(x.n):"",W-M-4,y+5.4,{align:"right"});y+=8});y+=4}
@@ -2155,6 +2172,8 @@ async function fdmContratPdf(p){const v=pV(p),SO=SOC();SO.gerante=SO.signataire+
   if(!gl.length&&!IF.length&&v.linge!=="Blanchisserie"){for(let i=0;i<8;i++){need(8);doc.setDrawColor(221,211,188);doc.rect(M,y,CW,8,"S");y+=8}y+=4}
   if(v.linge_note)para("Précisions : "+v.linge_note,{c:MUT});
   sig("Signature conciergerie","Signature service de ménage : "+ent);
+  }
+  if(!SK.cles){
   // --- fiche de remise des clés au service de ménage
   newPage();doc.setFont("helvetica","bold");doc.setFontSize(13);doc.setTextColor(...GOLD);doc.text(pdfTxt("Fiche de remise des clés"),M,y);y+=6;para("Gestion de réservations locations courtes durées",{c:MUT,after:6});
   [["Nom de l'agence de gestion",SO.nom],["Coordonnées de l'agence",SO.mail],["Nom du logement",lg],["Société de nettoyage",ent],["Adresse du logement",ladr||"…………………………"]].forEach(([k,x])=>para(k+" : "+x,{after:1.2}));
@@ -2164,6 +2183,7 @@ async function fdmContratPdf(p){const v=pV(p),SO=SOC();SO.gerante=SO.signataire+
   else para("Pour le service de ménage : "+([v.cles_men_n?v.cles_men_n+" clé(s)":"",v.cles_men].filter(Boolean).join(" — ")||"………………………………………………"));
   y+=3;para("Je soussignée "+SO.gerante+", atteste avoir transmis ces clés au service de ménage pour le logement situé "+(ladr||"…………………………")+".");
   sig("Signature conciergerie","Signature de la société de ménage : "+ent);
+  }
   if(IF.length){toast("Ajout de l'inventaire joint…");let nOk=0;
     for(const f of IF){let ims=[];try{ims=await fileImages(f)}catch(e){continue}
       for(const im of ims){newPage();doc.setFont("helvetica","bold");doc.setFontSize(11);doc.setTextColor(...GOLD);doc.text(pdfTxt("Inventaire joint"+(f.name&&!/^IMG|^image/i.test(f.name)?" · "+f.name:"")).slice(0,80),M,16);
@@ -2385,7 +2405,7 @@ function renderProspect(){const s=$("#sheet"),sy=s.scrollTop,p=prosCur;
   if($("#clesPdf"))$("#clesPdf").onclick=async()=>{await prosFlush();clesPdf(prosCur)};
   if($("#propPick"))$("#propPick").onchange=e=>{if(e.target.value)propCopy(e.target.value)};
   if($("#ctrPdf"))$("#ctrPdf").onclick=async()=>{const v=prosCur.v;if(!v.prop_nom&&!v.soc_nom)return toast("Renseignez d'abord le nom du propriétaire");await prosFlush();ctrPropPdf(prosCur)};
-  if($("#fdmPdf"))$("#fdmPdf").onclick=async()=>{const v=prosCur.v;if(!v.fdm_ent&&!v.fdm_gerant)return toast("Remplissez d'abord le nom de l'entreprise de ménage");await prosFlush();fdmContratPdf(prosCur)};
+  if($("#fdmPdf"))$("#fdmPdf").onclick=async()=>{const v=prosCur.v;if(!v.fdm_ent&&!v.fdm_gerant)return toast("Remplissez d'abord le nom de l'entreprise de ménage");await prosFlush();fdmChoose(prosCur)};
   if($("#fdmPick"))$("#fdmPick").onchange=e=>{const x=(prestCfg.list||{})[e.target.value];if(!x)return;const v=prosCur.v;PREST_KEYS.forEach(k=>{v[k]=x[k]||""});if(!v.men_nom)v.men_nom=x.fdm_gerant||x.fdm_ent||"";prosTouch();renderProspect();toast("Infos de « "+(x.fdm_ent||x.fdm_gerant)+" » reprises")};
   s.querySelectorAll("[data-lanedit]").forEach(b=>b.onclick=()=>{lanEdit=lanEdit===b.dataset.lanedit?null:b.dataset.lanedit;renderProspect();const i=$("#lanLab");if(i){i.focus();i.select()}});
   s.querySelectorAll("[data-lanrm]").forEach(b=>b.onclick=()=>{const id=b.dataset.lanrm;lanEdit=null;saveLan({retirees:{...(lanCfg.retirees||{}),[id]:true}},"Tâche supprimée de la liste")});
