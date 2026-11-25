@@ -937,7 +937,7 @@ function renderDetail(){
     ${d.type==="litige"?`<dt>À déclarer avant</dt><dd>${fmt(dl)}${d.dateLimite?"":d.depart?" (sortie + 14 j)":" (constat + 14 j)"}</dd>`:""}
     ${d.litigeId&&dossiers.some(x=>x.id===d.litigeId)?`<dt>Issu du litige</dt><dd><button class="lnk" type="button" data-open="${esc(d.litigeId)}">${esc(dossiers.find(x=>x.id===d.litigeId).titre)}</button></dd>`:""}
     ${d.source?"":`<dt>Ouvert le</dt><dd>${d.creeLe?fmtAt(d.creeLe):"—"}</dd>`}${d.statut==="clos"&&d.closLe?`<dt>Clos le</dt><dd>${d.source?fmt(d.closLe.slice(0,10)):fmtAt(d.closLe)}</dd>`:""}${d.source?`<dt>Origine</dt><dd>${esc(d.source)}</dd>`:""}
-  </dl><div class="inline"><button class="btn" type="button" id="editBtn">Modifier</button><button class="btn" type="button" id="urgBtn">${d.urgent?"Retirer « urgent »":"Marquer urgent"}</button></div></div>
+  </dl><div class="inline"><button class="btn" type="button" id="editBtn">Modifier</button><button class="btn" type="button" id="urgBtn">${d.urgent?"Retirer « urgent »":"Marquer urgent"}</button>${d.type!=="litige"&&mode==="equipe"?`<button class="btn" type="button" id="dupBtn">📋 Dupliquer sur d'autres logements</button>`:""}</div></div>
   ${(d.photos||[]).length?`<div class="box"><h3>Photos</h3>${thumbs(d.photos.map(a=>({a})))}</div>`:""}
   ${(d.fichiers||[]).length?`<div class="box"><h3>Documents PDF</h3><div class="pdfs">${d.fichiers.map(x=>`<div class="pdfl"><span class="ic">PDF</span><a href="${blob(x.id)}" target="_blank" rel="noopener">${esc(x.name||"Document PDF")}</a></div>`).join("")}</div></div>`:""}
   ${d.auditId&&audits.some(x=>x.id===d.auditId)?`<button class="btn" type="button" data-aud="${esc(d.auditId)}">Voir l'audit d'origine</button>`:""}
@@ -976,7 +976,7 @@ function renderDetail(){
   s.querySelectorAll("[data-deltask]").forEach(b=>b.onclick=e=>{e.preventDefault();patch(d,{taches:{[b.dataset.deltask]:{supprime:true}}},"Retiré")});
   if($("#tAdd"))$("#tAdd").onclick=()=>{const t=$("#tTxt").value.trim();if(!t)return toast("Écrivez la chose à faire d'abord");const due=$("#tDue").value||null;$("#tTxt").value="";$("#tDue").value="";patch(d,{taches:{["t"+Date.now().toString(36)]:{texte:t,echeance:due,fait:false,at:nowIso()}}},"Ajouté")};
   $("#nAdd").onclick=()=>{const t=$("#nTxt").value.trim();if(!t)return toast("La note est vide");$("#nTxt").value="";patch(d,{notes:{["n"+Date.now().toString(36)]:{texte:t,at:nowIso()}}},"Note ajoutée")};
-  $("#editBtn").onclick=()=>openForm(d);
+  $("#editBtn").onclick=()=>openForm(d);if($("#dupBtn"))$("#dupBtn").onclick=()=>dupOpen(d);
   if(d.type==="litige")bindLitige(d);
   s.querySelectorAll("[data-sq]").forEach(b=>b.onclick=e=>{e.preventDefault();sqOpen=sqOpen===b.dataset.sq?null:b.dataset.sq;sqAutre=null;renderDetail()});
   s.querySelectorAll("[data-sqv]").forEach(b=>b.onclick=()=>{const k=sqOpen,v=b.dataset.sqv;if(!k)return;
@@ -1171,6 +1171,27 @@ function renderForm(){
   };
 }
 
+/* ---------- dupliquer un suivi sur d'autres logements (une copie par logement coché) ---------- */
+function dupOpen(d){document.getElementById("dupChooser")?.remove();const o=document.createElement("div");o.id="dupChooser";o.className="chooser";
+  const cur=norm(d.logement),lst=logements.filter(l=>!l.ancien&&norm(l.nom)!==cur),G=groupLog(lst);
+  o.innerHTML=`<div class="chooser-in"><div class="boxhead"><h3>📋 Dupliquer « ${esc(d.titre||"Dossier")} »</h3><button class="btn ghost" type="button" id="dupX">Fermer</button></div>
+    <div class="hint">Une copie du dossier est créée pour chaque logement coché (même titre, catégorie, description, choses à faire remises à faire, photos et documents).</div>
+    <div class="inline" style="margin:10px 0"><button class="btn" type="button" id="dupAll">Tout cocher</button><button class="btn ghost" type="button" id="dupNone">Tout décocher</button></div>
+    ${G.map(([li,a],gi)=>`<div class="sec-title" style="margin-top:12px"><span>${esc(li)}</span><button class="lnk" type="button" data-dupg="${gi}">Cocher ce secteur</button></div>
+      ${[...a].sort((x,y)=>x.nom.localeCompare(y.nom,"fr")).map(l=>`<label class="check" style="display:flex;gap:10px;align-items:center;padding:6px 0"><input type="checkbox" data-dupl="${esc(l.id)}" data-dupgi="${gi}"><span>${esc(l.nom)}</span></label>`).join("")}`).join("")||`<div class="empty">Aucun autre logement.</div>`}
+    <div style="position:sticky;bottom:0;background:var(--surface);padding:12px 0 2px;margin-top:10px"><button class="btn pri" type="button" id="dupGo" disabled style="width:100%">Créer les copies</button></div></div>`;
+  document.body.appendChild(o);const close=()=>o.remove();o.onclick=e=>{if(e.target===o)close()};o.querySelector("#dupX").onclick=close;
+  const cks=[...o.querySelectorAll("[data-dupl]")],upd=()=>{const n=cks.filter(c=>c.checked).length;const b=o.querySelector("#dupGo");b.disabled=!n;b.textContent=n?"Créer "+n+" copie"+(n>1?"s":"")+" ("+n+" logement"+(n>1?"s":"")+")":"Cochez au moins un logement"};
+  cks.forEach(c=>c.onchange=upd);upd();
+  o.querySelector("#dupAll").onclick=()=>{cks.forEach(c=>c.checked=true);upd()};o.querySelector("#dupNone").onclick=()=>{cks.forEach(c=>c.checked=false);upd()};
+  o.querySelectorAll("[data-dupg]").forEach(b=>b.onclick=()=>{const g=cks.filter(c=>c.dataset.dupgi===b.dataset.dupg),all=g.every(c=>c.checked);g.forEach(c=>c.checked=!all);upd()});
+  o.querySelector("#dupGo").onclick=async()=>{const ids=cks.filter(c=>c.checked).map(c=>c.dataset.dupl);if(!ids.length)return;const b=o.querySelector("#dupGo");b.disabled=true;
+    const keep=["type","origine","categorie","titre","dateIncident","mois","dateLimite","urgent","photos","fichiers","intervenant","montant","aFacturer","quiIntervient","rappel"];
+    const base={};for(const k of keep)if(d[k]!==undefined)base[k]=JSON.parse(JSON.stringify(d[k]));
+    const taches={};for(const [k,t] of Object.entries(d.taches||{}))if(t&&!t.supprime){const c={...t};delete c.fait;delete c.faitLe;taches[k]={...c,fait:false}}
+    let ok=0,bad=0;for(const id of ids){const L=logements.find(x=>x.id===id);if(!L)continue;b.textContent="Création… "+(ok+bad+1)+"/"+ids.length;
+      try{await db.collection("dossiers").doc().set({etapes:{},...base,logement:L.nom,statut:d.statut==="clos"?"ouvert":(d.statut||"ouvert"),taches,notes:JSON.parse(JSON.stringify(d.notes||{})),creeLe:nowIso(),updatedAt:nowIso(),dupliqueDe:d.id});ok++}catch(e){bad++}}
+    close();toast(ok+" copie"+(ok>1?"s":"")+" créée"+(ok>1?"s":"")+(bad?" · "+bad+" en échec, réessayez":""))}}
 /* ---------- logement sheet ---------- */
 function openLogSheet(nom){fdmEdit=null;attEdit=null;pnEdit=null;rqForm=false;rqDel=null;entEdit=false;entDraft=null;auditForm=false;auditOpen=null;editKey=null;addRub=false;histOpen=null;lsTab=mode==="menage"?"fiche":"suivi";menOpen=null;logOpen=nom;retLog=null;openId=null;formState=null;$("#sheet").hidden=false;renderLogSheet()}
 function renderLogSheet(){
