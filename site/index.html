@@ -122,6 +122,9 @@ button.sum[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1
 .th.cap{display:inline-flex;flex-direction:column;gap:3px;width:72px;height:auto;overflow:visible;border:0;background:none}
 .th.cap>button.im{width:72px;height:72px;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--sunk)}
 .tcap{font-size:11.5px;line-height:1.25;color:var(--ink);overflow-wrap:anywhere}
+.th.cap>.x{position:absolute;top:2px;right:2px}
+.th.cap{width:96px}.th.cap>button.im{width:96px;height:96px}
+.renbox{display:flex;gap:6px;align-items:center;margin:6px 0;flex:1}.renbox input{flex:1;min-width:0}.renbox input{font-size:13px;padding:5px 8px}.renbox .btn{font-size:12px;padding:4px 10px}
 .techadd{background:var(--sunk);border-radius:12px;padding:12px;border-top:0;margin-top:8px}
 .box.proprio .pname{font-family:var(--f-display);font-size:21px;font-weight:700;color:var(--ink);line-height:1.2}
 .pinfos{display:flex;flex-direction:column;gap:6px}
@@ -1252,8 +1255,8 @@ function techHtml(l,team){
   return `<div class="box"><h3>Photos techniques</h3>${TECH.map(([k,lab,sub])=>{const fs=techFiles(l,k),im=fs.filter(x=>!/pdf/.test(x.type||"")),pd=fs.filter(x=>/pdf/.test(x.type||""));
     if(!team&&!fs.length)return"";
     return `<div class="techrub"><div class="rub-h"><span class="rub-l">${esc(lab)}${sub?`<span class="techsub">${esc(sub)}</span>`:""}</span>${fs.length?`<span class="hint">${fs.length}</span>`:""}</div>
-    ${im.length?`<div class="thumbs">${im.map(x=>`<span class="th ${x.desc?"cap":""}"><button class="im" type="button" data-thumb="${esc(x.a)}" aria-label="Agrandir la photo${x.desc?" : "+esc(x.desc):""}"><img src="${blob(x.a)}" alt="${esc(x.desc||lab)}" loading="lazy"></button>${x.desc?`<span class="tcap">${esc(x.desc)}</span>`:""}${team?`<button class="x" type="button" data-techdel="${k}|${esc(x.id)}" aria-label="Retirer la photo">✕</button>`:""}</span>`).join("")}</div>`:""}
-    ${pd.length?`<div class="pdfs">${pd.map(x=>`<div class="pdfl"><span class="ic">PDF</span><a href="${blob(x.a)}" target="_blank" rel="noopener">${esc(x.name||"Document PDF")}</a>${team?`<button class="x" type="button" data-techdel="${k}|${esc(x.id)}" aria-label="Retirer ${esc(x.name||"le document")}">✕</button>`:""}</div>`).join("")}</div>`:""}
+    ${im.length?`<div class="thumbs">${im.map(x=>thumbHtml(k,x,team)).join("")}</div>${renRow(k,im)}`:""}
+    ${pd.length?`<div class="pdfs">${pd.map(x=>pdfRowHtml(k,x,team)).join("")}</div>`:""}
     ${!fs.length&&team?`<div class="hint">Aucune photo pour l'instant.</div>`:""}
     ${team?`<div class="chips">${techUp[k]?`<span class="hint">Envoi en cours…</span>`:`<label class="btn photo-btn" style="font-size:13px;padding:5px 12px">📷 Photo ou PDF<input type="file" hidden multiple accept="image/*,application/pdf" data-techup="${k}"></label>`}${pf.length?`<button class="btn" type="button" data-techimp="${k}" aria-expanded="${techImp===k}" style="font-size:13px;padding:5px 12px">⇩ Depuis le prospect</button>`:""}</div>`:""}
     ${team&&techImp===k?`<div class="quipick"><span class="hint">Touchez les fichiers du dossier prospect à ranger dans « ${esc(lab)} ».</span>
@@ -1268,11 +1271,17 @@ function techHtml(l,team){
 const RUB_ICO={adresse:"📍",boite:"🔐",acces:"🚪",wifi:"📶",parking:"🅿️",poubelles:"♻️",linge:"🛏️",stock:"📦",packs:"🎁",consignes:"🧹",equip:"🍽️",proprio:"👤",video:"🎬",tv:"📺",p_tech:"🔧",p_cap:"🏠",p_regles:"📋",cles:"🗝️",airbnb:"🔑",mairie:"🏛️",p_lancement:"🚀",annonce:"📝",p_notes:"🗒️"};
 function rubIco(x){if(RUB_ICO[x.k])return RUB_ICO[x.k];const l=norm(x.label);return /wifi|internet/.test(l)?"📶":/tele|tv/.test(l)?"📺":/airbnb|booking|code/.test(l)?"🔑":/mairie|taxe/.test(l)?"🏛️":/chauff|electri|eau|compteur|techn/.test(l)?"🔧":/poubel|tri/.test(l)?"♻️":/menage|linge/.test(l)?"🧹":/note/.test(l)?"🗒️":/parking|garage/.test(l)?"🅿️":"📌"}
 function rubVal(t){return String(t).split(/\n/).map(li=>{const m=li.match(/^([^:]{2,40}) : (.+)$/);return `<div class="rv">${m?`<span class="rk">${esc(m[1])}</span> ${esc(m[2])}`:esc(li)}</div>`}).join("").replace(/(https?:\/\/[^\s<"]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')}
+/* vignette / ligne PDF avec nom modifiable (« Renommer ») */
+let techRen=null;
+function fileRen(key,x){return techRen===key+"|"+x.id?`<div class="renbox"><input type="text" id="renIn" data-nomic value="${esc(/pdf/.test(x.type||"")?(x.name||""):(x.desc||""))}" placeholder="${/pdf/.test(x.type||"")?"Nom du document":"Nom de la photo"}" aria-label="Nouveau nom"><button class="btn pri" type="button" data-renok="${esc(key)}|${esc(x.id)}">OK</button><button class="btn ghost" type="button" data-renno aria-label="Annuler">✕</button></div>`:""}
+const renRow=(key,L)=>{const x=L.find(x=>techRen===key+"|"+x.id);return x?fileRen(key,x):""};
+function thumbHtml(key,x,team){const r=techRen===key+"|"+x.id;return `<span class="th cap"><button class="im" type="button" data-thumb="${esc(x.a)}" aria-label="Agrandir la photo${x.desc?" : "+esc(x.desc):""}"><img src="${blob(x.a)}" alt="${esc(x.desc||"")}" loading="lazy"></button>${team?`<button class="x" type="button" data-techdel="${esc(key)}|${esc(x.id)}" aria-label="Retirer la photo">✕</button>`:""}${x.desc?`<span class="tcap">${esc(x.desc)}</span>`:""}${team?`<button class="lnk" type="button" data-techren="${esc(key)}|${esc(x.id)}" style="font-size:12px;text-align:left${r?";text-decoration:underline":""}">✎ ${x.desc?"Renommer":"Nommer"}</button>`:""}</span>`}
+function pdfRowHtml(key,x,team){const r=fileRen(key,x);return `<div class="pdfl"><span class="ic">PDF</span>${r||`<a href="${blob(x.a)}" target="_blank" rel="noopener">${esc(x.name||"Document PDF")}</a>`}${team&&!r?`<button class="lnk" type="button" data-techren="${esc(key)}|${esc(x.id)}" style="flex:none">✎</button>`:""}${team?`<button class="x" type="button" data-techdel="${esc(key)}|${esc(x.id)}" aria-label="Retirer ${esc(x.name||"le document")}">✕</button>`:""}</div>`}
 /* photos ou PDF joints à une rubrique de la fiche info (techPhotos["rub_"+clé]) */
 const RUB_NOFILE=new Set(["airbnb"]);
 function rubFilesHtml(l,k,team){if(!l||RUB_NOFILE.has(k))return"";const key="rub_"+k,fs=techFiles(l,key),im=fs.filter(x=>!/pdf/.test(x.type||"")),pd=fs.filter(x=>/pdf/.test(x.type||""));if(!team&&!fs.length)return"";
-  return `${im.length?`<div class="thumbs" style="margin-top:6px">${im.map(x=>`<span class="th"><button class="im" type="button" data-thumb="${esc(x.a)}" aria-label="Agrandir la photo"><img src="${blob(x.a)}" alt="" loading="lazy"></button>${team?`<button class="x" type="button" data-techdel="${key}|${esc(x.id)}" aria-label="Retirer la photo">✕</button>`:""}</span>`).join("")}</div>`:""}
-  ${pd.length?`<div class="pdfs">${pd.map(x=>`<div class="pdfl"><span class="ic">PDF</span><a href="${blob(x.a)}" target="_blank" rel="noopener">${esc(x.name||"Document PDF")}</a>${team?`<button class="x" type="button" data-techdel="${key}|${esc(x.id)}" aria-label="Retirer ${esc(x.name||"le document")}">✕</button>`:""}</div>`).join("")}</div>`:""}
+  return `${im.length?`<div class="thumbs" style="margin-top:6px">${im.map(x=>thumbHtml(key,x,team)).join("")}</div>${renRow(key,im)}`:""}
+  ${pd.length?`<div class="pdfs">${pd.map(x=>pdfRowHtml(key,x,team)).join("")}</div>`:""}
   ${team?`<div style="margin-top:4px">${techUp[key]?`<span class="hint">Envoi en cours…</span>`:`<label class="lnk" style="cursor:pointer">📎 Ajouter une photo ou un PDF<input type="file" hidden multiple accept="image/*,.heic,.heif,application/pdf" data-techup="${key}"></label>`}</div>`:""}`}
 function rubRow(x,team,l){return editKey===x.k?rubForm(x):`<div class="rub"><div class="rub-h"><span class="rub-l"><span class="rub-i" aria-hidden="true">${rubIco(x)}</span>${esc(x.label)}${daysSince(x.r.modifLe)<=7&&(x.hist.length||!x.t)?`<span class="new">Nouveau</span>`:""}${team&&!x.vis?`<span class="priv">Équipe seulement</span>`:""}</span>${team?`<button class="lnk" type="button" data-editrub="${esc(x.k)}">Modifier</button>`:""}</div>
       <div class="rub-v ${x.val?"":"empty-v"}">${x.val?rubVal(x.val):"À compléter"}</div>${rubFilesHtml(l,x.k,team)}
@@ -1294,8 +1303,8 @@ function proprioHtml(l,team,row){
 let invEdit=null;
 function invFilesHtml(l,team){const fs=techFiles(l,"inv"),im=fs.filter(x=>!/pdf/.test(x.type||"")),pd=fs.filter(x=>/pdf/.test(x.type||""));if(!team&&!fs.length)return"";
   return `<div class="invg">📎 Inventaire en fichier (PDF ou photos)</div>
-  ${im.length?`<div class="thumbs">${im.map(x=>`<span class="th"><button class="im" type="button" data-thumb="${esc(x.a)}" aria-label="Agrandir"><img src="${blob(x.a)}" alt="${esc(x.name||"Inventaire")}" loading="lazy"></button>${team?`<button class="x" type="button" data-techdel="inv|${esc(x.id)}" aria-label="Retirer la photo">✕</button>`:""}</span>`).join("")}</div>`:""}
-  ${pd.length?`<div class="pdfs">${pd.map(x=>`<div class="pdfl"><span class="ic">PDF</span><a href="${blob(x.a)}" target="_blank" rel="noopener">${esc(x.name||"Inventaire PDF")}</a>${team?`<button class="btn" type="button" data-invread="${esc(x.id)}" style="font-size:13px;padding:4px 10px;flex:none">🧺 Lire le linge</button>`:""}${team?`<button class="x" type="button" data-techdel="inv|${esc(x.id)}" aria-label="Retirer ${esc(x.name||"le document")}">✕</button>`:""}</div>`).join("")}</div>`:""}
+  ${im.length?`<div class="thumbs">${im.map(x=>thumbHtml("inv",x,team)).join("")}</div>${renRow("inv",im)}`:""}
+  ${pd.length?`<div class="pdfs">${pd.map(x=>`<div class="pdfl"><span class="ic">PDF</span>${fileRen("inv",x)||`<a href="${blob(x.a)}" target="_blank" rel="noopener">${esc(x.name||"Inventaire PDF")}</a>`}${team&&!fileRen("inv",x)?`<button class="lnk" type="button" data-techren="inv|${esc(x.id)}" style="flex:none">✎</button>`:""}${team?`<button class="btn" type="button" data-invread="${esc(x.id)}" style="font-size:13px;padding:4px 10px;flex:none">🧺 Lire le linge</button>`:""}${team?`<button class="x" type="button" data-techdel="inv|${esc(x.id)}" aria-label="Retirer ${esc(x.name||"le document")}">✕</button>`:""}</div>`).join("")}</div>`:""}
   ${team?`<div class="chips" style="margin-top:6px">${techUp.inv?`<span class="hint">Envoi en cours…</span>`:`<label class="btn photo-btn" style="font-size:13px;padding:5px 12px">📎 Ajouter un fichier (PDF ou photo)<input type="file" hidden multiple accept="image/*,application/pdf" data-techup="inv"></label>`}</div>
   <div class="hint" style="margin-top:4px">Ce fichier est ajouté automatiquement à la fin du contrat de ménage du logement.</div>`:""}`}
 function invHtml(l,team){const I=l.inventaire||{},G=I.groupes||[];if(!G.length&&!invEdit)return team||techFiles(l,"inv").length?`<div class="box"><div class="rub-h"><h3 style="margin:0">Équipements et inventaire</h3>${team?`<button class="lnk" type="button" id="ivEdit">Créer l'inventaire</button>`:""}</div>${invFilesHtml(l,team)}</div>`:"";
@@ -1384,6 +1393,11 @@ function bindFiche(l,team){
     techUp.libre=true;renderLogSheet();const out=[];let bad=0;
     for(const f of files){try{if(f.type==="application/pdf"){const r=await assets.upload(f,{type:"application/pdf"});out.push({a:r.id,type:"application/pdf",name:desc,desc,at:nowIso(),par:who()})}else out.push({a:await uploadOne(f),type:"image",name:f.name,desc,at:nowIso(),par:who()})}catch(err){bad++}}
     try{if(out.length)await tUp("autre",out);toast(bad?bad+" fichier(s) non ajouté(s)":"Photo technique ajoutée : "+desc)}catch(err){toast(failMsg(err))}techUp.libre=false;renderLogSheet()};
+  s.querySelectorAll("[data-techren]").forEach(b=>b.onclick=()=>{techRen=b.dataset.techren;renderLogSheet();const i=$("#renIn");if(i){i.focus();i.select()}});
+  s.querySelectorAll("[data-renno]").forEach(b=>b.onclick=()=>{techRen=null;renderLogSheet()});
+  s.querySelectorAll("[data-renok]").forEach(b=>{const go=async()=>{const [k,id]=b.dataset.renok.split("|"),v=$("#renIn").value.trim(),f=((l.techPhotos||{})[k]||{})[id]||{};const isPdf=/pdf/.test(f.type||"");
+      try{await db.doc("logements/"+l.id).update({techPhotos:{[k]:{[id]:isPdf?{name:v||f.name||"Document PDF"}:{desc:v}}}});techRen=null;toast("Nom enregistré");renderLogSheet()}catch(e){toast(failMsg(e))}};
+    b.onclick=go;const i=$("#renIn");if(i)i.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();go()}else if(e.key==="Escape"){techRen=null;renderLogSheet()}}});
   s.querySelectorAll("[data-techdel]").forEach(b=>b.onclick=async()=>{const [k,id]=b.dataset.techdel.split("|");try{await db.doc("logements/"+l.id).update({techPhotos:{[k]:{[id]:{supprime:true}}}});toast("Retiré")}catch(e){toast(failMsg(e))}});
   s.querySelectorAll("[data-techimp]").forEach(b=>b.onclick=()=>{techImp=techImp===b.dataset.techimp?null:b.dataset.techimp;techSel=new Set();renderLogSheet()});
   s.querySelectorAll("[data-techpick]").forEach(b=>b.onclick=()=>{const id=b.dataset.techpick;techSel.has(id)?techSel.delete(id):techSel.add(id);renderLogSheet()});
@@ -2842,7 +2856,7 @@ async function startApp(user){
   $("#auth").hidden=true;$("#auth").innerHTML="";
   if(booted){render();return}booted=true;
   db=sbDb;assets=sbAssets;downloads=sbDownloads;view=TABS[mode][0][0];sbRealtime();
-  const busy=()=>fdmEdit||auditForm||editKey||addRub||msgEdit||invEdit||(()=>{const ae=document.activeElement;return !!(ae&&ae.closest&&ae.closest("#sheet")&&(/INPUT|TEXTAREA|SELECT/.test(ae.tagName)||ae.isContentEditable))})();
+  const busy=()=>techRen||fdmEdit||auditForm||editKey||addRub||msgEdit||invEdit||(()=>{const ae=document.activeElement;return !!(ae&&ae.closest&&ae.closest("#sheet")&&(/INPUT|TEXTAREA|SELECT/.test(ae.tagName)||ae.isContentEditable))})();
   db.collection("logements").onSnapshot(s=>{logements=s.docs.map(d=>({id:d.id,...d.data()}));render();if(auditOpen){}else if(logOpen&&!busy())renderLogSheet();else if(menOpen&&!degForm)renderMenage()},()=>{});
   db.doc("config/menage").onSnapshot(s=>{const d=s.exists?s.data():{};cfgM={protocole:d.protocole||[],equipe:d.equipe||[]};render()},()=>{});
   db.collection("menages").onSnapshot(s=>{menages=s.docs.map(d=>({id:d.id,...d.data()}));render();if(menOpen&&!degForm)renderMenage();else if(logOpen&&lsTab==="menages"&&!busy())renderLogSheet();else if(openId)renderDetail()},()=>{});
