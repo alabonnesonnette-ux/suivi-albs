@@ -894,8 +894,8 @@ function render(){
     const row=l=>{const n=open.filter(d=>norm(d.logement)===norm(l.nom)).length,c=dossiers.filter(d=>d.statut==="clos"&&norm(d.logement)===norm(l.nom)).length;return `<div class="lrow"><button class="go" type="button" data-log="${esc(l.nom)}"><span class="n">${esc(l.nom)}</span><span class="c ${n?"on":""}">${n?n+" ouvert"+(n>1?"s":""):(c?c+" clos":"—")}</span></button>${l.old?"":`<button class="ed" type="button" data-edlog="${esc(l.id)}" aria-label="Modifier ${esc(l.nom)}">Modifier</button>`}</div>`};
     m.innerHTML=`<div class="sec-title" style="margin-top:6px"><span>${actuels.length} logements gérés</span></div>
       ${groups.length?groups.map(([li,a])=>`<div class="sec-title"><span>${esc(li)}</span><span>${a.length}</span></div><div class="lgroup">${[...a].sort((x,y)=>x.nom.localeCompare(y.nom,"fr")).map(row).join("")}</div>`).join(""):`<div class="empty">Aucun logement pour l'instant.</div>`}
-      <div class="inline" style="margin-top:16px"><button class="btn" type="button" id="addLog">Ajouter un logement</button><button class="btn" type="button" id="allPdf">Toutes les fiches (PDF)</button><button class="btn" type="button" data-view="men">Ménages : récap &amp; protocole photo</button></div>`;
-    $("#addLog").onclick=()=>openLogForm(null);
+      <div class="inline" style="margin-top:16px"><button class="btn" type="button" id="addLog">Ajouter un logement</button><button class="btn" type="button" id="allPdf">Toutes les fiches (PDF)</button>${me.role==="equipe"?`<button class="btn" type="button" id="attAll">🧾 Attestations taxe d'habitation</button>`:""}<button class="btn" type="button" data-view="men">Ménages : récap &amp; protocole photo</button></div>`;
+    $("#addLog").onclick=()=>openLogForm(null);if($("#attAll"))$("#attAll").onclick=attOpen;
     $("#allPdf").onclick=()=>downloadFiches([...actuels].sort((a,b)=>(a.lieu||"").localeCompare(b.lieu||"","fr")||a.nom.localeCompare(b.nom,"fr")),"Fiches logements ALBS "+today()+".pdf");
   }
 }
@@ -1172,7 +1172,7 @@ function renderForm(){
 }
 
 /* ---------- logement sheet ---------- */
-function openLogSheet(nom){fdmEdit=null;rqForm=false;rqDel=null;entEdit=false;entDraft=null;auditForm=false;auditOpen=null;editKey=null;addRub=false;histOpen=null;lsTab=mode==="menage"?"fiche":"suivi";menOpen=null;logOpen=nom;retLog=null;openId=null;formState=null;$("#sheet").hidden=false;renderLogSheet()}
+function openLogSheet(nom){fdmEdit=null;attEdit=null;rqForm=false;rqDel=null;entEdit=false;entDraft=null;auditForm=false;auditOpen=null;editKey=null;addRub=false;histOpen=null;lsTab=mode==="menage"?"fiche":"suivi";menOpen=null;logOpen=nom;retLog=null;openId=null;formState=null;$("#sheet").hidden=false;renderLogSheet()}
 function renderLogSheet(){
   const nom=logOpen, l=logements.find(x=>norm(x.nom)===norm(nom)), s=$("#sheet"), sy=s.scrollTop;
   const mine=dossiers.filter(d=>norm(d.logement)===norm(nom));
@@ -1184,10 +1184,10 @@ function renderLogSheet(){
   const head=`<div class="wrap"><div class="sheethead"><h2>${esc(l?.nom||nom)}</h2><button class="btn ghost" type="button" data-close>Fermer</button></div>
   <div class="hint">${l?esc((l.lieu||"Sans secteur")+(l.ancien?" · ancien logement":"")):"Nom trouvé dans d'anciens dossiers"}${team?" · "+mine.length+" dossier"+(mine.length>1?"s":"")+" au total":""}</div>
   ${team&&l?`<div class="seg3">${[["suivi","Suivi"],["fiche","Fiche"],["entree","Entrée"],["msg","MSG auto"],["menages","Ménages"]].map(([k,t])=>`<button type="button" data-lstab="${k}" aria-pressed="${tab===k}">${t}</button>`).join("")}</div>`:""}`;
-  if(tab==="fiche"){s.innerHTML=head+(team?`<div class="inline"><button class="btn" type="button" id="lsPdf">⬇ Fiche complète (PDF)</button></div>`:"")+ficheHtml(l,team)+`</div>`;s.scrollTop=sy;
+  if(tab==="fiche"){s.innerHTML=head+(team?`<div class="inline"><button class="btn" type="button" id="lsPdf">⬇ Fiche complète (PDF)</button></div>`:"")+ficheHtml(l,team)+(team?attBoxHtml(l):"")+`</div>`;s.scrollTop=sy;
     if($("#lsPdf"))$("#lsPdf").onclick=()=>downloadFiches([l],"Fiche "+l.nom.replace(/œ/g,"oe").replace(/Œ/g,"Oe").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9 '._-]/g,"").trim()+" "+today()+".pdf");
     if($("#rubVal")&&keep.rubVal!=null){$("#rubVal").value=keep.rubVal;if($("#rubLab")&&keep.rubLab!=null)$("#rubLab").value=keep.rubLab;if(keep.rubVis!=null)$("#rubVis").checked=keep.rubVis}
-    if($("#asTxt"))$("#asTxt").value=keep.asTxt;bindFiche(l,team);return}
+    if($("#asTxt"))$("#asTxt").value=keep.asTxt;bindFiche(l,team);if(team)attBind(l);return}
   if(tab==="entree"){renderEntree(l,head,s,sy);return}
   if(tab==="msg"){renderMsgs(l,head,s,sy);return}
   if(tab==="menages"){const ms=menages.filter(x=>norm(x.logement)===norm(l.nom));const g=new Map();for(const x of [...ms].sort((a,b)=>b.date.localeCompare(a.date))){const k=x.date.slice(0,7);if(!g.has(k))g.set(k,[]);g.get(k).push(x)}
@@ -2092,6 +2092,110 @@ function fdmChoose(p){const IFs=p.invFiles||[];document.getElementById("fdmChoos
 const SOC_DEF={nom:"À LA BONNE SONNETTE",forme:"SAS (société par actions simplifiée)",capital:"1 000 €",adr:"4 rue Poincaré",cp:"68100",ville:"Mulhouse",rcs:"RCS de Colmar 913 329 256",siret:"913 329 256 00022",rep:"Marion SION",rep_fct:"Présidente",signataire:"Manon HEYDORFF",sign_fct:"gérante",tel:"07 71 65 05 05",mail:"alabonnesonnette@gmail.com",mail_rgpd:"direction.alabonnesonnette@gmail.com",messagerie:"WhatsApp",tribunal:"Mulhouse"};
 const SOC_FIELDS=[["nom","Nom de la société"],["forme","Forme juridique"],["capital","Capital"],["adr","Adresse du siège social"],["cp","Code postal"],["ville","Ville"],["rcs","Immatriculation (RCS)"],["siret","SIRET"],["rep","Représentant légal"],["rep_fct","Fonction du représentant"],["signataire","Qui signe les contrats"],["sign_fct","Fonction de la personne qui signe"],["tel","Téléphone"],["mail","E-mail"],["mail_rgpd","E-mail pour les données personnelles (RGPD)"],["messagerie","Messagerie à privilégier"],["tribunal","Tribunal compétent (contrat de ménage)"]];
 let socCfg={};const SOC=()=>{const x={...SOC_DEF,...Object.fromEntries(Object.entries(socCfg||{}).filter(([k,v])=>SOC_DEF[k]!==undefined&&String(v||"").trim()))};x.siege=x.adr+", "+x.cp+" "+x.ville;x.cpv=x.cp+" "+String(x.ville).toUpperCase();return x};
+/* ---- attestations taxe d'habitation : logement confié à la conciergerie par contrat et non occupé par le propriétaire ---- */
+let ctrsCfg={},attEdit=null,attYear=new Date().getFullYear();
+const CTRS=()=>Array.isArray((ctrsCfg||{}).contrats)?ctrsCfg.contrats:[];
+const ATT_CL={renonce:"Le propriétaire a renoncé à toute occupation personnelle (article « Usage et destination »)",accord:"Toute utilisation personnelle doit être convenue avec la conciergerie",aucune:"Pas de clause sur l'occupation personnelle"};
+const attN=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9²]+/g," ").trim();
+const ATT_STOP=new Set("rue avenue boulevard place quai impasse chemin route allee croisee coteaux de du des la le les et au aux a d l sis situe situee".split(" "));
+function attStreet(a){const t=attN(a);const m=t.match(/\b(\d+)\s*([a-z])?\s+(?:rue|avenue|av|boulevard|bd|place|quai|croisee|impasse|chemin|route|allee|coteaux)\s+(.+)$/);if(!m)return null;
+  const rest=m[3].split(" ");const words=[];for(const w of rest){if(/^(a|mulhouse|68\d{3})$/.test(w)&&words.length)break;if(!ATT_STOP.has(w)&&w.length>=3)words.push(w)}
+  const typ=(t.match(/\b(f\d|studio|duplex|\d pieces?)\b/)||[])[1]||"";return {num:m[1]+(m[2]||""),words,typ}}
+function attCands(l){const T=" "+attN([((l.fiche||{}).adresse||{}).valeur,l.nom,l.lieu].filter(Boolean).join(" "))+" ";const out=[];
+  for(const c of CTRS()){let best=0,ba="";for(const a of c.logements||[]){const s=attStreet(a);if(!s||!s.words.length)continue;const all=s.words.every(w=>T.includes(" "+w+" ")),any=s.words.some(w=>T.includes(" "+w+" ")),num=T.includes(" "+s.num+" ");if(!(all||(num&&any)))continue;
+      let sc=2+(all?1:0)+(num?2:0)+(s.typ&&T.includes(" "+s.typ+" ")?1:0);if(sc>best){best=sc;ba=a}}
+    if(best)out.push({c,sc:best,adr:ba})}
+  out.sort((a,b)=>b.sc-a.sc||String(a.c.effet||"9").localeCompare(String(b.c.effet||"9")));
+  const top=out[0],auto=top&&!out.some(o=>o!==top&&o.sc===top.sc&&attN(o.c.proprio)!==attN(top.c.proprio))?top:null;return {list:out,auto}}
+/* valeurs de l'attestation d'un logement : saisie enregistrée > contrat du Drive > fiche prospect > fiche logement */
+function attVals(l){const s=l.attest||{},pr=prospects.find(p=>p.logementId===l.id),pv=pr?pV(pr):{},fa=(()=>{const L=String(((l.fiche||{}).adresse||{}).valeur||"").split("\n").map(x=>x.trim()).filter(Boolean);return L[0]?(L[1]&&/^\d{5}\b/.test(L[1])?L[0]+", "+L[1]:L[0]):""})();
+  const K=attCands(l);const pick=s.ctrId!==undefined?(s.ctrId?K.list.find(o=>o.c.id===s.ctrId)||{c:CTRS().find(c=>c.id===s.ctrId),adr:""}:null):K.auto;const c=pick&&pick.c||null;
+  const socP=pv.statut_jur==="Par une société"&&pv.soc_nom;
+  const P={proprio:socP?pv.soc_nom:[pv.prop_nom,pv.ctr_p2_nom].filter(Boolean).join(" et "),qualite:socP?[pv.ctr_soc_forme,pv.ctr_soc_rcs].filter(Boolean).join(", "):"",proprio_adr:String((socP?pv.ctr_soc_siege:"")||pv.prop_adr||"").replace(/\n/g,", "),signe:"",effet:pv.ctr_debut||"",clause:pv.ctr_debut?"renonce":""};
+  const C=c?{proprio:c.proprio,qualite:c.qualite,proprio_adr:c.proprio_adr,signe:c.signe,effet:c.effet,clause:c.clause||"aucune",log_adr:pick.adr||(c.logements||[])[0]||""}:{};
+  const v={};for(const k of ["proprio","qualite","proprio_adr","signe","effet","clause"])v[k]=s[k]!==undefined?s[k]:(C[k]!==undefined&&C[k]!==""?C[k]:(P[k]||""));
+  v.log_adr=s.log_adr!==undefined&&s.log_adr!==""?s.log_adr:(C.log_adr||fa||"");v.ctrId=c?c.id:"";v.ctr=c;v.auto=!!(c&&s.ctrId===undefined);v.cands=K.list;v.saved=!!s.maj;return v}
+const attFd=x=>x?String(x).slice(0,10).split("-").reverse().join("/"):"";
+function attWarn(v,y){if(!v.proprio)return "Propriétaire à indiquer";if(!v.effet)return "Date de prise d'effet du contrat à indiquer";if(v.effet>y+"-01-01")return "Le contrat a pris effet le "+attFd(v.effet)+", après le 1er janvier "+y+" : l'attestation ne couvre pas le 1er janvier "+y;return ""}
+function attBoxHtml(l){const v=attVals(l),y=attYear,w=attWarn(v,y);
+  if(attEdit===l.id){const opt=c=>`<option value="${esc(c.id)}" ${c.id===v.ctrId?"selected":""}>${esc(c.proprio+" · "+((c.logements||[])[0]||"")+(c.effet?" · "+attFd(c.effet):""))}</option>`;
+    const sug=v.cands.map(o=>o.c),rest=CTRS().filter(c=>!sug.includes(c)).sort((a,b)=>a.proprio.localeCompare(b.proprio,"fr"));
+    const F=(k,lab,t="text",ph="")=>`<div class="field"><label for="att_${k}">${lab}</label><input type="${t}" id="att_${k}" value="${esc(v[k]||"")}" placeholder="${esc(ph)}"></div>`;
+    return `<div class="box" id="attBox"><h3>🧾 Attestation taxe d'habitation</h3>
+      <div class="field"><label for="att_ctr">Contrat signé (trouvé dans le Drive)</label><select id="att_ctr"><option value="">— Aucun : je remplis moi-même —</option>${sug.length?`<optgroup label="Contrats qui correspondent à ce logement">${sug.map(opt).join("")}</optgroup>`:""}${rest.length?`<optgroup label="Tous les autres contrats">${rest.map(opt).join("")}</optgroup>`:""}</select>${CTRS().length?"":`<span class="hint">Les contrats du Drive ne sont pas encore importés : Logements → « 🧾 Attestations taxe d'habitation ».</span>`}</div>
+      ${F("proprio","Propriétaire(s) ou société","text","Ex. : Bernard GENG et Marie-Anne GENG")}${F("qualite","Précision (facultatif)","text","Ex. : société civile immobilière, RCS Mulhouse 914 272 307")}${F("proprio_adr","Adresse du propriétaire / siège (facultatif)")}
+      ${F("log_adr","Adresse du logement","text","Ex. : Appartement F3, 4 rue des Tanneurs, 68100 Mulhouse")}
+      <div class="grid2">${F("signe","Contrat signé le","date")}${F("effet","Contrat en vigueur depuis le","date")}</div>
+      <div class="field"><label for="att_clause">Ce que dit le contrat sur l'occupation par le propriétaire</label><select id="att_clause">${Object.entries(ATT_CL).map(([k,t])=>`<option value="${k}" ${(v.clause||"aucune")===k?"selected":""}>${esc(t)}</option>`).join("")}</select></div>
+      <div class="inline"><button class="btn pri" type="button" id="attSave">Enregistrer</button><button class="btn ghost" type="button" id="attCancel">Annuler</button></div></div>`}
+  return `<div class="box" id="attBox"><div class="boxhead"><h3>🧾 Attestation taxe d'habitation</h3><button class="lnk" type="button" id="attMod">Modifier</button></div>
+    ${v.proprio?`<div class="note" style="white-space:pre-wrap"><b>${esc(v.proprio)}</b>${v.qualite?" · "+esc(v.qualite):""}\n${esc(v.log_adr||"Adresse du logement à indiquer")}\nContrat ${v.signe?"signé le "+attFd(v.signe)+", ":""}${v.effet?"en vigueur depuis le "+attFd(v.effet):"date de prise d'effet à indiquer"}\n${esc(ATT_CL[v.clause||"aucune"])}</div>
+      ${v.auto?`<div class="hint">Trouvé automatiquement dans les contrats du Drive (${esc(v.ctr.fichier||"")}) : vérifiez puis « Modifier » pour confirmer ou corriger.</div>`:""}`:`<div class="hint">Aucun contrat trouvé pour ce logement : cliquez sur « Modifier » pour choisir le contrat ou remplir les informations.</div>`}
+    ${w?`<div class="hint" style="color:var(--warn);font-weight:600">⚠ ${esc(w)}</div>`:""}
+    <div class="inline" style="margin-top:8px;align-items:center"><label for="attY" class="hint" style="margin:0">Année</label><select id="attY" class="fmois">${[y-2,y-1,y,y+1].filter((x,i,a)=>a.indexOf(x)===i).map(x=>`<option ${x===attYear?"selected":""}>${x}</option>`).join("")}</select><button class="btn" type="button" id="attPdf" ${v.proprio?"":"disabled"}>⬇ Attestation (PDF)</button></div></div>`}
+function attBind(l){if(!$("#attBox"))return;
+  if($("#attMod"))$("#attMod").onclick=()=>{attEdit=l.id;renderLogSheet();$("#att_ctr")?.focus()};
+  if($("#attY"))$("#attY").onchange=e=>{attYear=+e.target.value;renderLogSheet()};
+  if($("#attPdf"))$("#attPdf").onclick=()=>{const v=attVals(l);const w=attWarn(v,attYear);if(w)toast("⚠ "+w);attPdf([{l,v}],attYear)};
+  if($("#attCancel"))$("#attCancel").onclick=()=>{attEdit=null;renderLogSheet()};
+  if($("#att_ctr"))$("#att_ctr").onchange=e=>{const c=CTRS().find(x=>x.id===e.target.value);if(!c)return;const o=(attVals(l).cands.find(x=>x.c===c)||{}).adr||(c.logements||[])[0]||"";
+    for(const k of ["proprio","qualite","proprio_adr","signe","effet"])$("#att_"+k).value=c[k]||"";$("#att_clause").value=c.clause||"aucune";if(!$("#att_log_adr").value.trim())$("#att_log_adr").value=o};
+  if($("#attSave"))$("#attSave").onclick=async()=>{const o={ctrId:$("#att_ctr").value,maj:nowIso(),par:who()};for(const k of ["proprio","qualite","proprio_adr","log_adr","signe","effet","clause"])o[k]=$("#att_"+k).value.trim();
+    if(!o.proprio)return toast("Indiquez le propriétaire");$("#attSave").disabled=true;
+    try{await db.doc("logements/"+l.id).update({attest:o});l.attest=o;attEdit=null;toast("Attestation enregistrée");renderLogSheet()}catch(e){$("#attSave").disabled=false;toast(failMsg(e))}}}
+/* PDF : une attestation pour un ou plusieurs logements du même propriétaire */
+async function attPdf(items,year){const SO=SOC();if(!items.length)return;toast("Préparation de l'attestation…");try{await loadJsPdf()}catch(e){return toast("Le PDF n'a pas pu se préparer : vérifiez la connexion")}
+  const doc=new window.jspdf.jsPDF({unit:"mm",format:"a4"});const W=210,H=297,M=22,CW=W-2*M,GOLD=[168,147,49],DARK=[42,38,20],MUT=[110,102,74];let y=22;
+  const para=(t,o={})=>{doc.setFont("helvetica",o.b?"bold":o.i?"italic":"normal");doc.setFontSize(o.s||10.5);doc.setTextColor(...(o.c||DARK));const x=M+(o.ind||0);const L=doc.splitTextToSize(pdfTxt(t),CW-(o.ind||0));const lh=(o.s||10.5)*0.5;
+    for(const ln of L){if(y+lh>H-24){doc.addPage();y=22}doc.text(ln,o.center?W/2:o.right?W-M:x,y,o.center?{align:"center"}:o.right?{align:"right"}:undefined);y+=lh}y+=o.after??2.5};
+  const v0=items[0].v,many=items.length>1,isSoc=/soci[ée]t[ée]|^\s*(sci|sarl|sas|sasu|eurl|sa)\b/i.test(v0.proprio+" "+v0.qualite);
+  // en-tête société
+  doc.setFont("helvetica","bold");doc.setFontSize(13);doc.setTextColor(...GOLD);doc.text(pdfTxt(SO.nom),M,y);y+=5.5;
+  para(SO.forme+(SO.capital?" au capital de "+SO.capital:"")+" – "+SO.siege,{s:8.5,c:MUT,after:.5});para(SO.rcs+(SO.siret?" – SIRET "+SO.siret:"")+" – "+[SO.tel,SO.mail].filter(Boolean).join(" – "),{s:8.5,c:MUT,after:3});
+  doc.setDrawColor(...GOLD);doc.setLineWidth(.4);doc.line(M,y,W-M,y);y+=14;
+  doc.setFont("times","bold");doc.setFontSize(20);doc.setTextColor(...DARK);doc.text("ATTESTATION",W/2,y,{align:"center"});y+=7;
+  para("Logement"+(many?"s":"")+" meublé"+(many?"s":"")+" confié"+(many?"s":"")+" à une conciergerie – location de courte durée",{center:1,c:MUT,s:10,after:12});
+  para("Je soussigné(e) "+SO.signataire+", agissant en qualité de "+SO.sign_fct+" de la société "+SO.nom+", "+SO.forme+(SO.capital?" au capital de "+SO.capital:"")+", immatriculée au "+SO.rcs+", dont le siège social est situé "+SO.siege+",",{after:4});
+  para("atteste que :",{b:1,after:4});
+  const qui=v0.proprio+(v0.qualite?", "+v0.qualite:"")+(v0.proprio_adr?(isSoc?", dont le siège est situé ":", demeurant ")+v0.proprio_adr:"");
+  para(qui+(isSoc?", a confié":(/ et /.test(v0.proprio)?", ont confié":", a confié"))+" à notre société, par contrat de prestations de services de conciergerie, "+(many?"les logements meublés suivants":"le logement meublé suivant")+" :",{after:3});
+  const cls=[...new Set(items.map(i=>i.v.clause||"aucune"))],mixed=cls.length>1;
+  for(const {v} of items){para("• "+(v.log_adr||"(adresse du logement)"),{b:1,ind:4,after:.8});
+    para((v.signe?"contrat signé le "+attFd(v.signe)+", ":"contrat ")+(v.effet?"en vigueur depuis le "+attFd(v.effet):"")+(mixed&&v.clause==="renonce"?" ; le propriétaire y a renoncé à toute occupation personnelle du logement":"")+".",{ind:8,c:MUT,s:10,after:2.5})}
+  y+=2;
+  const nc=new Set(items.map(i=>i.v.ctrId||i.l.id)).size>1;para((nc?"Ces contrats, conclus":"Ce contrat, conclu")+" pour une durée d'un an renouvelable par tacite reconduction, "+(nc?"sont":"est")+" en cours à la date de la présente attestation. Depuis "+(nc?"leur":"sa")+" prise d'effet, "+(many?"ces logements sont exclusivement proposés":"ce logement est exclusivement proposé")+" à la location meublée de courte durée à une clientèle de passage, par l'intermédiaire de plateformes de réservation, notre conciergerie assurant l'accueil des voyageurs, le ménage et le linge.",{after:3.5});
+  if(!mixed&&cls[0]==="renonce")para("Aux termes du contrat (article « Usage et destination »), le propriétaire a renoncé à se réserver toute période d'occupation et à la disposition ou la jouissance personnelle "+(many?"des logements":"du logement")+" pendant toute la durée du contrat.",{after:3.5});
+  if(!mixed&&cls[0]==="accord")para("Aux termes du contrat, le propriétaire ne dispose pas librement du logement en dehors des périodes louées, toute utilisation personnelle devant être préalablement convenue avec notre conciergerie.",{after:3.5});
+  const ref=items.every(i=>i.v.effet&&i.v.effet<=year+"-01-01")?"que ce soit au 1er janvier "+year+" ou depuis cette date":"depuis la prise d'effet du contrat";
+  para("À notre connaissance, et au vu du planning des réservations que nous gérons, "+(many?"ces logements n'ont":"ce logement n'a")+" pas été occupé"+(many?"s":"")+" par le propriétaire, ni mis à la disposition de ses proches, "+ref+".",{after:3.5});
+  para("La présente attestation est délivrée à la demande de l'intéressé"+(isSoc?"e":"(e)")+" pour servir et valoir ce que de droit, notamment auprès de l'administration fiscale au titre de la taxe d'habitation "+year+".",{after:10});
+  para("Fait à "+SO.ville+", le "+attFd(today()),{after:10});
+  para(SO.signataire,{b:1,right:1,after:.5});para(SO.sign_fct.charAt(0).toUpperCase()+SO.sign_fct.slice(1)+" – "+SO.nom,{right:1,c:MUT,s:9.5,after:1});para("Signature et cachet de la société",{right:1,i:1,c:MUT,s:9,after:0});
+  doc.setDrawColor(...GOLD);doc.setLineWidth(.3);doc.line(M,H-14,W-M,H-14);doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(...MUT);doc.text(pdfTxt(SO.nom+" – "+SO.siege+" – SIRET "+SO.siret),W/2,H-9,{align:"center"});
+  const nm=("Attestation taxe habitation "+year+" - "+v0.proprio).replace(/œ/g,"oe").replace(/Œ/g,"Oe").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9 '._-]/g,"").replace(/\s+/g," ").trim().slice(0,90)+".pdf";
+  await pdfDeliver(doc.output("blob"),nm)}
+/* écran « Attestations » : par propriétaire, import des contrats du Drive */
+function attOpen(){document.getElementById("attChooser")?.remove();const o=document.createElement("div");o.id="attChooser";o.className="chooser";document.body.appendChild(o);const close=()=>o.remove();o.onclick=e=>{if(e.target===o)close()};
+  const draw=()=>{const y=attYear,G=new Map(),sans=[];
+    for(const l of logements.filter(x=>!x.ancien)){const v=attVals(l);if(!v.proprio){sans.push(l);continue}const k=attN(v.proprio);if(!G.has(k))G.set(k,{nom:v.proprio,items:[]});G.get(k).items.push({l,v})}
+    const used=new Set([...G.values()].flatMap(g=>g.items.map(i=>i.v.ctrId)).filter(Boolean));const libres=CTRS().filter(c=>!used.has(c.id));
+    const gs=[...G.values()].sort((a,b)=>a.nom.localeCompare(b.nom,"fr"));
+    o.innerHTML=`<div class="chooser-in"><div class="boxhead"><h3>🧾 Attestations taxe d'habitation</h3><button class="btn ghost" type="button" id="attX">Fermer</button></div>
+      <div class="hint">Une attestation par propriétaire, qui reprend tous ses logements. Pour un seul logement : ouvrez la fiche du logement.</div>
+      <div class="inline" style="margin:10px 0;align-items:center"><label for="attY2" class="hint" style="margin:0">Taxe d'habitation</label><select id="attY2" class="fmois">${[y-2,y-1,y,y+1].map(x=>`<option ${x===attYear?"selected":""}>${x}</option>`).join("")}</select>
+        <label class="btn" style="margin-left:auto">${CTRS().length?"Réimporter les contrats":"Importer les contrats du Drive"}<input type="file" id="attImp" accept=".json,application/json" hidden></label></div>
+      <div class="hint">${CTRS().length?CTRS().length+" contrats importés"+(ctrsCfg.maj?" le "+fmtAt(ctrsCfg.maj):""):"Contrats du Drive pas encore importés : choisissez le fichier « contrats-proprietaires.json »."}</div>
+      ${gs.map((g,i)=>{const ws=g.items.map(it=>attWarn(it.v,y)).filter(Boolean);return `<div class="box" style="margin-top:10px"><div class="boxhead"><b>${esc(g.nom)}</b><button class="btn" type="button" data-attg="${i}">⬇ PDF</button></div>
+        ${g.items.map(it=>`<div class="hint">• <button class="lnk" type="button" data-attlog="${esc(it.l.nom)}">${esc(it.l.nom)}</button> · ${it.v.effet?"depuis le "+attFd(it.v.effet):"date du contrat à indiquer"}${it.v.auto?" · trouvé dans le Drive, à vérifier":""}</div>`).join("")}
+        ${ws.length?`<div class="hint" style="color:var(--warn);font-weight:600">⚠ ${esc([...new Set(ws)].join(" · "))}</div>`:""}</div>`}).join("")||`<div class="empty">Aucun propriétaire identifié pour l'instant.</div>`}
+      ${sans.length?`<details class="pers" style="margin-top:12px"><summary>${sans.length} logement${sans.length>1?"s":""} sans propriétaire identifié</summary>${sans.sort((a,b)=>a.nom.localeCompare(b.nom,"fr")).map(l=>`<div class="hint">• <button class="lnk" type="button" data-attlog="${esc(l.nom)}">${esc(l.nom)}</button></div>`).join("")}<div class="hint">Ouvrez le logement → onglet Fiche → « Attestation taxe d'habitation » → Modifier.</div></details>`:""}
+      ${libres.length?`<details class="pers" style="margin-top:8px"><summary>${libres.length} contrat${libres.length>1?"s":""} du Drive rattaché${libres.length>1?"s":""} à aucun logement</summary>${libres.map(c=>`<div class="hint">• ${esc(c.proprio)} · ${esc((c.logements||[]).join(" / "))}${c.effet?" · "+attFd(c.effet):""}</div>`).join("")}<div class="hint">Anciens clients ou noms de logement différents : vous pouvez les choisir dans la fiche du logement.</div></details>`:""}</div>`;
+    o.querySelector("#attX").onclick=close;o.querySelector("#attY2").onchange=e=>{attYear=+e.target.value;draw()};
+    o.querySelectorAll("[data-attg]").forEach(b=>b.onclick=()=>{const g=gs[+b.dataset.attg];const ws=g.items.map(it=>attWarn(it.v,y)).filter(Boolean);if(ws.length)toast("⚠ "+ws[0]);attPdf(g.items,y)});
+    o.querySelectorAll("[data-attlog]").forEach(b=>b.onclick=()=>{close();openLogSheet(b.dataset.attlog);lsTab="fiche";renderLogSheet()});
+    o.querySelector("#attImp").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;try{const d=JSON.parse(await f.text());if(d.type!=="albs-contrats-proprietaires"||!Array.isArray(d.contrats))return toast("Ce fichier n'est pas le fichier des contrats");
+      await db.doc("config/contrats").set({contrats:d.contrats,maj:nowIso(),par:who()});ctrsCfg={contrats:d.contrats,maj:nowIso()};toast(d.contrats.length+" contrats importés");draw()}catch(err){toast(err instanceof SyntaxError?"Fichier illisible":failMsg(err))}}};
+  draw()}
 async function fdmContratPdf(p,SK={}){const v=pV(p),SO=SOC();const IF=(p.invFiles||[]).filter(f=>!(SK.files||[]).includes(f.id));SO.gerante=SO.signataire+", "+SO.sign_fct+" de la société "+SO.nom;const fd=x=>x?String(x).slice(0,10).split("-").reverse().join("/"):"…………………";toast("Préparation du contrat…");try{await loadJsPdf()}catch(e){return toast("Le PDF n'a pas pu se préparer : vérifiez la connexion")}
   const doc=new window.jspdf.jsPDF({unit:"mm",format:"a4"});const W=210,H=297,M=20,CW=W-2*M,GOLD=[168,147,49],DARK=[42,38,20],MUT=[110,102,74];let y=24,page=1;
   const ent=v.fdm_ent||v.fdm_gerant,lg=((logements.find(l=>l.id===p.logementId)||{}).nom)||pName(p)||"Logement";
@@ -2896,7 +3000,7 @@ async function startApp(user){
   $("#auth").hidden=true;$("#auth").innerHTML="";
   if(booted){render();return}booted=true;
   db=sbDb;assets=sbAssets;downloads=sbDownloads;view=TABS[mode][0][0];sbRealtime();
-  const busy=()=>techRen||fdmEdit||auditForm||editKey||addRub||msgEdit||invEdit||(()=>{const ae=document.activeElement;return !!(ae&&ae.closest&&ae.closest("#sheet")&&(/INPUT|TEXTAREA|SELECT/.test(ae.tagName)||ae.isContentEditable))})();
+  const busy=()=>techRen||fdmEdit||attEdit||auditForm||editKey||addRub||msgEdit||invEdit||(()=>{const ae=document.activeElement;return !!(ae&&ae.closest&&ae.closest("#sheet")&&(/INPUT|TEXTAREA|SELECT/.test(ae.tagName)||ae.isContentEditable))})();
   db.collection("logements").onSnapshot(s=>{logements=s.docs.map(d=>({id:d.id,...d.data()}));render();if(auditOpen){}else if(logOpen&&!busy())renderLogSheet();else if(menOpen&&!degForm)renderMenage()},()=>{});
   db.doc("config/menage").onSnapshot(s=>{const d=s.exists?s.data():{};cfgM={protocole:d.protocole||[],equipe:d.equipe||[]};render()},()=>{});
   db.collection("menages").onSnapshot(s=>{menages=s.docs.map(d=>({id:d.id,...d.data()}));render();if(menOpen&&!degForm)renderMenage();else if(logOpen&&lsTab==="menages"&&!busy())renderLogSheet();else if(openId)renderDetail()},()=>{});
@@ -2904,6 +3008,7 @@ async function startApp(user){
   if(me.role==="equipe"){
     db.doc("config/sauvegarde").onSnapshot(s=>{sauvegarde=s.exists?s.data():{};render()},()=>{});
     db.doc("config/societe").onSnapshot(sn=>{socCfg=sn.exists?sn.data():{}},()=>{});
+    db.doc("config/contrats").onSnapshot(sn=>{ctrsCfg=sn.exists?sn.data():{};if(logOpen&&!busy())renderLogSheet()},()=>{});
     db.doc("config/prestataires").onSnapshot(s=>{prestCfg=s.exists?s.data():{}},()=>{});
     db.doc("config/lancement").onSnapshot(s=>{lanCfg=s.exists?s.data():{};applyLanCfg();render();const ae=document.activeElement;if(prosCur&&prosTab==="lancement"&&!(ae&&ae.closest&&ae.closest("#sheet")&&/INPUT|TEXTAREA/.test(ae.tagName)))renderProspect()},()=>{});
     db.collection("prospects").onSnapshot(s=>{prospects=s.docs.map(d=>({id:d.id,...d.data()}));render();
