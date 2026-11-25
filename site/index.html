@@ -84,6 +84,7 @@ input.hasmic{padding-right:42px!important}
 .fac-r .t span{display:block;font-size:12px;color:var(--muted)}
 .fac-r .m{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 .fac-r.done .t,.fac-r.done .m{opacity:.55}
+.fmois{width:auto;font-size:12.5px;padding:4px 6px;border-radius:8px;flex:none}
 .fbtn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700;white-space:nowrap}
 .fbtn.ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok)}
 .tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0/.08)}
@@ -706,10 +707,12 @@ const facMois=d=>d.moisFac||d.mois||(d.dateIncident||(d.creeLe||"").slice(0,10))
 const facMontant=d=>d.montant!=null?d.montant:(d.montantDemande!=null?d.montantDemande:null);
 let facF="afaire",factures=[];
 window.setMoisFac=(id,v)=>{const d=dossiers.find(x=>x.id===id);if(!d||!v)return;patch(d,{moisFac:v},"Rangé en "+MOIS[+v.slice(5,7)-1].toLowerCase()+" "+v.slice(0,4)+" dans la facturation")};
+const facLogName=n=>{if(!n)return "Logement non précisé";const k=norm(n).replace(/^(le|la|les|l)\s+/,"");const l=logements.find(x=>{const y=norm(x.nom).replace(/^(le|la|les|l)\s+/,"");return y===k});return l?l.nom:n};
+const facMonths=()=>{const d=new Date(),o=[];for(let i=-3;i<=2;i++){const x=new Date(d.getFullYear(),d.getMonth()+i,1);o.push(x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0"))}return o};
 function facRows(){
   const kidOf=new Set(dossiers.filter(x=>x.litigeId&&x.type!=="litige").map(x=>x.litigeId));
   const a=dossiers.filter(d=>d.aFacturer===true&&!(d.type==="litige"&&kidOf.has(d.id))).map(d=>({k:"d",id:d.id,titre:d.titre||"Sans titre",sub:[fmt(d.dateIncident),d.intervenant?esc(d.intervenant):"",d.type==="litige"?"litige":d.litigeId?"suite d'un litige":""].filter(Boolean).join(" · "),logement:d.logement,mois:facMois(d),montant:facMontant(d),type:d.facType||"",fait:!!d.facture?.fait,le:d.facture?.le,date:d.dateIncident||""}));
-  const b=factures.map(f=>({k:"f",id:f.id,titre:f.detail||"Sans détail",sub:"ajouté à la main",logement:f.logement,mois:f.mois||"inconnu",montant:f.montant,type:f.facType||"",fait:!!f.facture?.fait,le:f.facture?.le,date:(f.creeLe||"").slice(0,10)}));
+  const b=factures.filter(f=>!f.supprime).map(f=>({k:"f",id:f.id,titre:f.detail||"Sans détail",sub:f.auto?"ajouté automatiquement (pack du logement)":"ajouté à la main",logement:f.logement,mois:f.mois||"inconnu",montant:f.montant,type:f.facType||"",fait:!!f.facture?.fait,le:f.facture?.le,date:(f.creeLe||"").slice(0,10)}));
   return a.concat(b);
 }
 function facView(m){
@@ -721,9 +724,9 @@ function facView(m){
   m.innerHTML=`<div class="summary" style="grid-template-columns:1fr 1fr"><div class="sum w"><b>${eur(tot(all.filter(r=>!r.fait)))}</b><span>reste à facturer · ${nA} ligne${nA>1?"s":""}</span></div><div class="sum"><b style="color:var(--ok)">${eur(tot(all.filter(r=>r.fait)))}</b><span>déjà facturé · ${nF} ligne${nF>1?"s":""}</span></div></div>
   <div class="filters"><button class="btn pri" type="button" id="facAdd">+ Ajouter une ligne à facturer</button><div class="seg st3">${[["afaire","À facturer"],["faits","Facturés"],["tous","Tout"]].map(([k,l])=>`<button type="button" data-facf="${k}" aria-pressed="${facF===k}">${l}</button>`).join("")}</div>
   ${list.length&&downloads?`<button class="btn" type="button" id="facCsv">Exporter cette liste (Excel / CSV)</button>`:""}</div>
-  ${months.length?months.map(mo=>{const a=list.filter(r=>r.mois===mo);const byL=new Map();a.forEach(r=>{const k=r.logement||"Logement non précisé";if(!byL.has(k))byL.set(k,[]);byL.get(k).push(r)});
+  ${months.length?months.map(mo=>{const a=list.filter(r=>r.mois===mo);const byL=new Map();a.forEach(r=>{const k=facLogName(r.logement);if(!byL.has(k))byL.set(k,[]);byL.get(k).push(r)});
     return `<div class="sec-title"><span>${mo==="inconnu"?"Date inconnue":MOIS[+mo.slice(5,7)-1]+" "+mo.slice(0,4)}</span><span>${eur(tot(a))}</span></div>`+[...byL.entries()].sort((x,y)=>x[0].localeCompare(y[0],"fr")).map(([lg,rs])=>`<div class="fac-l"><div class="fac-h"><span>${esc(lg)}</span><span>${eur(tot(rs))}</span></div>
-      ${rs.sort((x,y)=>String(x.date).localeCompare(String(y.date))).map(r=>`<div class="fac-r ${r.fait?"done":""}"><button class="t" type="button" ${r.k==="d"?`data-open="${esc(r.id)}"`:`data-facedit="${esc(r.id)}"`} style="background:none;border:0;padding:0;text-align:left;font:inherit;color:inherit">${esc(r.titre)}<span>${r.sub}</span></button><span class="m">${r.montant!=null?eur(r.montant):`<span style="color:var(--warn);font-weight:600;font-size:12px">montant ?</span>`}</span><span class="ftype" role="group" aria-label="Type">${["Débours","Vente"].map(t=>`<button type="button" data-factype="${r.k}:${esc(r.id)}:${t}" aria-pressed="${r.type===t}">${t}</button>`).join("")}</span><button class="fbtn ${r.fait?"ok":""}" type="button" data-fact="${r.k}:${esc(r.id)}">${r.fait?"✓ Facturé "+fmt((r.le||"").slice(0,10)):"Marquer facturé"}</button>${r.fait||r.k==="f"?"":`<button class="fbtn" type="button" data-unfac="${esc(r.id)}" title="Ne pas facturer" aria-label="Retirer de la facturation" style="padding:5px 9px">✕</button>`}</div>`).join("")}</div>`).join("")}).join("")
+      ${rs.sort((x,y)=>String(x.date).localeCompare(String(y.date))).map(r=>`<div class="fac-r ${r.fait?"done":""}"><button class="t" type="button" ${r.k==="d"?`data-open="${esc(r.id)}"`:`data-facedit="${esc(r.id)}"`} style="background:none;border:0;padding:0;text-align:left;font:inherit;color:inherit">${esc(r.titre)}<span>${r.sub}</span></button><span class="m">${r.montant!=null?eur(r.montant):`<span style="color:var(--warn);font-weight:600;font-size:12px">montant ?</span>`}</span><span class="ftype" role="group" aria-label="Type">${["Débours","Vente"].map(t=>`<button type="button" data-factype="${r.k}:${esc(r.id)}:${t}" aria-pressed="${r.type===t}">${t}</button>`).join("")}</span>${r.fait?"":`<select class="fmois" data-facmois="${r.k}:${esc(r.id)}" aria-label="Mois de facturation" data-nomic>${[...new Set([...facMonths(),r.mois].filter(x=>x!=="inconnu"))].sort().map(x=>`<option value="${x}" ${x===r.mois?"selected":""}>${["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."][+x.slice(5,7)-1]} ${x.slice(0,4)}</option>`).join("")}</select>`}<button class="fbtn ${r.fait?"ok":""}" type="button" data-fact="${r.k}:${esc(r.id)}">${r.fait?"✓ Facturé "+fmt((r.le||"").slice(0,10)):"Marquer facturé"}</button>${r.k==="f"?`<button class="fbtn" type="button" data-facdel="${esc(r.id)}" title="Supprimer cette ligne" aria-label="Supprimer cette ligne" style="padding:5px 9px">🗑</button>`:r.fait?"":`<button class="fbtn" type="button" data-unfac="${esc(r.id)}" title="Ne pas facturer" aria-label="Retirer de la facturation" style="padding:5px 9px">✕</button>`}</div>`).join("")}</div>`).join("")}).join("")
   :`<div class="empty">${facF==="faits"?"Rien n'a encore été marqué comme facturé.":"Rien à facturer pour l'instant. Ajoutez une ligne avec le bouton ci-dessus, ou choisissez « À facturer : Oui » dans un dossier."}</div>`}`;
   $("#facAdd").onclick=()=>openFacForm();
   m.querySelectorAll("[data-facf]").forEach(b=>b.onclick=()=>{facF=b.dataset.facf;render()});
@@ -732,6 +735,11 @@ function facView(m){
     if(k==="d")patch(src,v,msg);else try{await db.doc("factures/"+id).update({...v,updatedAt:nowIso()});toast(msg)}catch(e){toast(failMsg(e))}});
   m.querySelectorAll("[data-factype]").forEach(b=>b.onclick=async()=>{const [k,id,t]=b.dataset.factype.split(":");const src=k==="d"?dossiers.find(x=>x.id===id):factures.find(x=>x.id===id);if(!src)return;const nt=src.facType===t?"":t;const msg=nt?"Noté : "+nt.toLowerCase():"Type retiré";
     if(k==="d")patch(src,{facType:nt},msg);else try{await db.doc("factures/"+id).update({facType:nt,updatedAt:nowIso()});toast(msg)}catch(e){toast(failMsg(e))}});
+  m.querySelectorAll("[data-facmois]").forEach(sel=>sel.onchange=async()=>{const [k,id]=sel.dataset.facmois.split(":"),v=sel.value,lab=MOIS[+v.slice(5,7)-1].toLowerCase()+" "+v.slice(0,4);
+    if(k==="d")setMoisFac(id,v);else try{await db.doc("factures/"+id).update({mois:v,updatedAt:nowIso()});toast("Déplacé en "+lab)}catch(e){toast(failMsg(e))}});
+  facFixPacks();
+  m.querySelectorAll("[data-facdel]").forEach(b=>b.onclick=async()=>{if(b.dataset.armed!=="1"){m.querySelectorAll("[data-facdel]").forEach(x=>{x.dataset.armed="";x.textContent="🗑"});b.dataset.armed="1";b.textContent="Supprimer ?";return}
+    const f=factures.find(x=>x.id===b.dataset.facdel);if(!f)return;try{if(f.auto)await db.doc("factures/"+f.id).update({supprime:true,updatedAt:nowIso()});else await db.doc("factures/"+f.id).delete();toast("Ligne supprimée")}catch(e){toast(failMsg(e))}});
   m.querySelectorAll("[data-unfac]").forEach(b=>b.onclick=()=>{const d=dossiers.find(x=>x.id===b.dataset.unfac);if(!d)return;patch(d,{aFacturer:false},"Retiré de la facturation (À facturer : Non)")});
   if($("#facCsv"))$("#facCsv").onclick=async()=>{const q=c=>'"'+String(c??"").replace(/"/g,'""')+'"';const L=[["Mois","Logement","Date","Objet","Type","Montant (€)","Facturé le"].map(q).join(";")];
     [...list].sort((a,b)=>(a.mois+a.logement).localeCompare(b.mois+b.logement)).forEach(r=>{L.push([r.mois,r.logement,r.date?r.date.split("-").reverse().join("/"):"",r.titre,r.type,r.montant!=null?String(r.montant).replace(".",","):"",r.fait?(r.le||"").slice(0,10).split("-").reverse().join("/"):""].map(q).join(";"))});
@@ -2164,12 +2172,14 @@ async function fdmContratPdf(p){const v=pV(p),SO=SOC();SO.gerante=SO.signataire+
   foot();
   await pdfDeliver(doc.output("blob"),"Contrat menage "+(ent+" "+lg).replace(/œ/g,"oe").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9 '._-]/g,"").trim()+".pdf")}
 /* facturation : une ligne automatique au mois suivant pour chaque pack coché */
-async function pSyncPacks(p){if(!p||!p.id)return;const v=pV(p),lg=((logements.find(l=>l.id===p.logementId)||{}).nom)||pName(p),d=new Date(),nm=new Date(d.getFullYear(),d.getMonth()+1,1),mois=nm.getFullYear()+"-"+String(nm.getMonth()+1).padStart(2,"0");
+async function pSyncPacks(p){if(!p||!p.id)return;const v=pV(p),lg=((logements.find(l=>l.id===p.logementId)||{}).nom)||pName(p),mois=today().slice(0,7);
   const L=packsPrix(v);
-  for(const [nom,slug] of [["Pack consommables","conso"],["Pack shampoing / gel douche","shampoing"]]){const id="pack_"+p.id+"_"+slug,f=factures.find(x=>x.id===id),pr=L.find(x=>x[0]===nom);
+  for(const [nom,slug] of [["Pack consommables","conso"],["Pack shampoing / gel douche","shampoing"]]){const id="pack_"+p.id+"_"+slug,f=factures.find(x=>x.id===id),pr=L.find(x=>x[0]===nom);if(f&&f.supprime)continue;
     try{if(pr){if(!f)await db.doc("factures/"+id).set({logement:lg,detail:nom+" (option du logement)",montant:pr[1],mois,auto:true,facture:{fait:false,le:null},creeLe:nowIso(),updatedAt:nowIso()});
         else if(!f.facture?.fait&&(f.montant!==pr[1]||f.logement!==lg))await db.doc("factures/"+id).update({montant:pr[1],logement:lg,updatedAt:nowIso()})}
       else if(f&&!f.facture?.fait)await db.doc("factures/"+id).delete()}catch(e){}}}
+/* les lignes de packs créées avant la correction étaient rangées au mois suivant : on les remet au mois où elles ont été créées */
+let facFixDone=false;async function facFixPacks(){if(facFixDone)return;facFixDone=true;for(const f of factures){if(!f.auto||f.facture?.fait||!f.creeLe||f.moisFixe)continue;const cm=f.creeLe.slice(0,7);if(f.mois>cm){try{await db.doc("factures/"+f.id).update({mois:cm,moisFixe:true,updatedAt:nowIso()})}catch(e){}}}}
 const LITERIE=["Lit double","Lit simple","Matelas",...BED_ITEMS];
 const pPieces=v=>Array.isArray(v.pieces)?v.pieces:Array.from({length:Math.max(1,Math.min(6,+v.cap_ch||1))},(_,i)=>({id:"c"+(i+1),nom:"Chambre "+(i+1),type:"chambre"}));
 /* options quand l'équipement est présent */
