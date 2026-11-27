@@ -1388,6 +1388,13 @@ function invHtml(l,team){const I=l.inventaire||{},G=I.groupes||[];if(!G.length&&
 const normA=x=>norm(x).normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ");
 const isLingeG=g=>{const n=normA((g&&(g.g||g.value))||"");return /linge/.test(n)&&!/entretien|&|buanderie|lave|seche/.test(n)};
 const lingeGroup=G=>(G||[]).find(x=>normA(x.g)==="linge")||(G||[]).find(isLingeG);
+/* linge complet pour le contrat : rubrique Linge + linge de lit des chambres + linge des salles de bain (quantités additionnées) */
+function lingeList(G){G=G||[];const out=[],seen=new Map();const add=(x,src)=>{const k=normA(x.l);if(!k||/^linge fourni par/.test(k))return;
+    if(seen.has(k)){const o=seen.get(k);if(x.n)o.n=(o.n||0)+(+x.n||0);if(x.note&&!o.note)o.note=x.note;return}const o={l:x.l,n:x.n?+x.n||0:0,note:x.note||""};seen.set(k,o);out.push(o)};
+  for(const g of G)if(isLingeG(g))g.items.forEach(x=>{if(!x.buy)add(x)});
+  const LS=new Set([...BED_ITEMS,...LINGE_ITEMS,"Serviettes de bain","Tapis de bain","Draps","Parures de lit","Housse de couette","Taies d'oreiller","Draps housses","Draps plats","Serviettes","Gants de toilette","Torchons"].map(normA));
+  for(const g of G)if(!isLingeG(g)&&!/entretien/.test(normA(g.g)))g.items.forEach(x=>{if(!x.buy&&LS.has(normA(x.l)))add(x)});
+  return out}
 /* lire le linge d'un PDF d'inventaire (PDF tapé, pas un scan) */
 async function invReadPdf(f){const r=await fetch(blob(f.a));if(!r.ok)throw new Error("fetch");await loadPdfJs();const pdf=await window.pdfjsLib.getDocument({data:new Uint8Array(await r.arrayBuffer())}).promise;const lines=[];
   for(let i=1;i<=Math.min(pdf.numPages,30);i++){const tc=await (await pdf.getPage(i)).getTextContent();const rows=new Map();
@@ -2025,7 +2032,8 @@ function fdmLogP(l){const pr=prospects.find(p=>p.logementId===l.id),pv=pr?pV(pr)
   const fc=(l.fiche||{}).cles,ct=fc&&!fc.supprime?String(fc.valeur||"").trim():"",ck={};
   if(ct){const get=re=>{const m=ct.match(re);return m?m[1].trim():""};const voy=get(/(?:^|\n)\s*voyageurs?\s*:\s*([^\n]+)/i),men=get(/(?:^|\n)\s*(?:[ée]quipe de m[ée]nage|m[ée]nage|femme de m[ée]nage)\s*:\s*([^\n]+)/i);
     if(voy||men){ck.cles_voy_n="";ck.cles_voy=voy;ck.cles_men_n="";ck.cles_men=men}else ck._clesTxt=ct}
-  return {logementId:l.id,invLinge:lg?lg.items.filter(x=>!/^Linge fourni par/.test(x.l)):null,invFiles:techFiles(l,"inv"),v:{...pv,...E,...ck,log_nom:l.nom,...(pv.log_adr?{}:{log_adr:adr.split("\n")[0],log_cp:"",log_ville:""})}}}
+  const LL=lingeList(lg&&!lingeGroup(IGs)?[...IGs.filter(g=>!/linge/i.test(g.g)),lg]:IGs);
+  return {logementId:l.id,invLinge:LL.length?LL:null,invFiles:techFiles(l,"inv"),v:{...pv,...E,...ck,log_nom:l.nom,...(pv.log_adr?{}:{log_adr:adr.split("\n")[0],log_cp:"",log_ville:""})}}}
 /* images d'un fichier d'inventaire joint (photo ou PDF) pour le contrat */
 let pdfjsP=null;function loadPdfJs(){if(window.pdfjsLib)return Promise.resolve();if(!pdfjsP)pdfjsP=new Promise((res,rej)=>{const sc=document.createElement("script");sc.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";sc.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";res()};sc.onerror=()=>{pdfjsP=null;rej(new Error("pdfjs"))};document.head.appendChild(sc)});return pdfjsP}
 async function fileImages(f){const r=await fetch(blob(f.a));if(!r.ok)throw new Error("fetch");const b=await r.blob();
@@ -2405,7 +2413,7 @@ async function fdmContratPdf(p,SK={}){const v=pV(p),SO=SOC();const IF=(p.invFile
   para("Logement : "+lg,{b:1,after:1});para("Adresse : "+(ladr||"…………………………"),{after:1});
   const cap=[v.cap_voy?v.cap_voy+" voyageurs max":"",v.cap_ch?v.cap_ch+" chambre(s)":""].filter(Boolean).join(" · ");if(cap)para(cap,{c:MUT,after:1});
   if(v.men_proto)para("Consignes ménage particulières : "+v.men_proto,{after:1});
-  y+=4;const gl=(p.invLinge&&p.invLinge.length?p.invLinge:(pInventaire(v).find(g=>g.g==="Linge")||{items:[]}).items).filter(x=>!/^Linge fourni par/.test(x.l));
+  y+=4;const gl=(p.invLinge&&p.invLinge.length?p.invLinge:lingeList(pInventaire(v))).filter(x=>!/^Linge fourni par/.test(x.l));
   title("Inventaire linge"+(v.linge?" (linge fourni par : "+v.linge+")":""));
   if(gl.length){doc.setFillColor(...DARK);doc.rect(M,y,CW,8,"F");doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(9.5);doc.text(pdfTxt("DÉSIGNATION"),M+4,y+5.4);doc.text(pdfTxt("QUANTITÉ"),W-M-4,y+5.4,{align:"right"});y+=8;
     gl.forEach((x,i)=>{need(8);doc.setFillColor(...(i%2?[250,247,240]:[255,255,255]));doc.setDrawColor(221,211,188);doc.rect(M,y,CW,8,"FD");doc.setTextColor(...DARK);doc.setFont("helvetica","normal");doc.setFontSize(10);doc.text(pdfTxt(x.l+(x.note?" — "+x.note:"")).slice(0,95),M+4,y+5.4);doc.text(x.n?String(x.n):"",W-M-4,y+5.4,{align:"right"});y+=8});y+=4}
