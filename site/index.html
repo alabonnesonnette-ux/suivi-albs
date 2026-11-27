@@ -234,6 +234,11 @@ textarea{min-height:76px;resize:vertical}
 .lgroup{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 .lrow{display:flex;align-items:center;gap:8px;border-top:1px solid var(--line)}
 .lrow:first-child{border-top:0}
+.fpick{position:relative}.fpick-btn{width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font:inherit;color:var(--ink);min-height:48px}
+.fpick-list{border:1px solid var(--line);border-radius:12px;margin-top:6px;background:var(--surface);overflow:hidden}
+.fpick-row{display:flex;align-items:center;border-top:1px solid var(--line)}.fpick-row:first-child{border-top:0}.fpick-row.on{background:rgba(168,147,49,.12)}
+.fpick-opt{flex:1;text-align:left;background:none;border:0;padding:12px 14px;font:inherit;color:var(--ink)}
+.fpick-x{background:none;border:0;color:var(--muted,#8a8270);font-size:13px;padding:6px 12px;margin-right:4px;border-radius:8px;flex:none}.fpick-x.ask{background:#D9665B;color:#fff;font-weight:600}
 .lrow .dot{width:12px;height:12px;border-radius:50%;flex:none;display:inline-block;margin-right:8px;vertical-align:middle}
 .lrow .mv{background:transparent;border:1px solid var(--line);border-radius:8px;width:34px;height:34px;font-size:14px;color:var(--ink);flex:none}
 .lrow .mv:disabled{opacity:.3}
@@ -828,7 +833,7 @@ function render(){
     const people=[...new Set([...(cfgM.equipe||[]),...list.map(x=>x.femme)])];
     const rows=people.map(n=>{const a=list.filter(x=>x.femme===n);return{n,a,v:a.filter(x=>x.statut==="valide").length,i:a.filter(x=>x.statut!=="valide").length,p:a.reduce((s,x)=>s+nbPhotos(x),0),d:a.reduce((s,x)=>s+degsOf(x).length,0)}});
     const tot=rows.reduce((s,r)=>s+r.v,0);
-    m.innerHTML=`<button class="lnk" type="button" data-view="log" style="margin-block:4px 10px">← Retour aux logements</button><div class="filters"><div class="grid2"><div class="field"><label for="recapM">Mois</label><input type="month" id="recapM" value="${recapMois}"></div>${downloads?`<div class="field"><label>&nbsp;</label><button class="btn" type="button" id="csvBtn">Exporter le récap (Excel / CSV)</button></div>`:""}</div></div>
+    m.innerHTML=`<button class="lnk" type="button" data-view="log" style="margin-block:4px 10px">← Retour aux logements</button>${fdmRepartHtml().replace('style="margin-top:20px"','style="margin:0 0 16px"')}<div class="filters"><div class="grid2"><div class="field"><label for="recapM">Mois</label><input type="month" id="recapM" value="${recapMois}"></div>${downloads?`<div class="field"><label>&nbsp;</label><button class="btn" type="button" id="csvBtn">Exporter le récap (Excel / CSV)</button></div>`:""}</div></div>
       <div class="box"><h3>Récap ${MOIS[+recapMois.slice(5)-1]} ${recapMois.slice(0,4)} · ${tot} ménage${tot>1?"s":""} validé${tot>1?"s":""}</h3>
       ${rows.length?`<div class="tblw"><table class="tbl"><thead><tr><th>Personne</th><th class="n">Validés</th><th class="n">Incompl.</th><th class="n">Photos</th><th class="n">Dégrad.</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.n)}</td><td class="n"><b>${r.v}</b></td><td class="n" style="${r.i?"color:var(--crit)":""}">${r.i}</td><td class="n">${r.p}</td><td class="n">${r.d}</td></tr>`).join("")}</tbody></table></div>`:`<div class="hint">Ajoutez l'équipe ménage plus bas pour voir le récap.</div>`}</div>
       <div class="sec-title"><span>Détail par personne</span></div>
@@ -836,7 +841,6 @@ function render(){
       <div class="box" style="margin-top:20px"><h3>Protocole photo</h3><div class="hint">La liste des photos demandées à chaque ménage. Les ménages déjà commencés gardent la liste du moment.</div>
         <div class="plist">${(cfgM.protocole||[]).map((it,i)=>`<div><span>${i+1}. ${esc(it.label)}</span><button class="btn ghost" type="button" data-delproto="${esc(it.k)}" aria-label="Retirer" style="padding:2px 8px">✕</button></div>`).join("")||`<span class="hint">Aucune photo définie.</span>`}</div>
         <div class="inline"><input type="text" id="protoNew" placeholder="Ex. : Terrasse"><button class="btn pri" type="button" id="protoAdd" style="flex:0 0 auto">Ajouter</button></div></div>
-      ${fdmRepartHtml()}
       <div class="box"><h3>Équipe ménage</h3>
         <div class="plist">${(cfgM.equipe||[]).map(n=>`<div><span>${esc(n)}</span><button class="btn ghost" type="button" data-delfdm="${esc(n)}" aria-label="Retirer" style="padding:2px 8px">✕</button></div>`).join("")||`<span class="hint">Personne pour l'instant.</span>`}</div>
         <div class="inline"><input type="text" id="fdmNew" placeholder="Prénom"><button class="btn pri" type="button" id="fdmAdd" style="flex:0 0 auto">Ajouter</button></div></div>`;
@@ -1216,7 +1220,7 @@ function dupOpen(d){document.getElementById("dupChooser")?.remove();const o=docu
       try{await db.collection("dossiers").doc().set({etapes:{},...base,logement:L.nom,statut:d.statut==="clos"?"ouvert":(d.statut||"ouvert"),taches,notes:JSON.parse(JSON.stringify(d.notes||{})),creeLe:nowIso(),updatedAt:nowIso(),dupliqueDe:d.id});ok++}catch(e){bad++}}
     close();toast(ok+" copie"+(ok>1?"s":"")+" créée"+(ok>1?"s":"")+(bad?" · "+bad+" en échec, réessayez":""))}}
 /* ---------- logement sheet ---------- */
-function openLogSheet(nom){fdmEdit=null;attEdit=null;pnEdit=null;rqForm=false;rqDel=null;entEdit=false;entDraft=null;auditForm=false;auditOpen=null;editKey=null;addRub=false;histOpen=null;lsTab=mode==="menage"?"fiche":"suivi";menOpen=null;logOpen=nom;retLog=null;openId=null;formState=null;$("#sheet").hidden=false;renderLogSheet()}
+function openLogSheet(nom){fdmEdit=null;fdmPickOpen=false;attEdit=null;pnEdit=null;rqForm=false;rqDel=null;entEdit=false;entDraft=null;auditForm=false;auditOpen=null;editKey=null;addRub=false;histOpen=null;lsTab=mode==="menage"?"fiche":"suivi";menOpen=null;logOpen=nom;retLog=null;openId=null;formState=null;$("#sheet").hidden=false;renderLogSheet()}
 function renderLogSheet(){
   const nom=logOpen, l=logements.find(x=>norm(x.nom)===norm(nom)), s=$("#sheet"), sy=s.scrollTop;
   const mine=dossiers.filter(d=>norm(d.logement)===norm(nom));
@@ -1990,8 +1994,8 @@ async function clesPdf(p){const v=pV(p);const fd=x=>x?String(x).slice(0,10).spli
 const FDM_FIELDS=[["fdm_ent","Nom de l'entreprise",1],["fdm_gerant","Nom et prénom",1],["fdm_adr","Adresse du siège",0],["fdm_cp","Code postal",1],["fdm_ville","Ville",1],["fdm_siret","Numéro de SIRET",1],["fdm_statut","Statut (Micro-entreprise / Société)",1],["fdm_tel","Téléphone",1],["fdm_mail","E-mail",1],["fdm_debut","Début du contrat pour ce logement",1,"date"],["fdm_lieu","Contrat fait à",1]];
 function fdmBoxHtml(l){const E=l.menageEnt||{},has=E.fdm_ent||E.fdm_gerant;
   if(fdmEdit){const D=fdmEdit,L=Object.entries(prestCfg.list||{}).sort((a,b)=>(a[1].fdm_ent||a[1].fdm_gerant||"").localeCompare(b[1].fdm_ent||b[1].fdm_gerant||""));
-    return `<div class="box"><h3>🧹 Entreprise de ménage</h3>${L.length?`<div class="field"><label for="fdmLPick">Choisir une personne déjà enregistrée</label><select id="fdmLPick" data-nomic><option value="">— Nouvelle personne / garder la fiche ci-dessous —</option>${L.map(([k,x])=>`<option value="${esc(k)}"${prestKey(D)===k?" selected":""}>${esc([x.fdm_ent,x.fdm_gerant].filter(Boolean).join(" · "))}</option>`).join("")}</select></div>
-      <details class="pers" style="margin:-4px 0 10px"><summary>Gérer la liste (retirer une erreur)</summary>${L.map(([k,x])=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line)"><span>${esc([x.fdm_ent,x.fdm_gerant].filter(Boolean).join(" · "))}${(x.logements||[]).length?`<span class="hint"> · ${(x.logements||[]).length} logement${(x.logements||[]).length>1?"s":""}</span>`:""}</span><button class="btn ghost" type="button" data-prestdel="${esc(k)}" style="padding:4px 10px">🗑 Retirer</button></div>`).join("")}<div class="hint">Retirer une personne de la liste ne change pas les logements où elle est déjà renseignée.</div></details>`:""}
+    return `<div class="box"><h3>🧹 Entreprise de ménage</h3>${L.length?`<div class="field"><label>Choisir une personne déjà enregistrée</label><div class="fpick"><button type="button" class="fpick-btn" id="fdmLPick" aria-expanded="${fdmPickOpen}"><span>${esc((()=>{const x=(prestCfg.list||{})[prestKey(D)];return x?[x.fdm_ent,x.fdm_gerant].filter(Boolean).join(" · "):"— Nouvelle personne / garder la fiche ci-dessous —"})())}</span><span aria-hidden="true">▾</span></button>
+      ${fdmPickOpen?`<div class="fpick-list" role="listbox">${L.map(([k,x])=>`<div class="fpick-row${prestKey(D)===k?" on":""}"><button type="button" class="fpick-opt" data-fpick="${esc(k)}">${esc([x.fdm_ent,x.fdm_gerant].filter(Boolean).join(" · "))}</button><button type="button" class="fpick-x" data-prestdel="${esc(k)}" aria-label="Supprimer ${esc(x.fdm_ent||x.fdm_gerant)} de la liste">✕</button></div>`).join("")}</div>`:""}</div></div>`:""}
       <div class="grid2">${FDM_FIELDS.map(([k,lab,w,t])=>`<div class="field"${w?"":` style="grid-column:1/-1"`}><label for="fdmL_${k}">${esc(lab)}</label><input type="${t||"text"}" id="fdmL_${k}" data-fdml="${k}" value="${esc(D[k]||"")}"${k==="fdm_lieu"?' placeholder="Mulhouse"':""}></div>`).join("")}</div>
       <div class="inline" style="margin-top:8px"><button class="btn pri" type="button" id="fdmLSave">Enregistrer</button><button class="btn ghost" type="button" id="fdmLCancel">Annuler</button>${has?`<button class="btn ghost" type="button" id="fdmLClear" style="margin-left:auto">Retirer de ce logement</button>`:""}</div></div>`}
   return `<div class="box"><div class="boxhead"><h3>🧹 Entreprise de ménage</h3><button class="lnk" type="button" id="fdmLEdit">${has?"Modifier":"Renseigner"}</button></div>
@@ -2002,9 +2006,10 @@ function fdmBoxBind(l){
   if($("#fdmLPdf"))$("#fdmLPdf").onclick=()=>fdmChoose(fdmLogP(l));
   if(!fdmEdit)return;
   document.querySelectorAll("[data-fdml]").forEach(i=>i.oninput=()=>{fdmEdit[i.dataset.fdml]=i.value});
-  if($("#fdmLPick"))$("#fdmLPick").onchange=e=>{const x=(prestCfg.list||{})[e.target.value];if(!x)return;PREST_KEYS.forEach(k=>{fdmEdit[k]=x[k]||""});renderLogSheet();toast("Infos de « "+(x.fdm_ent||x.fdm_gerant)+" » reprises")};
-  $("#fdmLCancel").onclick=()=>{fdmEdit=null;renderLogSheet()};
-  document.querySelectorAll("[data-prestdel]").forEach(b=>b.onclick=async()=>{if(b.dataset.ok!=="1"){b.dataset.ok="1";b.textContent="Confirmer ?";setTimeout(()=>{if(b.isConnected){b.dataset.ok="";b.textContent="🗑 Retirer"}},4000);return}await prestDel(b.dataset.prestdel);renderLogSheet()});
+  if($("#fdmLPick"))$("#fdmLPick").onclick=()=>{fdmPickOpen=!fdmPickOpen;renderLogSheet()};
+  document.querySelectorAll("[data-fpick]").forEach(b=>b.onclick=()=>{const x=(prestCfg.list||{})[b.dataset.fpick];fdmPickOpen=false;if(!x)return renderLogSheet();PREST_KEYS.forEach(k=>{fdmEdit[k]=x[k]||""});renderLogSheet();toast("Infos de « "+(x.fdm_ent||x.fdm_gerant)+" » reprises")});
+  $("#fdmLCancel").onclick=()=>{fdmEdit=null;fdmPickOpen=false;renderLogSheet()};
+  document.querySelectorAll("[data-prestdel]").forEach(b=>b.onclick=async()=>{if(b.dataset.ok!=="1"){b.dataset.ok="1";b.textContent="Supprimer ?";b.classList.add("ask");setTimeout(()=>{if(b.isConnected){b.dataset.ok="";b.textContent="✕";b.classList.remove("ask")}},4000);return}await prestDel(b.dataset.prestdel);renderLogSheet()});
   if($("#fdmLClear"))$("#fdmLClear").onclick=async()=>{const b=$("#fdmLClear");if(b.dataset.ok!=="1"){b.dataset.ok="1";b.textContent="Confirmer : retirer ?";return}fdmEdit=null;try{await db.doc("logements/"+l.id).update({menageEnt:null});l.menageEnt=null;toast("Entreprise de ménage retirée de ce logement");renderLogSheet()}catch(e){toast(failMsg(e))}};
   $("#fdmLSave").onclick=async()=>{const D=fdmEdit;if(!D.fdm_ent&&!D.fdm_gerant)return toast("Indiquez au moins le nom de l'entreprise ou de la personne");const out={};[...PREST_KEYS,"fdm_debut","fdm_lieu"].forEach(k=>{out[k]=(D[k]||"").trim()});fdmEdit=null;
     try{await db.doc("logements/"+l.id).update({menageEnt:{...out,maj:nowIso(),par:who()}});await prestSync({v:out},l.nom);toast("Entreprise de ménage enregistrée")}catch(e){toast(failMsg(e))}}}
@@ -2563,7 +2568,7 @@ async function prosFlush(){clearTimeout(prosT);if(!prosCur||!prosDirty)return;if
   prosSaving=true;prosDirty=false;const id=prosCur.id,{id:_,...data}=prosCur;
   try{await db.doc("prospects/"+id).set(JSON.parse(JSON.stringify(data)));prestSync(prosCur)}catch(e){prosDirty=true;toast(failMsg(e))}prosSaving=false}
 /* ---- entreprises de ménage : fiche gardée pour tous les logements (config/prestataires) ---- */
-const fdmWho=l=>{const E=l.menageEnt||{};return String(E.fdm_gerant||E.fdm_ent||"").trim()};
+let fdmPickOpen=false;const fdmWho=l=>{const E=l.menageEnt||{};return String(E.fdm_gerant||E.fdm_ent||"").trim()};
 const fdmWhoLong=l=>{const E=l.menageEnt||{};return [E.fdm_gerant,E.fdm_ent].filter(Boolean).filter((x,i,a)=>a.findIndex(y=>norm(y)===norm(x))===i).join(" · ")};
 function fdmRepartHtml(){const L=logements.filter(l=>!l.ancien&&l.id),G=new Map();for(const l of L){const w=fdmWhoLong(l),k=w?norm(fdmWho(l)):"";if(!G.has(k))G.set(k,{nom:w||"",a:[]});G.get(k).a.push(l)}
   const gs=[...G.entries()].filter(([k])=>k).map(([,g])=>g).sort((a,b)=>b.a.length-a.a.length||a.nom.localeCompare(b.nom,"fr")),sans=(G.get("")||{a:[]}).a;
