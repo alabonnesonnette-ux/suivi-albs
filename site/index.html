@@ -1384,6 +1384,10 @@ function invHtml(l,team){const I=l.inventaire||{},G=I.groupes||[];if(!G.length&&
   ${I.achats?`<div class="invg">🛒 Achats à prévoir</div><div style="white-space:pre-wrap">${esc(I.achats)}</div>`:""}
   ${invFilesHtml(l,team)}
   <div class="inline" style="margin-top:12px"><button class="btn" type="button" id="ivPdf">⬇ Inventaire (PDF)</button></div></div>`}
+/* rubrique « Linge » de l'inventaire (pas « Linge & entretien », qui contient le lave-linge, le fer…) */
+const normA=x=>norm(x).normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ");
+const isLingeG=g=>{const n=normA((g&&(g.g||g.value))||"");return /linge/.test(n)&&!/entretien|&|buanderie|lave|seche/.test(n)};
+const lingeGroup=G=>(G||[]).find(x=>normA(x.g)==="linge")||(G||[]).find(isLingeG);
 /* lire le linge d'un PDF d'inventaire (PDF tapé, pas un scan) */
 async function invReadPdf(f){const r=await fetch(blob(f.a));if(!r.ok)throw new Error("fetch");await loadPdfJs();const pdf=await window.pdfjsLib.getDocument({data:new Uint8Array(await r.arrayBuffer())}).promise;const lines=[];
   for(let i=1;i<=Math.min(pdf.numPages,30);i++){const tc=await (await pdf.getPage(i)).getTextContent();const rows=new Map();
@@ -1399,10 +1403,10 @@ async function invReadPdf(f){const r=await fetch(blob(f.a));if(!r.ok)throw new E
 function bindInv(l){const s=$("#sheet");
   s.querySelectorAll("[data-invread]").forEach(b=>b.onclick=async()=>{const f=techFiles(l,"inv").find(x=>x.id===b.dataset.invread);if(!f)return;b.disabled=true;b.textContent="Lecture…";
     try{const {out,txt}=await invReadPdf(f);if(!out.length){b.disabled=false;b.textContent="🧺 Lire le linge";return toast(txt?"Je n'ai trouvé aucune ligne « linge + nombre » dans ce PDF":"Ce PDF est une image (scan) : le texte ne peut pas être lu. Envoyez-le à Claude pour qu'il le saisisse.")}
-      const I=l.inventaire||{},G=JSON.parse(JSON.stringify(I.groupes||[]));let g=G.find(x=>/linge/i.test(x.g));if(!g){g={g:"Linge",ico:"🧺",items:[]};G.push(g)}let nA=0,nU=0;
+      const I=l.inventaire||{},G=JSON.parse(JSON.stringify(I.groupes||[]));let g=lingeGroup(G);if(!g){g={g:"Linge",ico:"🧺",items:[]};G.push(g)}let nA=0,nU=0;
       for(const it of out){const ex=g.items.find(x=>norm(x.l)===norm(it.l));if(ex){if(ex.n!==it.n){ex.n=it.n;nU++}if(it.note&&!ex.note)ex.note=it.note}else{g.items.push(it);nA++}}
       invEdit={id:l.id,G,achats:I.achats||""};renderLogSheet();toast(out.length+" lignes de linge lues ("+nA+" ajoutées, "+nU+" quantités mises à jour) : vérifiez puis Enregistrer");
-      setTimeout(()=>{const h=[...document.querySelectorAll("#sheet [data-ivg]")].find(i=>/linge/i.test(i.value));h&&h.scrollIntoView({block:"start"})},100)}
+      setTimeout(()=>{const h=[...document.querySelectorAll("#sheet [data-ivg]")].find(i=>isLingeG({g:i.value}));h&&h.scrollIntoView({block:"start"})},100)}
     catch(e){b.disabled=false;b.textContent="🧺 Lire le linge";toast("Le PDF n'a pas pu être lu : vérifiez la connexion")}});
   if($("#ivEdit"))$("#ivEdit").onclick=()=>{const I=l.inventaire||{};invEdit={id:l.id,G:JSON.parse(JSON.stringify(I.groupes||[])),achats:I.achats||""};renderLogSheet()};
   if($("#ivPdf"))$("#ivPdf").onclick=()=>invPdf(l);
@@ -2014,7 +2018,10 @@ function fdmBoxBind(l){
   $("#fdmLSave").onclick=async()=>{const D=fdmEdit;if(!D.fdm_ent&&!D.fdm_gerant)return toast("Indiquez au moins le nom de l'entreprise ou de la personne");const out={};[...PREST_KEYS,"fdm_debut","fdm_lieu"].forEach(k=>{out[k]=(D[k]||"").trim()});fdmEdit=null;
     try{await db.doc("logements/"+l.id).update({menageEnt:{...out,maj:nowIso(),par:who()}});await prestSync({v:out},l.nom);toast("Entreprise de ménage enregistrée")}catch(e){toast(failMsg(e))}}}
 function fdmLogP(l){const pr=prospects.find(p=>p.logementId===l.id),pv=pr?pV(pr):{},E=l.menageEnt||{};const adr=((l.fiche||{}).adresse||{}).valeur||"";
-  const lg=((l.inventaire||{}).groupes||[]).find(g=>/linge/i.test(g.g));
+  const IGs=(l.inventaire||{}).groupes||[];let lg=lingeGroup(IGs);
+  /* ancien bug : le linge lu dans un PDF a pu être rangé dans « Linge & entretien » : on n'en garde que le linge, pas les équipements */
+  if(!lg){const EQ=new Set(["lave-linge","seche-linge","lave-linge / seche-linge","etendoir","fer a repasser","table a repasser","aspirateur","balai","serpilliere et seau","pelle et balayette","produits menagers","lessive","cintres","seche-cheveux"]);
+    const le=IGs.find(g=>/linge/i.test(g.g));const it=le?le.items.filter(x=>!EQ.has(normA(x.l))):[];if(it.length)lg={g:"Linge",items:it}}
   const fc=(l.fiche||{}).cles,ct=fc&&!fc.supprime?String(fc.valeur||"").trim():"",ck={};
   if(ct){const get=re=>{const m=ct.match(re);return m?m[1].trim():""};const voy=get(/(?:^|\n)\s*voyageurs?\s*:\s*([^\n]+)/i),men=get(/(?:^|\n)\s*(?:[ée]quipe de m[ée]nage|m[ée]nage|femme de m[ée]nage)\s*:\s*([^\n]+)/i);
     if(voy||men){ck.cles_voy_n="";ck.cles_voy=voy;ck.cles_men_n="";ck.cles_men=men}else ck._clesTxt=ct}
